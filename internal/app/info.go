@@ -17,7 +17,7 @@ const (
 	ID = "hermit"
 	// The repository Hermit itself is released from.
 	RepoOwner = "omka-1337"
-	RepoName  = "Hermit-ModManager"
+	RepoName  = "hermit"
 	RepoURL   = "https://github.com/" + RepoOwner + "/" + RepoName
 )
 

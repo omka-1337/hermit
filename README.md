@@ -33,7 +33,7 @@ as a list in either layout.
 
 ## Install
 
-Download the AppImage from the [releases page](https://github.com/omka-1337/Hermit-ModManager/releases), make it
+Download the AppImage from the [releases page](https://github.com/omka-1337/hermit/releases), make it
 executable (`chmod +x Hermit-*.AppImage`) and run it. It needs FUSE; on SteamOS and most distributions it is already
 there. To use it from Game Mode on a Steam Deck, add the AppImage to Steam as a non-Steam game.
 

@@ -23,6 +23,6 @@ Status means:
 ## Adding to this list
 
 Reports of games that work are as useful as reports of games that do not. Open a
-[game report](https://github.com/omka-1337/Hermit-ModManager/issues/new?template=game_report.yml) with the game, how it
+[game report](https://github.com/omka-1337/hermit/issues/new?template=game_report.yml) with the game, how it
 runs (Proton or a native build), what you installed and what happened. Anything BepInEx wrote after a failed session
 helps too — Hermit shows it in the profile after the game exits.

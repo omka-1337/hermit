@@ -76,8 +76,8 @@ func newBackend() (*backend, error) {
 
 func main() {
 	// "run -- <command>" is the Steam launch options wrapper; no GUI.
-	if len(os.Args) > 1 && os.Args[1] == "run" {
-		os.Exit(runWrapper(os.Args[2:]))
+	if code, handled := runCLI(os.Args[1:]); handled {
+		os.Exit(code)
 	}
 
 	platform.ConfigureRendering()

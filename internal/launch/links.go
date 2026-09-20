@@ -31,6 +31,9 @@ type Session struct {
 	StartedAt time.Time `json:"startedAt"`
 	// Links are names of symlinks created in the game directory.
 	Links []string `json:"links"`
+	// Modded records whether the game was started with BepInEx, so the
+	// session can be finished by a process that did not start it.
+	Modded bool `json:"modded"`
 }
 
 func sessionPath(gameDataDir string) string { return filepath.Join(gameDataDir, "launch.json") }

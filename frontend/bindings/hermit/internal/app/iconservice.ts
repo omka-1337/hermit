@@ -12,6 +12,14 @@
 import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wailsio/runtime";
 
 /**
+ * GetPortProtonIcon returns PortProton's own icon as a data URL, or "" when it
+ * is not installed; the launch button shows it next to its name.
+ */
+export function GetPortProtonIcon(): $CancellablePromise<string> {
+    return $Call.ByID(1070312504);
+}
+
+/**
  * GetSteamIcon returns the icon of a Steam app as a data URL, or "" if none is cached.
  */
 export function GetSteamIcon(appID: string): $CancellablePromise<string> {

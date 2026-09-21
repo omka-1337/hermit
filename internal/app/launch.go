@@ -2,9 +2,11 @@ package app
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 
 	"hermit/internal/launch"
 	"hermit/internal/library"
@@ -19,6 +21,17 @@ type LaunchInfo struct {
 	Reason    string `json:"reason"`
 	// LaunchOptions is the value to put into the game's Steam Launch Options.
 	LaunchOptions string `json:"launchOptions"`
+	// External is true for games Steam does not start: Hermit can neither
+	// start them itself nor read their launcher's settings, so the user
+	// puts LaunchPrefix into whatever launcher runs the game.
+	External bool `json:"external"`
+	// LaunchPrefix is the wrapper to put in front of the game command in
+	// launchers that take a command prefix, such as Lutris or Heroic.
+	LaunchPrefix string `json:"launchPrefix"`
+	// PortProton is true when an external Windows game can be started through
+	// the PortProton Flatpak, which has nowhere to put a prefix, so Hermit
+	// starts it itself.
+	PortProton bool `json:"portProton"`
 	// Configured reports whether Steam's saved config has these launch options.
 	// Steam writes its config lazily, so false may just mean "not saved yet".
 	Configured bool `json:"configured"`
@@ -43,16 +56,23 @@ func (s *LaunchService) GetLaunchInfo(gameID string) (LaunchInfo, error) {
 	}
 	info := LaunchInfo{LaunchOptions: RecommendedLaunchOptions()}
 	switch {
-	case game.SteamAppID == "":
-		info.Reason = "Only Steam games can be launched for now."
 	case game.Runtime == library.RuntimeUnknown:
 		info.Reason = "Could not tell whether the game runs natively or through Proton."
+	case game.SteamAppID == "":
+		// Without Steam there is no SteamAppId to find the game by, so the
+		// wrapper is told which game it is.
+		info.Supported, info.External = true, true
+		info.LaunchPrefix = wrapperPrefix(game.ID)
+		info.LaunchOptions = info.LaunchPrefix + " %command%"
+		info.PortProton = game.Runtime == library.RuntimeProton && launch.PortProtonInstalled()
 	default:
 		info.Supported = true
 	}
-	for _, opts := range steam.LaunchOptions(s.steamRoots, game.SteamAppID) {
-		if isOurLaunchOptions(opts) {
-			info.Configured = true
+	if !info.External {
+		for _, opts := range steam.LaunchOptions(s.steamRoots, game.SteamAppID) {
+			if isOurLaunchOptions(opts) {
+				info.Configured = true
+			}
 		}
 	}
 	if dataDir, err := s.lib.GameDataDir(gameID); err == nil {
@@ -77,6 +97,9 @@ func (s *LaunchService) Play(gameID, profileID string) error {
 	if info.Running {
 		return errors.New("the game is already running")
 	}
+	if info.External {
+		return errors.New("this game is not started by Steam; start it from the launcher that runs it")
+	}
 	game, err := s.lib.SetActiveProfile(gameID, profileID)
 	if err != nil {
 		return err
@@ -84,10 +107,48 @@ func (s *LaunchService) Play(gameID, profileID string) error {
 	return platform.Command("xdg-open", "steam://rungameid/"+game.SteamAppID).Start()
 }
 
+// PlayViaPortProton makes the profile active and starts the game through
+// PortProton, wrapped in "run" so the profile is linked in for the session.
+// The wrapper is a process of its own: the game outlives Hermit's window, and
+// the links are still removed when it exits.
+func (s *LaunchService) PlayViaPortProton(gameID, profileID string) error {
+	info, err := s.GetLaunchInfo(gameID)
+	if err != nil {
+		return err
+	}
+	if !info.PortProton {
+		return errors.New("PortProton is not installed, or this game does not run through Wine")
+	}
+	if info.Running {
+		return errors.New("the game is already running")
+	}
+	game, err := s.lib.SetActiveProfile(gameID, profileID)
+	if err != nil {
+		return err
+	}
+	exe := game.Executable
+	if !filepath.IsAbs(exe) {
+		exe = filepath.Join(game.Path, exe)
+	}
+	args := append([]string{"run", "--game", game.ID, "--"}, launch.PortProtonCommand(exe)...)
+	cmd := platform.Command(executablePath(), args...)
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("starting PortProton: %w", err)
+	}
+	return cmd.Process.Release()
+}
+
 // RecommendedLaunchOptions is the Steam Launch Options value that runs games
 // through this executable.
 func RecommendedLaunchOptions() string {
 	return `"` + executablePath() + `" run -- %command%`
+}
+
+// wrapperPrefix is what goes in front of a game's command in any launcher;
+// the game is named because only Steam says which game it is starting.
+func wrapperPrefix(gameID string) string {
+	return `"` + executablePath() + `" run --game ` + gameID + ` --`
 }
 
 func isOurLaunchOptions(opts string) bool {

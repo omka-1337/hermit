@@ -176,11 +176,25 @@ func (w *Wrapper) Prepare(gameID string, command, env []string, pid int, logOut 
 		if len(session.Links) > 0 {
 			env = withDLLOverride(env, "winhttp", "n,b")
 			modded = true
+			// PortProton ignores the environment for this and reads its own
+			// settings file instead.
+			if exe, ok := portProtonExe(command); ok {
+				settings := PortProtonSettings(exe)
+				if added, err := addPPDBOverride(settings, "winhttp", "n,b"); err != nil {
+					Unlink(game.Path, session.Links, w.Lib.Root())
+					return plan, fmt.Errorf("adding the winhttp override to PortProton's settings: %w", err)
+				} else if added {
+					session.PPDB = settings
+				}
+			}
 		}
 	}
 	session.Modded = modded
 	if err := writeSession(dataDir, session); err != nil {
 		Unlink(game.Path, session.Links, w.Lib.Root())
+		if session.PPDB != "" {
+			removePPDBOverride(session.PPDB, "winhttp", "n,b")
+		}
 		return plan, err
 	}
 
@@ -220,7 +234,11 @@ func (w *Wrapper) Cleanup(gameID string) error {
 		}
 		reportErr = SaveReport(dataDir, BuildReport(profileDir, *session, profile.Mods))
 	}
-	return errors.Join(reportErr, Unlink(game.Path, session.Links, w.Lib.Root()), os.Remove(sessionPath(dataDir)))
+	var ppdbErr error
+	if session.PPDB != "" {
+		ppdbErr = removePPDBOverride(session.PPDB, "winhttp", "n,b")
+	}
+	return errors.Join(reportErr, ppdbErr, Unlink(game.Path, session.Links, w.Lib.Root()), os.Remove(sessionPath(dataDir)))
 }
 
 // nativeLauncher returns the BepInEx launcher script of a profile, made

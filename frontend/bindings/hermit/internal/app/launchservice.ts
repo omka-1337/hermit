@@ -32,3 +32,13 @@ export function GetLaunchReport(gameID: string, profileID: string): $Cancellable
 export function Play(gameID: string, profileID: string): $CancellablePromise<void> {
     return $Call.ByID(3396312206, gameID, profileID);
 }
+
+/**
+ * PlayViaPortProton makes the profile active and starts the game through
+ * PortProton, wrapped in "run" so the profile is linked in for the session.
+ * The wrapper is a process of its own: the game outlives Hermit's window, and
+ * the links are still removed when it exits.
+ */
+export function PlayViaPortProton(gameID: string, profileID: string): $CancellablePromise<void> {
+    return $Call.ByID(3429716921, gameID, profileID);
+}

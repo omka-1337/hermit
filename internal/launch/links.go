@@ -34,6 +34,9 @@ type Session struct {
 	// Modded records whether the game was started with BepInEx, so the
 	// session can be finished by a process that did not start it.
 	Modded bool `json:"modded"`
+	// PPDB is the PortProton settings file the winhttp override was added to
+	// for this session; Cleanup takes it out again.
+	PPDB string `json:"ppdb,omitempty"`
 }
 
 func sessionPath(gameDataDir string) string { return filepath.Join(gameDataDir, "launch.json") }

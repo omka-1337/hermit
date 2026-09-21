@@ -8,11 +8,13 @@ has actually been tried.
 | --- | --- | --- | --- |
 | Lethal Company | Proton | Works | Mods installed, enabled and disabled, launched through Steam |
 | PEAK | Proton | Works | Same, plus installing a modpack as a profile of its own |
+| Easy Delivery Co. | Proton | Works | Mods installed and loaded, launched through Steam |
 | Content Warning | Proton | Partly checked | Browsing and installing; not launched |
 | R.E.P.O. | Proton | Partly checked | Browsing; not installed or launched |
 | Valheim | Proton | Partly checked | Browsing; not installed or launched |
+| MiSide | Proton, outside Steam | Works | IL2CPP with BepInEx 6, started through PortProton |
 | Native Linux builds | native | Untested | Loading BepInEx through `run_bepinex.sh` is implemented but never run against a real game |
-| IL2CPP games (BepInEx 6) | either | Untested | The backend is detected and the right pack is installed, but no IL2CPP game has been run |
+| Other IL2CPP games (BepInEx 6) | either | Partly checked | Works on MiSide; other IL2CPP games have not been tried |
 
 Status means:
 

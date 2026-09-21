@@ -52,6 +52,26 @@ export interface LaunchInfo {
     "launchOptions": string;
 
     /**
+     * External is true for games Steam does not start: Hermit can neither
+     * start them itself nor read their launcher's settings, so the user
+     * puts LaunchPrefix into whatever launcher runs the game.
+     */
+    "external": boolean;
+
+    /**
+     * LaunchPrefix is the wrapper to put in front of the game command in
+     * launchers that take a command prefix, such as Lutris or Heroic.
+     */
+    "launchPrefix": string;
+
+    /**
+     * PortProton is true when an external Windows game can be started through
+     * the PortProton Flatpak, which has nowhere to put a prefix, so Hermit
+     * starts it itself.
+     */
+    "portProton": boolean;
+
+    /**
      * Configured reports whether Steam's saved config has these launch options.
      * Steam writes its config lazily, so false may just mean "not saved yet".
      */

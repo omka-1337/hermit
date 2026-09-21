@@ -182,3 +182,62 @@ func TestPickAsset(t *testing.T) {
 		t.Errorf("single: %v %v", a, err)
 	}
 }
+
+func TestInstallIntoFolder(t *testing.T) {
+	into := DefaultRules()
+	into.Into = "BepInEx/plugins/models/all"
+
+	tests := []struct {
+		name  string
+		files map[string]string
+		want  []string
+	}{
+		{
+			name:  "loose files, like model packs",
+			files: map[string]string{"bfufu": "x", "wfufu": "x"},
+			want:  []string{"BepInEx/plugins/models/all/bfufu", "BepInEx/plugins/models/all/wfufu"},
+		},
+		{
+			name:  "one wrapping folder is only how it was zipped",
+			files: map[string]string{"Furina/bfufu": "x", "Furina/sub/wfufu": "x"},
+			want:  []string{"BepInEx/plugins/models/all/bfufu", "BepInEx/plugins/models/all/sub/wfufu"},
+		},
+		{
+			name:  "layout inside the archive is kept",
+			files: map[string]string{"a/one": "x", "b/two": "x", "manifest.json": "{}", "icon.png": "x"},
+			want:  []string{"BepInEx/plugins/models/all/a/one", "BepInEx/plugins/models/all/b/two"},
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			zip := makeZip(t, t.TempDir(), tc.files)
+			got, err := PlanFiles(zip, "Someone-Pack", into)
+			if err != nil {
+				t.Fatal(err)
+			}
+			slices.Sort(got)
+			if !slices.Equal(got, tc.want) {
+				t.Errorf("planned %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestCleanTargetDir(t *testing.T) {
+	good := map[string]string{
+		"BepInEx/plugins/models/all":  "BepInEx/plugins/models/all",
+		" BepInEx/plugins/models/ ":   "BepInEx/plugins/models",
+		`BepInEx\plugins\models`:      "BepInEx/plugins/models",
+		"BepInEx/plugins/../config/x": "BepInEx/config/x",
+	}
+	for in, want := range good {
+		if got, err := CleanTargetDir(in); err != nil || got != want {
+			t.Errorf("CleanTargetDir(%q) = %q, %v; want %q", in, got, err, want)
+		}
+	}
+	for _, bad := range []string{"", ".", "/etc", "../outside", "a/../../outside", "disabled/x", "Profile.json"} {
+		if got, err := CleanTargetDir(bad); err == nil {
+			t.Errorf("CleanTargetDir(%q) = %q, want an error", bad, got)
+		}
+	}
+}

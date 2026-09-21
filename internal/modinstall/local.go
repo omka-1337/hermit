@@ -36,6 +36,11 @@ type LocalPackage struct {
 	Description  string              `json:"description"`
 	Dependencies []string            `json:"dependencies"`
 	Plugins      []plugininfo.Plugin `json:"plugins"`
+	// TargetDir, when set, is the folder of the game (a path relative to its
+	// root, like "BepInEx/plugins/models/all") that every file of the package
+	// goes into, instead of where the install rules would put it. The folders
+	// are created, so nothing has to exist in the game first.
+	TargetDir string `json:"targetDir"`
 }
 
 var ErrUnsupportedFile = errors.New("choose a .zip or .dll file")
@@ -107,6 +112,24 @@ func InspectFile(filePath string) (LocalPackage, error) {
 }
 
 var nonNameChars = regexp.MustCompile(`[^A-Za-z0-9_]+`)
+
+// CleanTargetDir checks a folder a package is installed into: it has to be a
+// path inside the game folder, and not one of the files Hermit keeps in a
+// profile for itself.
+func CleanTargetDir(dir string) (string, error) {
+	dir = strings.TrimSpace(strings.ReplaceAll(dir, "\\", "/"))
+	clean := path.Clean(strings.Trim(dir, "/"))
+	if strings.HasPrefix(dir, "/") || clean == "." || clean == ".." || strings.HasPrefix(clean, "../") {
+		return "", fmt.Errorf("%q is not a folder inside the game; use a path like BepInEx/plugins/models", dir)
+	}
+	top, _, _ := strings.Cut(clean, "/")
+	for _, reserved := range []string{"profile.json", "disabled"} {
+		if strings.EqualFold(top, reserved) {
+			return "", fmt.Errorf("%q is used by Hermit itself", top)
+		}
+	}
+	return clean, nil
+}
 
 // SanitizeName turns text into a valid Thunderstore-style name.
 func SanitizeName(s, fallback string) string {
@@ -243,6 +266,13 @@ func (in *Installer) planFile(ctx context.Context, gameID string, pkg LocalPacka
 	rules, err := in.rulesFor(ctx, gameID)
 	if err != nil {
 		return plannedPackage{}, noop, err
+	}
+	if pkg.TargetDir != "" {
+		into, err := CleanTargetDir(pkg.TargetDir)
+		if err != nil {
+			return plannedPackage{}, noop, err
+		}
+		rules.Into = into
 	}
 
 	archivePath, cleanup := pkg.Path, noop

@@ -16,6 +16,11 @@ type Rules struct {
 	// LoaderPackages maps lower-case full package names of mod loaders to the
 	// archive folder that is unpacked into the profile root.
 	LoaderPackages map[string]string
+	// Into, when set, overrides the routes: every file of the package goes
+	// under this folder of the profile, keeping the archive's own layout.
+	// It is for files the rules cannot place, like assets another mod reads
+	// from a folder of its own.
+	Into string
 }
 
 // IsLoaderPackage reports whether a package id ("<author>-<name>") is a

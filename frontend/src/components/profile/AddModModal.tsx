@@ -200,6 +200,7 @@ function PackageForm({ pkg, origin, onBack, onInstalled }: FormProps) {
   const [author, setAuthor] = useState(pkg.author);
   const [name, setName] = useState(pkg.name);
   const [version, setVersion] = useState(pkg.version);
+  const [targetDir, setTargetDir] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -212,7 +213,7 @@ function PackageForm({ pkg, origin, onBack, onInstalled }: FormProps) {
   const install = async () => {
     setError("");
     setBusy(true);
-    const edited = { ...pkg, author, name, version };
+    const edited = { ...pkg, author, name, version, targetDir: targetDir.trim() };
     try {
       const plan = await InstallService.PlanFile(game.id, profile.id, edited);
       const conflicts = plan.conflicts ?? [];
@@ -283,6 +284,21 @@ function PackageForm({ pkg, origin, onBack, onInstalled }: FormProps) {
         {existing && ` — replaces the installed version ${existing.version}`}. Letters, digits and _ only; version like
         1.2.3.
       </p>
+
+      <label className="flex flex-col gap-1.5">
+        <span className="text-zinc-400">Install into (optional)</span>
+        <input
+          className={inputClass}
+          placeholder="Where the install rules put it — for plugins, BepInEx/plugins"
+          value={targetDir}
+          onChange={(e) => setTargetDir(e.target.value)}
+        />
+        <span className="text-xs text-zinc-500">
+          {plugins.length === 0
+            ? "This file has no BepInEx plugin, so it is probably files another mod reads. Its page usually names the folder they go into, like BepInEx/plugins/models/all — put that here. The folders are created, the game does not have to run first."
+            : "A folder of the game, for mods whose page says to put their files somewhere specific. The folders are created as needed."}
+        </span>
+      </label>
 
       {dependencies.length > 0 && (
         <p className="text-xs text-zinc-400">Dependencies, installed from Thunderstore if missing: {dependencies.join(", ")}</p>

@@ -268,3 +268,56 @@ func TestWrapperRunNative(t *testing.T) {
 		t.Error("launcher must not run without BepInEx")
 	}
 }
+
+func TestParseLogCompleteAndErrors(t *testing.T) {
+	rep := ParseLog(strings.NewReader(sampleLog))
+	if !rep.Complete {
+		t.Error("a log that reaches the end of loading is not marked complete")
+	}
+	// Four error lines from BepInEx itself; the warning does not count.
+	if rep.Errors != 4 {
+		t.Errorf("errors = %d, want 4", rep.Errors)
+	}
+}
+
+// Modpacks often turn on timestamps; every line then starts with the time.
+func TestParseLogWithTimestamps(t *testing.T) {
+	const log = "[Message:   BepInEx] BepInEx 5.4.21.0 - REPO (9/21/2026 9:53:20 PM)\n" +
+		"[21:53:31.6107579] [Info   :   BepInEx] Loading [REPOLib 2.1.0]\n" +
+		"[21:53:31.6547580] [Info   :   BepInEx] Loading [Valuables 1.0.0]\n" +
+		"[21:55:13.4688472] [Error  : Unity Log] MissingMethodException: Method not found: void .PlayerAvatar.ChatMessageSend(string,bool)\n" +
+		"[21:55:13.4778472] [Error  :   BepInEx] Error loading [Valuables 1.0.0] : System.TypeLoadException\n"
+	rep := ParseLog(strings.NewReader(log))
+	if rep.BepInExVersion != "5.4.21.0" {
+		t.Errorf("version = %q", rep.BepInExVersion)
+	}
+	if !slices.Equal(rep.Loaded, []string{"REPOLib 2.1.0", "Valuables 1.0.0"}) {
+		t.Errorf("loaded = %q", rep.Loaded)
+	}
+	if len(rep.Issues) != 1 || rep.Issues[0].Kind != IssueLoadError {
+		t.Errorf("issues = %+v", rep.Issues)
+	}
+	if rep.Errors != 2 {
+		t.Errorf("errors = %d, want 2 (the game's own and BepInEx's)", rep.Errors)
+	}
+	// It never reached "Chainloader startup complete": the game stopped there.
+	if rep.Complete {
+		t.Error("an unfinished log is marked complete")
+	}
+}
+
+func TestNotStarted(t *testing.T) {
+	mods := []library.Mod{
+		{ID: "A-Loaded", Active: true, Plugins: []plugininfo.Plugin{{Name: "Loaded One", Version: "1.0.0"}}},
+		{ID: "B-Stuck", Active: true, Plugins: []plugininfo.Plugin{{Name: "Stuck", Version: "2.0.0"}}},
+		{ID: "C-Disabled", Active: false, Plugins: []plugininfo.Plugin{{Name: "Off", Version: "1.0.0"}}},
+		{ID: "D-Library", Active: true}, // no plugins read: not counted
+	}
+	count, missing := notStarted(mods, []string{"Loaded One 1.0.0"})
+	if count != 2 {
+		t.Errorf("plugin mods = %d, want 2 (the disabled one and the one without plugins do not count)", count)
+	}
+	if !slices.Equal(missing, []string{"B-Stuck"}) {
+		t.Errorf("not started = %q", missing)
+	}
+}

@@ -5,6 +5,7 @@ import CreateProfileModal from "./CreateProfileModal";
 import EditableName from "./EditableName";
 import GameIcon from "./GameIcon";
 import GameSettings from "./GameSettings";
+import { onModpackSettled } from "../modpackInstalls";
 import { LaunchSetup, PlayButton } from "./launch";
 import { ImportModal } from "./share";
 import { BackendBadge, Button, ErrorText, RuntimeBadge } from "./ui";
@@ -43,6 +44,16 @@ export default function GameView({ game, onChanged, onRemoved, onOpenProfile }: 
   useEffect(() => {
     loadProfiles().catch((err) => setError(errorMessage(err)));
   }, [loadProfiles]);
+
+  // A modpack keeps installing after its dialog is closed; its profile shows
+  // up here once it is done.
+  useEffect(
+    () =>
+      onModpackSettled((settled) => {
+        if (settled.gameId === game.id) loadProfiles().catch((err) => setError(errorMessage(err)));
+      }),
+    [game.id, loadProfiles],
+  );
 
   const refreshGame = async () => onChanged(await Library.GetGame(game.id));
 

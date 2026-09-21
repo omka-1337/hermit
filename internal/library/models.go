@@ -31,6 +31,11 @@ type Game struct {
 	Executable    string  `json:"executable"`
 	SteamAppID    string  `json:"steamAppId,omitempty"`
 	ActiveProfile string  `json:"activeProfile"`
+	// LaunchExecutable is the file Hermit starts the game from when it
+	// starts it itself, relative to Path; empty means Executable. It is kept
+	// apart from Executable, which identifies the game (Thunderstore finds
+	// its community by that name), because some mods ship their own launcher.
+	LaunchExecutable string `json:"launchExecutable,omitempty"`
 }
 
 // GameCandidate is a game that can be added: found in Steam or picked manually.

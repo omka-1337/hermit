@@ -224,6 +224,34 @@ func (l *Library) RenameGame(id, name string) (Game, error) {
 	return g, l.saveGame(g)
 }
 
+// SetLaunchExecutable chooses the file a game is started from; "" goes back to
+// the game's own executable. The path is relative to the game folder and must
+// name a file inside it.
+func (l *Library) SetLaunchExecutable(id, exe string) (Game, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	g, err := l.loadGame(id)
+	if err != nil {
+		return Game{}, err
+	}
+	if exe == g.Executable {
+		exe = ""
+	}
+	if exe != "" {
+		clean := filepath.Clean(filepath.FromSlash(exe))
+		if filepath.IsAbs(clean) || clean == ".." || strings.HasPrefix(clean, ".."+string(filepath.Separator)) {
+			return Game{}, fmt.Errorf("%q is not inside the game folder", exe)
+		}
+		if fi, err := os.Stat(filepath.Join(g.Path, clean)); err != nil || fi.IsDir() {
+			return Game{}, fmt.Errorf("%q was not found in the game folder", exe)
+		}
+		exe = filepath.ToSlash(clean)
+	}
+	g.LaunchExecutable = exe
+	return g, l.saveGame(g)
+}
+
 // RemoveGame deletes the game entry together with all its profiles and installed mods.
 func (l *Library) RemoveGame(id string) error {
 	l.mu.Lock()

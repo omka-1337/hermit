@@ -113,6 +113,15 @@ export function SetActiveProfile(gameID: string, profileID: string): $Cancellabl
 }
 
 /**
+ * SetLaunchExecutable chooses the file a game is started from; "" goes back to
+ * the game's own executable. The path is relative to the game folder and must
+ * name a file inside it.
+ */
+export function SetLaunchExecutable(id: string, exe: string): $CancellablePromise<$models.Game> {
+    return $Call.ByID(1002379714, id, exe);
+}
+
+/**
  * UpdateProfile loads a profile, applies fn and saves the result atomically
  * with respect to other library operations.
  */

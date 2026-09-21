@@ -47,6 +47,14 @@ export interface Game {
     "executable": string;
     "steamAppId"?: string;
     "activeProfile": string;
+
+    /**
+     * LaunchExecutable is the file Hermit starts the game from when it
+     * starts it itself, relative to Path; empty means Executable. It is kept
+     * apart from Executable, which identifies the game (Thunderstore finds
+     * its community by that name), because some mods ship their own launcher.
+     */
+    "launchExecutable"?: string;
 }
 
 /**

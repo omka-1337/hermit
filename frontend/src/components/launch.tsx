@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Clipboard } from "@wailsio/runtime";
-import { confirm, errorMessage, Game, IconService, LaunchInfo, LaunchService } from "../api";
-import { Button, ErrorText } from "./ui";
+import { confirm, errorMessage, Game, IconService, LaunchInfo, LaunchService, Library } from "../api";
+import { Button, ErrorText, inputClass } from "./ui";
 
 // Both the running game and the Steam launch options change behind our back:
 // the game is started and closed outside the manager, and Steam writes its
@@ -262,7 +262,63 @@ function PortProtonButton({ game, profileId, running, onPlayed }: PortProtonProp
         {running ? "Running" : starting ? "Starting…" : "Play via PortProton"}
         {icon && <img src={icon} alt="" className="h-5 w-5 shrink-0" />}
       </Button>
+      <ExecutablePicker game={game} disabled={running || starting} onError={setError} />
       <ErrorText>{error}</ErrorText>
     </div>
+  );
+}
+
+// ExecutablePicker chooses which .exe the game is started from. Most games
+// have one; some mods ship a launcher the game has to be started through, and
+// then there are several to choose from.
+function ExecutablePicker({
+  game,
+  disabled,
+  onError,
+}: {
+  game: Game;
+  disabled: boolean;
+  onError: (message: string) => void;
+}) {
+  const [executables, setExecutables] = useState<string[]>([]);
+  const [chosen, setChosen] = useState(game.launchExecutable || game.executable);
+
+  useEffect(() => {
+    LaunchService.ListExecutables(game.id)
+      .then((list) => setExecutables(list ?? []))
+      .catch(() => setExecutables([]));
+  }, [game.id]);
+
+  useEffect(() => setChosen(game.launchExecutable || game.executable), [game.launchExecutable, game.executable]);
+
+  if (executables.length < 2) return null;
+
+  const choose = async (exe: string) => {
+    onError("");
+    const previous = chosen;
+    setChosen(exe);
+    try {
+      await Library.SetLaunchExecutable(game.id, exe);
+    } catch (err) {
+      setChosen(previous);
+      onError(errorMessage(err));
+    }
+  };
+
+  return (
+    <select
+      aria-label="Start the game from"
+      title="Start the game from"
+      className={`${inputClass} w-auto max-w-64 text-xs`}
+      value={chosen}
+      disabled={disabled}
+      onChange={(e) => choose(e.target.value)}
+    >
+      {executables.map((exe) => (
+        <option key={exe} value={exe}>
+          {exe}
+        </option>
+      ))}
+    </select>
   );
 }

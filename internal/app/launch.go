@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"syscall"
 
@@ -127,6 +128,9 @@ func (s *LaunchService) PlayViaPortProton(gameID, profileID string) error {
 		return err
 	}
 	exe := game.Executable
+	if game.LaunchExecutable != "" {
+		exe = filepath.FromSlash(game.LaunchExecutable)
+	}
 	if !filepath.IsAbs(exe) {
 		exe = filepath.Join(game.Path, exe)
 	}
@@ -137,6 +141,64 @@ func (s *LaunchService) PlayViaPortProton(gameID, profileID string) error {
 		return fmt.Errorf("starting PortProton: %w", err)
 	}
 	return cmd.Process.Release()
+}
+
+// notLaunchable are executables that ship next to games but never start
+// them: Unity's crash reporter, installers and uninstallers, redistributables.
+var notLaunchable = []string{"unitycrashhandler", "crashhandler", "crashreport", "unins", "setup", "redist", "vc_redist", "dxsetup", "dotnet"}
+
+// ListExecutables returns the .exe files a game could be started from,
+// relative to its folder: the game's own executable first, then any other
+// found a few levels deep, such as a launcher a mod asks to start the game
+// with.
+func (s *LaunchService) ListExecutables(gameID string) ([]string, error) {
+	game, err := s.lib.GetGame(gameID)
+	if err != nil {
+		return nil, err
+	}
+	const maxDepth = 3
+	var found []string
+	err = filepath.WalkDir(game.Path, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return nil // unreadable parts of the folder are skipped
+		}
+		rel, _ := filepath.Rel(game.Path, path)
+		if d.IsDir() {
+			if rel != "." && (strings.Count(rel, string(filepath.Separator)) >= maxDepth-1 || isHiddenOrData(d.Name())) {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if !strings.EqualFold(filepath.Ext(d.Name()), ".exe") {
+			return nil
+		}
+		lower := strings.ToLower(d.Name())
+		for _, skip := range notLaunchable {
+			if strings.Contains(lower, skip) {
+				return nil
+			}
+		}
+		found = append(found, filepath.ToSlash(rel))
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	own := filepath.ToSlash(game.Executable)
+	sort.SliceStable(found, func(i, j int) bool {
+		if (found[i] == own) != (found[j] == own) {
+			return found[i] == own
+		}
+		return strings.ToLower(found[i]) < strings.ToLower(found[j])
+	})
+	return found, nil
+}
+
+// isHiddenOrData skips folders that hold no launchers: dot folders, Unity's
+// *_Data folders and the parts of BepInEx a mod manager put there.
+func isHiddenOrData(name string) bool {
+	lower := strings.ToLower(name)
+	return strings.HasPrefix(lower, ".") || strings.HasSuffix(lower, "_data") || lower == "bepinex" || lower == "dotnet"
 }
 
 // RecommendedLaunchOptions is the Steam Launch Options value that runs games

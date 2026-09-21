@@ -283,3 +283,44 @@ func TestProfileSchemaMigration(t *testing.T) {
 		t.Fatalf("migrated: %+v", p)
 	}
 }
+
+func TestSetLaunchExecutable(t *testing.T) {
+	lib := newTestLibrary(t)
+	path := fakeGame(t, "Game.exe", "Game_Data/", "UnityPlayer.dll", "Tools/", "Tools/Launcher.exe")
+	g, err := lib.AddGame("Game", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	g, err = lib.SetLaunchExecutable(g.ID, "Tools/Launcher.exe")
+	if err != nil {
+		t.Fatalf("SetLaunchExecutable: %v", err)
+	}
+	if g.LaunchExecutable != "Tools/Launcher.exe" {
+		t.Errorf("LaunchExecutable = %q", g.LaunchExecutable)
+	}
+	// Stored, not only returned.
+	if saved, _ := lib.GetGame(g.ID); saved.LaunchExecutable != "Tools/Launcher.exe" {
+		t.Errorf("saved LaunchExecutable = %q", saved.LaunchExecutable)
+	}
+
+	// Choosing the game's own executable goes back to the default.
+	g, err = lib.SetLaunchExecutable(g.ID, g.Executable)
+	if err != nil || g.LaunchExecutable != "" {
+		t.Errorf("back to default: %q, %v", g.LaunchExecutable, err)
+	}
+}
+
+func TestSetLaunchExecutableStaysInsideTheGame(t *testing.T) {
+	lib := newTestLibrary(t)
+	path := fakeGame(t, "Game.exe", "Game_Data/", "UnityPlayer.dll")
+	g, err := lib.AddGame("Game", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, exe := range []string{"../outside.exe", "/usr/bin/true", "Missing.exe", "Game_Data"} {
+		if _, err := lib.SetLaunchExecutable(g.ID, exe); err == nil {
+			t.Errorf("SetLaunchExecutable(%q) was accepted", exe)
+		}
+	}
+}

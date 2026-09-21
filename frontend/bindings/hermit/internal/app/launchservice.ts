@@ -26,6 +26,16 @@ export function GetLaunchReport(gameID: string, profileID: string): $Cancellable
 }
 
 /**
+ * ListExecutables returns the .exe files a game could be started from,
+ * relative to its folder: the game's own executable first, then any other
+ * found a few levels deep, such as a launcher a mod asks to start the game
+ * with.
+ */
+export function ListExecutables(gameID: string): $CancellablePromise<string[] | null> {
+    return $Call.ByID(3136976965, gameID);
+}
+
+/**
  * Play makes the profile active and starts the game through Steam. Mods load
  * only if the game's launch options run it through the wrapper.
  */

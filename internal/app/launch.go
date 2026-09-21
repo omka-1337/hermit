@@ -105,7 +105,12 @@ func (s *LaunchService) Play(gameID, profileID string) error {
 	if err != nil {
 		return err
 	}
-	return platform.Command("xdg-open", "steam://rungameid/"+game.SteamAppID).Start()
+	cmd := platform.Command("xdg-open", "steam://rungameid/"+game.SteamAppID)
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+	go cmd.Wait() // xdg-open hands over to Steam and exits; reap it
+	return nil
 }
 
 // PlayViaPortProton makes the profile active and starts the game through

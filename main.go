@@ -106,6 +106,7 @@ func main() {
 			application.NewService(app.NewLaunchService(b.lib, b.steamRoots)),
 			application.NewService(app.NewIconService(b.steamRoots)),
 			application.NewService(app.NewSteamService(b.steamRoots, b.root)),
+			application.NewService(app.NewFolderService(b.lib)),
 			application.NewService(app.NewConfigService(b.lib)),
 			application.NewService(app.NewShareService(
 				profileshare.NewSharer(b.lib, b.installer, b.ts, filepath.Join(b.root, "cache", "imports")),

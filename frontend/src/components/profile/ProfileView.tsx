@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { errorMessage, Game, InstallService, Profile } from "../../api";
+import { errorMessage, FolderService, Game, InstallService, Profile } from "../../api";
 import { packageLabel } from "../../format";
 import { PlayButton } from "../launch";
 import { ExportModal } from "../share";
@@ -83,6 +83,15 @@ export default function ProfileView({ game, profileId, onBack, onGameChanged, on
         <div className="ml-auto flex items-center gap-3 self-center pb-3">
           {game.activeProfile === profileId && (
             <span className="text-xs font-medium text-indigo-400">Active profile</span>
+          )}
+          {profile && (
+            <Button
+              variant="ghost"
+              title="Open the profile's folder in the file manager"
+              onClick={() => FolderService.OpenProfile(game.id, profileId).catch((err) => setError(errorMessage(err)))}
+            >
+              Open folder
+            </Button>
           )}
           {profile && (
             <Button variant="ghost" onClick={() => setExporting(true)}>

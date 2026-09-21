@@ -3,6 +3,7 @@
 
 import * as BrowseService from "./browseservice.js";
 import * as ConfigService from "./configservice.js";
+import * as FolderService from "./folderservice.js";
 import * as IconService from "./iconservice.js";
 import * as InfoService from "./infoservice.js";
 import * as InstallService from "./installservice.js";
@@ -12,6 +13,7 @@ import * as SteamService from "./steamservice.js";
 export {
     BrowseService,
     ConfigService,
+    FolderService,
     IconService,
     InfoService,
     InstallService,

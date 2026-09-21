@@ -9,6 +9,7 @@ export type { Settings } from "../bindings/hermit/internal/settings";
 export {
   BrowseService,
   ConfigService,
+  FolderService,
   IconService,
   InfoService,
   InstallService,

@@ -14,6 +14,7 @@ export {
   InstallService,
   LaunchService,
   ShareService,
+  SteamService,
 } from "../bindings/hermit/internal/app";
 export type { ImportProgress, ImportResult, Preview } from "../bindings/hermit/internal/profileshare";
 export type { ConfigContent } from "../bindings/hermit/internal/app";
@@ -39,7 +40,7 @@ export type {
   PackageList,
   PackageSummary,
 } from "../bindings/hermit/internal/thunderstore";
-export type { AppInfo, Update } from "../bindings/hermit/internal/app";
+export type { AppInfo, SteamSetup, Update } from "../bindings/hermit/internal/app";
 
 // isCancelled reports whether err comes from cancelling a CancellablePromise.
 export function isCancelled(err: unknown): boolean {

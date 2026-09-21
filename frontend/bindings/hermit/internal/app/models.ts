@@ -65,6 +65,37 @@ export interface LaunchInfo {
 }
 
 /**
+ * SteamSetup is what the interface needs to know to offer the shortcut.
+ */
+export interface SteamSetup {
+    /**
+     * Supported is false when there is no Steam to add anything to.
+     */
+    "supported": boolean;
+
+    /**
+     * Reason says why it is not supported.
+     */
+    "reason": string;
+
+    /**
+     * Added is true once Steam lists a shortcut to this very build.
+     */
+    "added": boolean;
+
+    /**
+     * Running reports whether Steam is running: adding the shortcut has to
+     * restart it, because Steam rewrites its shortcuts when it exits.
+     */
+    "running": boolean;
+
+    /**
+     * Exe is the path Steam would start.
+     */
+    "exe": string;
+}
+
+/**
  * Update is the answer to "is there a newer Hermit?". Hermit does not install
  * itself: the user downloads the release.
  */

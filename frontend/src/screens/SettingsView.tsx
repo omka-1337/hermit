@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { AppInfo, errorMessage, InfoService, Settings, SettingsStore, UIMode, Update } from "../api";
 import { Browser } from "@wailsio/runtime";
+import AddToSteam from "../components/AddToSteam";
 import { Button, ErrorText, Spinner } from "../components/ui";
 import { useUIMode } from "../uimode";
 
@@ -85,6 +86,12 @@ export default function SettingsView() {
           </label>
         </section>
       )}
+      <section className="flex flex-col gap-3">
+        <h2 className="text-sm font-semibold tracking-wide text-zinc-400 uppercase">Steam</h2>
+        <div className="rounded-lg border border-zinc-800 px-4 py-3">
+          <AddToSteam />
+        </div>
+      </section>
       {info && (
         <section className="flex flex-col gap-1 text-sm">
           <h2 className="text-sm font-semibold tracking-wide text-zinc-400 uppercase">About</h2>

@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"slices"
 	"time"
 
 	"github.com/adrg/xdg"
@@ -104,6 +105,7 @@ func main() {
 			application.NewService(app.NewInstallService(b.installer, b.github)),
 			application.NewService(app.NewLaunchService(b.lib, b.steamRoots)),
 			application.NewService(app.NewIconService(b.steamRoots)),
+			application.NewService(app.NewSteamService(b.steamRoots, b.root)),
 			application.NewService(app.NewConfigService(b.lib)),
 			application.NewService(app.NewShareService(
 				profileshare.NewSharer(b.lib, b.installer, b.ts, filepath.Join(b.root, "cache", "imports")),
@@ -135,7 +137,39 @@ func main() {
 	}
 	window := wailsApp.Window.NewWithOptions(windowOptions)
 
+	// On the very first run a small window of its own asks whether Hermit
+	// should put itself into Steam, the way a launcher asks before it settles
+	// in. The main window waits behind it.
+	var setupWindow *application.WebviewWindow
+	if !stored.SetupCompleted || slices.Contains(os.Args[1:], "--setup") {
+		setupWindow = wailsApp.Window.NewWithOptions(application.WebviewWindowOptions{
+			Title:     app.Name,
+			Frameless: true,
+			Hidden:    true,
+			Width:     520,
+			// The window resizes itself to its contents once it is drawn.
+			Height:           330,
+			DisableResize:    true,
+			InitialPosition:  application.WindowCentered,
+			BackgroundColour: application.NewRGB(9, 9, 11),
+			URL:              "/#steam-setup",
+		})
+	}
+
 	wailsApp.Event.OnApplicationEvent(events.Common.ApplicationStarted, func(*application.ApplicationEvent) {
+		if setupWindow != nil {
+			go showFramelessWindow(setupWindow)
+			return
+		}
+		go showFramelessWindow(window)
+	})
+
+	// The small window says when it is done; the manager itself opens then.
+	wailsApp.Event.On(steamSetupDoneEvent, func(*application.CustomEvent) {
+		if setupWindow != nil {
+			application.InvokeSync(setupWindow.Close)
+			setupWindow = nil
+		}
 		go showFramelessWindow(window)
 	})
 
@@ -143,6 +177,10 @@ func main() {
 		log.Fatal(err)
 	}
 }
+
+// steamSetupDoneEvent is emitted by the first-run window when the user has
+// added Hermit to Steam or decided not to.
+const steamSetupDoneEvent = "steam-setup:done"
 
 // deckLayout reports whether to start with the Steam Deck sized window.
 func deckLayout(mode settings.UIMode) bool {

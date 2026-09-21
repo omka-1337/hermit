@@ -8,6 +8,7 @@ import * as InfoService from "./infoservice.js";
 import * as InstallService from "./installservice.js";
 import * as LaunchService from "./launchservice.js";
 import * as ShareService from "./shareservice.js";
+import * as SteamService from "./steamservice.js";
 export {
     BrowseService,
     ConfigService,
@@ -15,7 +16,8 @@ export {
     InfoService,
     InstallService,
     LaunchService,
-    ShareService
+    ShareService,
+    SteamService
 };
 
 export type {
@@ -23,5 +25,6 @@ export type {
     ConfigContent,
     GitHubRepo,
     LaunchInfo,
+    SteamSetup,
     Update
 } from "./models.js";

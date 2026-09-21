@@ -18,7 +18,8 @@ const cliUsage = `usage:
   hermit run     [--game <id>] -- <command...>   start a game with its active profile
   hermit prepare [--game <id>] [--appid <n>] [--pid <n>] -- <command...>
                                                  link the profile, print shell code to apply
-  hermit cleanup --game <id>                     end the session: write the report, remove links`
+  hermit cleanup --game <id>                     end the session: write the report, remove links
+  hermit --setup                                 open the first-run window again`
 
 // runCLI handles a command line invocation and reports whether it did.
 func runCLI(args []string) (code int, handled bool) {

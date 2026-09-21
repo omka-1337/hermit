@@ -57,3 +57,13 @@ func Command(name string, args ...string) *exec.Cmd {
 	cmd.Env = OriginalEnv()
 	return cmd
 }
+
+// ExecutablePath is the path a user would run Hermit by. Inside an AppImage
+// the running binary lives in a temporary mount, so the image itself is the
+// answer: that is what goes into a Steam shortcut or launch options.
+func ExecutablePath() (string, error) {
+	if image := os.Getenv("APPIMAGE"); image != "" {
+		return image, nil
+	}
+	return os.Executable()
+}

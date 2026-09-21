@@ -4,6 +4,7 @@ import { packageLabel } from "../format";
 import CreateProfileModal from "./CreateProfileModal";
 import EditableName from "./EditableName";
 import GameIcon from "./GameIcon";
+import GameSettings from "./GameSettings";
 import { LaunchSetup, PlayButton } from "./launch";
 import { ImportModal } from "./share";
 import { BackendBadge, Button, ErrorText, RuntimeBadge } from "./ui";
@@ -87,9 +88,10 @@ export default function GameView({ game, onChanged, onRemoved, onOpenProfile }: 
           </div>
         </div>
         <div className="flex items-start gap-2">
-          <Button variant="danger" onClick={removeGame}>
-            Remove game
-          </Button>
+          {/* The gear matches the Play button's height. */}
+          <div className="flex self-stretch">
+            <GameSettings game={game} onRemove={removeGame} />
+          </div>
           <PlayButton game={game} profileId={game.activeProfile} onPlayed={refreshGame} />
         </div>
       </header>

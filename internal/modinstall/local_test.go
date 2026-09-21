@@ -1,10 +1,12 @@
 package modinstall
 
 import (
+	"archive/zip"
 	"context"
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	"hermit/internal/github"
@@ -239,5 +241,41 @@ func TestCleanTargetDir(t *testing.T) {
 		if got, err := CleanTargetDir(bad); err == nil {
 			t.Errorf("CleanTargetDir(%q) = %q, want an error", bad, got)
 		}
+	}
+}
+
+// Archives made on Windows may list folders as "plugins\Translations\", with
+// backslashes and no folder flag. They must be skipped, not rejected.
+func TestPlanFilesWindowsFolderEntries(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "capes.zip")
+	f, err := os.Create(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	zw := zip.NewWriter(f)
+	for _, name := range []string{`plugins\Translations\`, `plugins\Translations\English\English.json`, `plugins\DragoonCapes.dll`} {
+		w, err := zw.CreateRaw(&zip.FileHeader{Name: name, Method: zip.Store})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.HasSuffix(name, `\`) {
+			w.Write([]byte("x"))
+		}
+	}
+	zw.Close()
+	f.Close()
+
+	got, err := PlanFiles(path, "HappyDragoon-DragoonCapes", DefaultRules())
+	if err != nil {
+		t.Fatalf("PlanFiles: %v", err)
+	}
+	slices.Sort(got)
+	want := []string{
+		"BepInEx/plugins/HappyDragoon-DragoonCapes/DragoonCapes.dll",
+		"BepInEx/plugins/HappyDragoon-DragoonCapes/Translations/English/English.json",
+	}
+	if !slices.Equal(got, want) {
+		t.Errorf("planned %q, want %q", got, want)
 	}
 }

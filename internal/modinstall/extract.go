@@ -42,7 +42,7 @@ func planEntries(zr *zip.Reader, modID string, rules Rules) ([]entry, error) {
 	files := map[string]*zip.File{}
 	var names []string
 	for _, f := range zr.File {
-		if f.FileInfo().IsDir() {
+		if isDirEntry(f) {
 			continue
 		}
 		name, err := cleanEntryName(f.Name)
@@ -285,6 +285,13 @@ func Extract(zipPath, profileDir, modID string, rules Rules, overwriteConfigs bo
 	}
 	slices.Sort(installed)
 	return installed, nil
+}
+
+// isDirEntry reports whether an archive entry is a folder. Archives zipped on
+// Windows can name folders with backslashes ("plugins\Translations\") and
+// leave out the folder flag, so the trailing separator is what tells.
+func isDirEntry(f *zip.File) bool {
+	return f.FileInfo().IsDir() || strings.HasSuffix(f.Name, "/") || strings.HasSuffix(f.Name, `\`)
 }
 
 func cleanEntryName(name string) (string, error) {

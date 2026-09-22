@@ -8,6 +8,7 @@ export { UIMode, BrowseView } from "../bindings/hermit/internal/settings";
 export type { Settings } from "../bindings/hermit/internal/settings";
 export {
   BrowseService,
+  CacheService,
   ConfigService,
   FolderService,
   IconService,

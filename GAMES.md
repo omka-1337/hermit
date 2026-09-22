@@ -4,23 +4,30 @@ Any game on Thunderstore that uses BepInEx should work with Hermit: mods are ins
 game through symlinks, so nothing is written into the game folder. The list below is not what is supported, it is what
 has actually been tried.
 
-| Game | Runtime | Status | What was done |
+## Unity 5/6
+
+| Game | Linux | Windows | What was done |
 | --- | --- | --- | --- |
-| Lethal Company | Linux (Proton) | Works | Mods installed and launched |
-| PEAK | Linux (Proton) | Works | Mods installed and launched |
-| Easy Delivery Co. | Linux (Proton) | Works | Mods installed and launched |
-| Content Warning | Linux (Proton) | Works | Mods installed and launched |
-| R.E.P.O. | Linux (Proton) | Works | Mods installed and launched |
-| Valheim | Linux (**Native**/Proton) | Works | Mods installed and launched |
-| MiSide | Linux (Proton) | Works | Mods installed and launched |
+| Lethal Company | 🟢 | ⚫ | Mods installed and launched |
+| Risk of rain 2 | 🟢 | ⚫ | Mods installed and launched |
+| PEAK | 🟢 | ⚫ | Mods installed and launched |
+| Easy Delivery Co. | 🟢 | ⚫ | Mods installed and launched |
+| Content Warning | 🟢 | ⚫ | Mods installed and launched |
+| R.E.P.O. | 🟢 | ⚫ | Mods installed and launched |
+| Valheim | 🟢 | ⚫ | Mods installed and launched |
+| MiSide | 🟢 | ⚫ | Mods installed and launched |
 | Native Linux builds | native | Untested | Loading BepInEx through `run_bepinex.sh` is implemented but never run against a real game |
 | Other IL2CPP games (BepInEx 6) | either | Partly checked | Works on MiSide; other IL2CPP games have not been tried |
 
+## Unreal Engine 4/5
+
+Coming soon
+
 Status means:
 
-- **Works** — mods were installed and the game started with them loaded.
-- **Partly checked** — some of it was exercised, the column on the right says how far.
-- **Untested** — the code path exists, nobody has run it.
+- 🟢 — mods were installed and the game started with them loaded.
+- 🟡 — some of it was exercised, the column on the right says how far.
+- ⚫ — the code path exists, nobody has run it.
 
 ## Old modpacks
 

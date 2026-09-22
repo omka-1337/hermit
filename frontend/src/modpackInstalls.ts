@@ -91,3 +91,17 @@ export function onModpackSettled(listener: (settled: Settled) => void): () => vo
   settledListeners.add(listener);
   return () => void settledListeners.delete(listener);
 }
+
+// useAnyModpackInstalling reports whether some modpack is being installed:
+// clearing the cache then could take archives out from under it.
+export function useAnyModpackInstalling(): boolean {
+  const running = () => [...installs.values()].some((i) => i.status === "running");
+  const [busy, setBusy] = useState(running);
+  useEffect(() => {
+    const update = () => setBusy(running());
+    listeners.add(update);
+    update();
+    return () => void listeners.delete(update);
+  }, []);
+  return busy;
+}

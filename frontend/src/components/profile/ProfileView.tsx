@@ -10,6 +10,7 @@ import { useLayout } from "../../uimode";
 import BrowseTab from "./BrowseTab";
 import ConfigTab from "./ConfigTab";
 import InstalledTab from "./InstalledTab";
+import LoaderNotice from "./LoaderNotice";
 import { ProfileProvider } from "./ProfileContext";
 
 type Tab = "installed" | "browse" | "config";
@@ -104,7 +105,7 @@ export default function ProfileView({ game, profileId, onBack, onGameChanged, on
 
       {exporting && profile && <ExportModal game={game} profile={profile} onClose={() => setExporting(false)} />}
 
-      <div className="min-h-0 flex-1">
+      <div className="flex min-h-0 flex-1 flex-col">
         {error && (
           <div className="p-6">
             <ErrorText>{error}</ErrorText>
@@ -112,11 +113,14 @@ export default function ProfileView({ game, profileId, onBack, onGameChanged, on
         )}
         {profile && (
           <ProfileProvider game={game} profile={profile} onProfileChange={setProfile} onOpenProfile={onOpenProfile}>
-            {tab === "installed" && <InstalledTab onBrowse={() => setTab("browse")} />}
-            {tab === "config" && <ConfigTab />}
-            {/* Browse stays mounted so search and scroll survive tab switches. */}
-            <div className={tab === "browse" ? "h-full" : "hidden"}>
-              <BrowseTab />
+            {tab !== "config" && <LoaderNotice />}
+            <div className="min-h-0 flex-1">
+              {tab === "installed" && <InstalledTab onBrowse={() => setTab("browse")} />}
+              {tab === "config" && <ConfigTab />}
+              {/* Browse stays mounted so search and scroll survive tab switches. */}
+              <div className={tab === "browse" ? "h-full" : "hidden"}>
+                <BrowseTab />
+              </div>
             </div>
           </ProfileProvider>
         )}

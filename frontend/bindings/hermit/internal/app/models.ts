@@ -22,6 +22,23 @@ export interface AppInfo {
     "repository": string;
 }
 
+/**
+ * BepInExBuild is the release file a game needs.
+ */
+export interface BepInExBuild {
+    "tag": string;
+    "version": string;
+    "asset": string;
+    "size": number;
+
+    /**
+     * Prerelease is true for BepInEx 6: IL2CPP support has no stable release
+     * yet, so IL2CPP games get a pre-release build.
+     */
+    "prerelease": boolean;
+    "url": string;
+}
+
 export interface ConfigContent {
     "path": string;
     "text": string;
@@ -82,6 +99,21 @@ export interface LaunchInfo {
      * RunningProfile is the profile of the running session, if any.
      */
     "runningProfile": string;
+}
+
+/**
+ * LoaderStatus describes the mod loader of a profile, if it has one.
+ */
+export interface LoaderStatus {
+    "installed": boolean;
+    "modId"?: string;
+    "name"?: string;
+    "version"?: string;
+
+    /**
+     * Enabled is the user's choice; a disabled loader leaves the game vanilla.
+     */
+    "enabled": boolean;
 }
 
 /**

@@ -102,7 +102,7 @@ func main() {
 			application.NewService(b.lib),
 			application.NewService(settingsStore),
 			application.NewService(app.NewBrowseService(b.lib, b.ts, settingsStore)),
-			application.NewService(app.NewInstallService(b.installer, b.github)),
+			application.NewService(app.NewInstallService(b.lib, b.installer, b.github)),
 			application.NewService(app.NewLaunchService(b.lib, b.steamRoots)),
 			application.NewService(app.NewIconService(b.steamRoots)),
 			application.NewService(app.NewSteamService(b.steamRoots, b.root)),

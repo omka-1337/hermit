@@ -15,12 +15,13 @@ import (
 const InstallProgressEvent = "install:progress"
 
 type InstallService struct {
+	lib       *library.Library
 	installer *modinstall.Installer
 	github    *github.Client
 }
 
-func NewInstallService(installer *modinstall.Installer, gh *github.Client) *InstallService {
-	return &InstallService{installer: installer, github: gh}
+func NewInstallService(lib *library.Library, installer *modinstall.Installer, gh *github.Client) *InstallService {
+	return &InstallService{lib: lib, installer: installer, github: gh}
 }
 
 func emitProgress(p modinstall.Progress) {

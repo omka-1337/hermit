@@ -26,9 +26,11 @@ export {
 
 export type {
     AppInfo,
+    BepInExBuild,
     ConfigContent,
     GitHubRepo,
     LaunchInfo,
+    LoaderStatus,
     SteamSetup,
     Update
 } from "./models.js";

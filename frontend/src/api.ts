@@ -42,7 +42,7 @@ export type {
   PackageList,
   PackageSummary,
 } from "../bindings/hermit/internal/thunderstore";
-export type { AppInfo, SteamSetup, Update } from "../bindings/hermit/internal/app";
+export type { AppInfo, BepInExBuild, LoaderStatus, SteamSetup, Update } from "../bindings/hermit/internal/app";
 
 // isCancelled reports whether err comes from cancelling a CancellablePromise.
 export function isCancelled(err: unknown): boolean {

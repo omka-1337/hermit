@@ -1,5 +1,22 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Install BepInEx from its GitHub releases. A profile without a loader says so and offers the build the game needs —
+  BepInEx 5 for Mono, 6 for IL2CPP, Windows or Linux files — for games that have no Thunderstore page or are modded
+  from elsewhere, where nothing pulls the pack in as a dependency.
+- Settings show the size of the download cache and can clear it.
+- Profiles are cards: a click opens the profile, a right click (or the ⋯ button, for touch and the controller) opens
+  a menu with Set active, Rename, Duplicate and Remove, and the active one is marked by a strip along its left edge.
+- Duplicate a profile: the same mods and configs in a profile of its own.
+
+### Fixed
+
+- Updating mods shows what is happening: the mod being updated has its download percentage, the ones already through
+  are ticked off one by one instead of all at the end, and the rest say they are waiting rather than just going grey.
+
 ## 0.2.0 — 2026-09-18
 
 ### Added

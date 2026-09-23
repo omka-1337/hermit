@@ -73,8 +73,11 @@ launch wrapper runs the game through the shell.
 
 ### Games
 
-Any game on Thunderstore that uses BepInEx should work. Which ones have actually been tried, and how far, is kept in
-[GAMES.md](GAMES.md) — reports of games that work or do not are welcome there.
+Hermit works wherever BepInEx works, and BepInEx keeps its own
+[platform compatibility chart](https://github.com/BepInEx/BepInEx#platform-compatibility-chart). Games on
+Thunderstore get their pack with the first mod that depends on it; for the rest Hermit installs BepInEx from its
+GitHub releases, picking the build the game's backend needs.
+[GAMES.md](GAMES.md) says what has been used in practice and what to do about a modpack that no longer starts.
 
 ## Requirements (Arch Linux)
 

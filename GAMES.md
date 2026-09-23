@@ -1,33 +1,36 @@
-# Game compatibility
+# Compatibility
 
-Any game on Thunderstore that uses BepInEx should work with Hermit: mods are installed into the profile and reach the
-game through symlinks, so nothing is written into the game folder. The list below is not what is supported, it is what
-has actually been tried.
+Hermit works wherever BepInEx works. It does not load anything into a game itself: it installs the BepInEx pack and
+the mods into a profile and links that profile into the game for the length of a session. Whether a given game can be
+modded at all is BepInEx's question, and BepInEx answers it in its own
+[platform compatibility chart](https://github.com/BepInEx/BepInEx#platform-compatibility-chart) — Unity Mono, Unity
+IL2CPP and .NET Framework games, per platform.
 
-## Unity 5/6
+BepInEx itself is a package like any other. Games with a Thunderstore community have their own pack there, and every
+mod on Thunderstore lists it as a dependency, so installing the first mod brings it into the profile along the way.
+Not every game has such a page, and mods from Nexus Mods or an archive on disk carry no dependencies at all — there
+Hermit installs BepInEx from its own [GitHub releases](https://github.com/BepInEx/BepInEx/releases). A profile
+without a loader says so and offers to install the build the game needs; until one is there Hermit links nothing
+into the game and it starts vanilla.
 
-| Game | Linux | Windows | What was done |
-| --- | --- | --- | --- |
-| Lethal Company | 🟢 | ⚫ | Mods installed and launched |
-| Risk of rain 2 | 🟢 | ⚫ | Mods installed and launched |
-| PEAK | 🟢 | ⚫ | Mods installed and launched |
-| Easy Delivery Co. | 🟢 | ⚫ | Mods installed and launched |
-| Content Warning | 🟢 | ⚫ | Mods installed and launched |
-| R.E.P.O. | 🟢 | ⚫ | Mods installed and launched |
-| Valheim | 🟢 | ⚫ | Mods installed and launched |
-| MiSide | 🟢 | ⚫ | Mods installed and launched |
-| Native Linux builds | native | Untested | Loading BepInEx through `run_bepinex.sh` is implemented but never run against a real game |
-| Other IL2CPP games (BepInEx 6) | either | Partly checked | Works on MiSide; other IL2CPP games have not been tried |
+What Hermit does around it:
 
-## Unreal Engine 4/5
+- it reads the scripting backend from the game's files, which is what picks the build: Mono games get BepInEx 5,
+  IL2CPP games BepInEx 6, and how the game runs picks Windows or Linux files;
+- for games that run through Proton it sets the `winhttp` override for the session instead of writing it into the
+  prefix;
+- for native Linux builds it starts the game through the pack's own `run_bepinex.sh`. That path is implemented but
+  has not been run against a real game yet — everything tried so far ran through Proton.
 
-Coming soon
+Used in practice on Lethal Company, PEAK, Content Warning (Unity 6000.0.67), R.E.P.O. (Unity 2022.3.67), Easy
+Delivery Co. and MiSide (Unity 2021.3.35, IL2CPP): installing mods, enabling and disabling them, modpacks, and
+launching through Steam or, outside Steam, through PortProton.
 
-Status means:
+## Other engines
 
-- 🟢 — mods were installed and the game started with them loaded.
-- 🟡 — some of it was exercised, the column on the right says how far.
-- ⚫ — the code path exists, nobody has run it.
+Games that do not use BepInEx — Cyberpunk 2077, The Witcher 3, Unreal Engine titles, Bethesda's games — each have
+their own mod layout, their own loaders and their own rules about load order. They are not supported, and when they
+are, they will need their own pages: nothing about them can be said in one line the way it can for BepInEx.
 
 ## Old modpacks
 
@@ -43,13 +46,14 @@ Both were seen in practice: a Content Warning modpack from 2024 hung after the g
 modpack from May 2025 logged over a thousand errors.
 
 Hermit warns before installing a modpack whose last update is more than half a year old. If one does not start,
-**Update all** in its profile is the first thing to try: it moves every mod to its latest version. After each launch the
-profile shows how many mods BepInEx loaded, which it never got to, where loading stopped and how many errors the log
-has — enough to tell an outdated modpack from a broken setup.
+**Update all** in its profile is the first thing to try: it moves every mod to its latest version. After each launch
+the profile shows how many mods BepInEx loaded, which it never got to, where loading stopped and how many errors the
+log has — enough to tell an outdated modpack from a broken setup.
 
-## Adding to this list
+## Reporting a game
 
-Reports of games that work are as useful as reports of games that do not. Open a
-[game report](https://github.com/omka-1337/hermit/issues/new?template=game_report.yml) with the game, how it
-runs (Proton or a native build), what you installed and what happened. Anything BepInEx wrote after a failed session
-helps too — Hermit shows it in the profile after the game exits.
+A game BepInEx supports but Hermit does not handle is a bug worth hearing about — an unusual layout, a pack Hermit
+installs wrongly, or something in the launch path. Open a
+[game report](https://github.com/omka-1337/hermit/issues/new?template=game_report.yml) with the game, how it runs
+(Proton or a native build), what you installed and what happened. Anything BepInEx wrote after a failed session helps
+too — Hermit shows it in the profile after the game exits.

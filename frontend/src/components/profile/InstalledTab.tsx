@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { confirmDanger, errorMessage, Mod } from "../../api";
+import { progressText } from "../../format";
 import { Button, ErrorText, Spinner, Toggle } from "../ui";
 import AddModModal from "./AddModModal";
 import LaunchReport, { issueText } from "./LaunchReport";
@@ -11,6 +12,7 @@ export default function InstalledTab({ onBrowse }: { onBrowse: () => void }) {
     profile,
     installed,
     busy,
+    progress,
     report,
     uninstall,
     setEnabled,
@@ -20,12 +22,15 @@ export default function InstalledTab({ onBrowse }: { onBrowse: () => void }) {
     checkUpdates,
     updating,
     updated,
+    queued,
     update,
     updateAll,
   } = useProfile();
   const [error, setError] = useState("");
   const [adding, setAdding] = useState(false);
   const mods = profile.mods ?? [];
+  // done counts the mods of the current "Update all" that are already through.
+  const done = [...queued].filter((id) => updated.has(id)).length;
 
   const act = async (action: () => Promise<void>) => {
     setError("");
@@ -69,7 +74,15 @@ export default function InstalledTab({ onBrowse }: { onBrowse: () => void }) {
       {addModal}
       <ErrorText>{error}</ErrorText>
       <div className="mb-3 flex items-center justify-between gap-3 text-sm">
-        {checkingUpdates ? (
+        {busy === "update-all" ? (
+          <span className="flex min-w-0 items-center gap-2 text-zinc-300">
+            <Spinner />
+            <span className="truncate">
+              Updating {Math.min(done + 1, queued.size)} of {queued.size}
+              {progress && ` · ${progressText(progress)}`}
+            </span>
+          </span>
+        ) : checkingUpdates ? (
           <span className="flex items-center gap-2 text-zinc-300">
             <Spinner /> Checking for updates…
           </span>
@@ -154,14 +167,19 @@ export default function InstalledTab({ onBrowse }: { onBrowse: () => void }) {
               </span>
               {updating === m.id ? (
                 <span className="flex shrink-0 items-center gap-2 text-xs text-zinc-300">
-                  <Spinner /> Updating…
+                  <Spinner />
+                  {progress ? progressText(progress) : "Updating…"}
                 </span>
-              ) : updates.has(m.id) ? (
-                <Button disabled={busy !== null} onClick={() => act(() => update(m.id))}>
-                  Update
-                </Button>
+              ) : updated.has(m.id) ? (
+                <span className="shrink-0 text-xs text-emerald-400">✓ Updated</span>
+              ) : queued.has(m.id) ? (
+                <span className="shrink-0 text-xs text-zinc-500">Waiting…</span>
               ) : (
-                updated.has(m.id) && <span className="shrink-0 text-xs text-emerald-400">✓ Updated</span>
+                updates.has(m.id) && (
+                  <Button disabled={busy !== null} onClick={() => act(() => update(m.id))}>
+                    Update
+                  </Button>
+                )
               )}
               <Button variant="danger" disabled={busy !== null} onClick={() => remove(m)}>
                 {busy === m.id ? "Working…" : "Uninstall"}

@@ -17,6 +17,16 @@ export function AddGame(name: string, path: string): $CancellablePromise<$models
     return $Call.ByID(878809748, name, path);
 }
 
+/**
+ * CopyProfile duplicates a profile under a new name: the same mods, the same
+ * configs, its own folder. What it is not is the modpack link — a copy is a
+ * profile assembled by hand from that moment on, free to be changed without
+ * the copy and the original drifting apart silently.
+ */
+export function CopyProfile(gameID: string, profileID: string, name: string): $CancellablePromise<$models.Profile> {
+    return $Call.ByID(2983507407, gameID, profileID, name);
+}
+
 export function CreateProfile(gameID: string, name: string): $CancellablePromise<$models.Profile> {
     return $Call.ByID(2983081572, gameID, name);
 }

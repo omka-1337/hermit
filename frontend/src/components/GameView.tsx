@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { confirmDanger, errorMessage, Game, Library, Profile } from "../api";
-import { packageLabel } from "../format";
 import CreateProfileModal from "./CreateProfileModal";
 import EditableName from "./EditableName";
 import GameIcon from "./GameIcon";
 import GameSettings from "./GameSettings";
 import { onModpackSettled } from "../modpackInstalls";
+import ProfileList from "./ProfileList";
 import { LaunchSetup, PlayButton } from "./launch";
 import { ImportModal } from "./share";
 import { BackendBadge, Button, ErrorText, RuntimeBadge } from "./ui";
@@ -70,18 +70,6 @@ export default function GameView({ game, onChanged, onRemoved, onOpenProfile }: 
     });
 
 
-  const removeProfile = (p: Profile) =>
-    run(async () => {
-      const ok = await confirmDanger(
-        "Remove profile",
-        `Remove profile "${p.name}" with all its installed mods and configs?`,
-        "Remove",
-      );
-      if (!ok) return;
-      await Library.RemoveProfile(game.id, p.id);
-      await Promise.all([loadProfiles(), refreshGame()]);
-    });
-
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-6 p-8">
       <header className="flex items-start justify-between gap-4">
@@ -116,55 +104,15 @@ export default function GameView({ game, onChanged, onRemoved, onOpenProfile }: 
 
       <section className="flex flex-col gap-3">
         <h2 className="text-sm font-semibold tracking-wide text-zinc-400 uppercase">Profiles</h2>
-        <ul className="divide-y divide-zinc-800 rounded-lg border border-zinc-800">
-          {loadingProfiles && profiles.length === 0 && (
-            <li className="flex items-center px-4 py-2.5">
-              <span className="h-8 flex-1 animate-pulse rounded bg-zinc-800/60" />
-            </li>
-          )}
-          {profiles.map((p) => {
-            const active = p.id === game.activeProfile;
-            const modCount = p.mods?.length ?? 0;
-            return (
-              <li key={p.id} className="flex items-center gap-3 px-4 py-2.5">
-                <div className="flex min-w-0 flex-1 flex-col">
-                  <EditableName
-                    value={p.name}
-                    onSave={(name) =>
-                      run(async () => {
-                        await Library.RenameProfile(game.id, p.id, name);
-                        await loadProfiles();
-                      })
-                    }
-                  />
-                  {p.modpack && (
-                    <span className="truncate text-xs text-indigo-400">Modpack {packageLabel(p.modpack)}</span>
-                  )}
-                </div>
-                <span className="text-xs text-zinc-500">
-                  {modCount} {modCount === 1 ? "mod" : "mods"}
-                </span>
-                <Button variant="secondary" data-focus-first={active || undefined} onClick={() => onOpenProfile(p.id)}>
-                  Open
-                </Button>
-                {active ? (
-                  <span className="w-24 text-center text-xs font-medium text-indigo-400">Active</span>
-                ) : (
-                  <Button
-                    variant="ghost"
-                    className="w-24"
-                    onClick={() => run(async () => onChanged(await Library.SetActiveProfile(game.id, p.id)))}
-                  >
-                    Set active
-                  </Button>
-                )}
-                <Button variant="danger" disabled={profiles.length <= 1} onClick={() => removeProfile(p)}>
-                  Remove
-                </Button>
-              </li>
-            );
-          })}
-        </ul>
+        <ProfileList
+          game={game}
+          profiles={profiles}
+          loading={loadingProfiles}
+          onOpenProfile={onOpenProfile}
+          onGameChanged={onChanged}
+          reload={loadProfiles}
+          onError={setError}
+        />
         <div className="flex gap-2">
           <Button variant="primary" onClick={() => setCreating(true)}>
             Create a new profile

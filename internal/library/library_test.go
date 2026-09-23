@@ -324,3 +324,49 @@ func TestSetLaunchExecutableStaysInsideTheGame(t *testing.T) {
 		}
 	}
 }
+
+func TestCopyProfile(t *testing.T) {
+	lib := newTestLibrary(t)
+	g, _ := lib.AddGame("Game", fakeGame(t))
+	source, err := lib.UpdateProfile(g.ID, g.ActiveProfile, func(p *Profile) error {
+		p.Mods = []Mod{{ID: "A-Mod", Name: "Mod", Author: "A", Version: "1.0.0", Enabled: true, Active: true}}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir, err := lib.ProfileDir(g.ID, source.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "BepInEx", "config", "Mod.cfg"), []byte("Volume = 3"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	copied, err := lib.CopyProfile(g.ID, source.ID, "Experiment")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if copied.ID == source.ID || copied.Name != "Experiment" {
+		t.Fatalf("copy has id %q name %q", copied.ID, copied.Name)
+	}
+	if len(copied.Mods) != 1 || copied.Mods[0].ID != "A-Mod" {
+		t.Fatalf("mods not copied: %+v", copied.Mods)
+	}
+	copyDir, err := lib.ProfileDir(g.ID, copied.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := os.ReadFile(filepath.Join(copyDir, "BepInEx", "config", "Mod.cfg"))
+	if err != nil || string(cfg) != "Volume = 3" {
+		t.Fatalf("config not copied: %q %v", cfg, err)
+	}
+
+	// The original keeps its own files: changing the copy leaves it alone.
+	if _, err := lib.RenameProfile(g.ID, copied.ID, "Renamed"); err != nil {
+		t.Fatal(err)
+	}
+	if again, _ := lib.GetProfile(g.ID, source.ID); again.Name != source.Name {
+		t.Fatalf("source renamed to %q", again.Name)
+	}
+}

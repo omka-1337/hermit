@@ -351,6 +351,40 @@ func (l *Library) RenameProfile(gameID, profileID, name string) (Profile, error)
 	return p, l.saveProfile(gameID, p)
 }
 
+// CopyProfile duplicates a profile under a new name: the same mods, the same
+// configs, its own folder. What it is not is the modpack link — a copy is a
+// profile assembled by hand from that moment on, free to be changed without
+// the copy and the original drifting apart silently.
+func (l *Library) CopyProfile(gameID, profileID, name string) (Profile, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	if name == "" {
+		return Profile{}, ErrEmptyName
+	}
+	source, err := l.loadProfile(gameID, profileID)
+	if err != nil {
+		return Profile{}, err
+	}
+	ids, err := listDirs(l.profilesDir(gameID))
+	if err != nil {
+		return Profile{}, err
+	}
+	p := source
+	p.ID = uniqueID(slugify(name, "profile"), ids)
+	p.Name = name
+	dir := l.profileDir(gameID, p.ID)
+	if err := os.CopyFS(dir, os.DirFS(l.profileDir(gameID, profileID))); err != nil {
+		_ = os.RemoveAll(dir)
+		return Profile{}, err
+	}
+	if err := l.saveProfile(gameID, p); err != nil {
+		_ = os.RemoveAll(dir)
+		return Profile{}, err
+	}
+	return p, nil
+}
+
 // RemoveProfile deletes a profile with all its mods. The last profile of a game
 // cannot be removed; if the active profile is removed, another one becomes active.
 func (l *Library) RemoveProfile(gameID, profileID string) error {

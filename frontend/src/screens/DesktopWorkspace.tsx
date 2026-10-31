@@ -36,8 +36,8 @@ type Props = {
 
 // DesktopWorkspace is the mouse-and-keyboard layout. The sidebar picks the
 // game, then its profile, which is the active one, then a page of that
-// profile, top to bottom; the page fills the middle of the window, and the
-// panel on the right starts the game.
+// profile, top to bottom; the page fills the rest of the window, with Play
+// in its bottom right corner.
 export default function DesktopWorkspace({ games, selectedId, onSelect, onGamesChanged }: Props) {
   const [settings, setSettings] = useState(false);
   const [adding, setAdding] = useState(false);
@@ -251,6 +251,9 @@ export default function DesktopWorkspace({ games, selectedId, onSelect, onGamesC
                 addRequest={addRequest}
               />
             </div>
+            <footer className="flex shrink-0 justify-end border-t border-zinc-800 px-6 py-2.5">
+              <PlayBar game={game} profileId={profile.id} onGameChanged={() => onGamesChanged(game.id)} />
+            </footer>
           </>
         ) : (
           !game && (
@@ -265,12 +268,6 @@ export default function DesktopWorkspace({ games, selectedId, onSelect, onGamesC
           )
         )}
       </main>
-
-      {game && profile && !settings && (
-        <aside className="flex w-72 shrink-0 flex-col gap-4 border-l border-zinc-800 bg-zinc-900 p-3">
-          <PlayBar game={game} profileId={profile.id} onGameChanged={() => onGamesChanged(game.id)} stretch />
-        </aside>
-      )}
 
       {duplicate && (
         <DuplicateModModal

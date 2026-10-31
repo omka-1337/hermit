@@ -23,6 +23,7 @@ import ProfileSwitcher from "../components/sidebar/ProfileSwitcher";
 import { TabIcon } from "../components/sidebar/icons";
 import { Button, ErrorText, Modal } from "../components/ui";
 import { formatBytes } from "../format";
+import { requestRefresh, useRefresh } from "../refresh";
 import SettingsView from "./SettingsView";
 import { GearIcon } from "./shell";
 
@@ -116,6 +117,19 @@ export default function DesktopWorkspace({ games, selectedId, onSelect, onGamesC
     window.addEventListener(installFromFileEvent, install);
     return () => window.removeEventListener(installFromFileEvent, install);
   }, [game]);
+
+  // F5 reads everything on screen again, as in MO2; the web view would
+  // otherwise reload the whole interface.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "F5") return;
+      e.preventDefault();
+      requestRefresh();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+  useRefresh(() => loadProfiles().catch((err) => setError(errorMessage(err))));
 
   // carryOn installs a prepared archive: through its FOMOD installer's
   // window, or right away.

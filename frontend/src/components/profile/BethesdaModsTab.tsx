@@ -5,6 +5,7 @@ import ContextMenu, { MenuAnchor, MenuItem } from "../ContextMenu";
 import EditableName from "../EditableName";
 import ImportMO2Modal from "../ImportMO2Modal";
 import { Button, ErrorText, inputClass, Spinner, Toggle } from "../ui";
+import { useRefresh } from "../../refresh";
 import { useProfile } from "./ProfileContext";
 import { useDragReorder } from "./useDragReorder";
 
@@ -45,6 +46,9 @@ export default function BethesdaModsTab() {
     .map((m) => m.id)
     .sort()
     .join("\n");
+  // Files changed in the mods' folders by hand show on a refresh.
+  const [rescans, setRescans] = useState(0);
+  useRefresh(() => setRescans((n) => n + 1));
   useEffect(() => {
     let current = true;
     BethesdaService.Conflicts(game.id, profile.id)
@@ -53,7 +57,7 @@ export default function BethesdaModsTab() {
     return () => {
       current = false;
     };
-  }, [game.id, profile.id, modSet]);
+  }, [game.id, profile.id, modSet, rescans]);
 
   // relation is how a mod stands to the selected one: "replaced" when the
   // selected mod wins over some of its files, "replaces" when it wins over

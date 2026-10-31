@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Events } from "@wailsio/runtime";
-import { Engine, errorMessage, FolderService, Game, InstallService, Profile } from "../../api";
+import { BethesdaService, Engine, errorMessage, FolderService, Game, InstallService, Profile } from "../../api";
+import { useRefresh } from "../../refresh";
 import { packageLabel } from "../../format";
 import { PlayButton } from "../launch";
 import { ExportModal } from "../share";
@@ -81,6 +82,16 @@ export default function ProfileView({
   };
   const [error, setError] = useState("");
   const [exporting, setExporting] = useState(false);
+
+  // A refresh reads the profile again; a Creation Engine profile's list also
+  // takes in mod folders put in by hand and lets go of those removed.
+  useRefresh(() => {
+    const read =
+      game.engine === Engine.EngineCreation
+        ? BethesdaService.Rescan(game.id, profileId)
+        : InstallService.OpenProfile(game.id, profileId);
+    read.then(setProfile).catch((err) => setError(errorMessage(err)));
+  });
 
   // A mod installed from a FOMOD installer's window, or anywhere else.
   useEffect(

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { BethesdaService, errorMessage, Tool } from "../../api";
 import { useLaunchInfo } from "../launch";
 import { Button, ErrorText, Spinner } from "../ui";
+import { useRefresh } from "../../refresh";
 import { useProfile } from "./ProfileContext";
 
 // ToolsTab lists the tools the profile's mods bring, Pandora or BodySlide,
@@ -19,11 +20,13 @@ export default function ToolsTab() {
     .filter((m) => m.enabled)
     .map((m) => m.id)
     .join("\n");
+  const [rescans, setRescans] = useState(0);
+  useRefresh(() => setRescans((n) => n + 1));
   useEffect(() => {
     BethesdaService.Tools(game.id)
       .then((list) => setTools(list ?? []))
       .catch((err) => setError(errorMessage(err)));
-  }, [game.id, enabled]);
+  }, [game.id, enabled, rescans]);
 
   const run = async (tool: Tool) => {
     setError("");

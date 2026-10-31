@@ -179,6 +179,15 @@ export function RenameSeparator(gameID: string, profileID: string, id: string, n
 }
 
 /**
+ * Rescan brings a profile's list of mods in line with its mods folder, as
+ * MO2 does on a refresh: folders put there by hand become mods at the end of
+ * the list, switched off, and mods whose folder is gone leave the list.
+ */
+export function Rescan(gameID: string, profileID: string): $CancellablePromise<library$0.Profile> {
+    return $Call.ByID(1216169989, gameID, profileID);
+}
+
+/**
  * RunTool runs a tool of the profile in the game's Proton prefix, the way
  * Steam runs the game, with the profile deployed for as long as it runs;
  * what the tool writes into Data is kept in the profile's overwrite folder.

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { BethesdaService, errorMessage, LogFile } from "../../api";
 import { formatAgo, formatBytes } from "../../format";
 import { Button, ErrorText } from "../ui";
+import { useRefresh } from "../../refresh";
 import { useProfile } from "./ProfileContext";
 
 // Lines that read as trouble stand out from the rest of a log.
@@ -52,6 +53,7 @@ export default function LogsTab() {
     await load();
     await read();
   };
+  useRefresh(refresh);
 
   return (
     <div className="flex h-full">

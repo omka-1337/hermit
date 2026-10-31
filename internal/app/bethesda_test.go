@@ -2,6 +2,7 @@ package app
 
 import (
 	"archive/zip"
+	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
@@ -370,5 +371,42 @@ func TestInstallOverAModOfTheSameName(t *testing.T) {
 	}
 	if p.Mods[0].ID != "lux" || p.Mods[0].Enabled || p.Mods[0].Version != "1.0" {
 		t.Errorf("replaced mod %+v", p.Mods[0])
+	}
+}
+
+func TestRescan(t *testing.T) {
+	tmp := t.TempDir()
+	lib, err := library.New(filepath.Join(tmp, "lib"), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gamePath := filepath.Join(tmp, "Skyrim Special Edition")
+	writeFiles(t, gamePath, map[string]string{"SkyrimSE.exe": "", "Data/Skyrim.esm": ""})
+	game, err := lib.AddGame("Skyrim", gamePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	profileDir, _ := lib.ProfileDir(game.ID, game.ActiveProfile)
+	writeFiles(t, filepath.Join(profileDir, "mods"), map[string]string{"kept/a.esp": "", "by-hand/b.esp": "", ".hidden/c.esp": ""})
+	if _, err := lib.UpdateProfile(game.ID, game.ActiveProfile, func(p *library.Profile) error {
+		p.Mods = []library.Mod{
+			{ID: "base-separator", Name: "BASE", Separator: true},
+			{ID: "kept", Name: "Kept", Enabled: true},
+			{ID: "gone", Name: "Gone", Enabled: true},
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	p, err := NewBethesdaService(lib, nil).Rescan(game.ID, game.ActiveProfile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []string
+	for _, m := range p.Mods {
+		got = append(got, fmt.Sprintf("%s:%v", m.ID, m.Enabled))
+	}
+	if want := []string{"base-separator:false", "kept:true", "by-hand:false"}; !slices.Equal(got, want) {
+		t.Errorf("mods %v, want %v", got, want)
 	}
 }

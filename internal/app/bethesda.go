@@ -246,6 +246,46 @@ func (s *BethesdaService) MoveMods(gameID, profileID string, ids []string, befor
 	})
 }
 
+// Rescan brings a profile's list of mods in line with its mods folder, as
+// MO2 does on a refresh: folders put there by hand become mods at the end of
+// the list, switched off, and mods whose folder is gone leave the list.
+func (s *BethesdaService) Rescan(gameID, profileID string) (library.Profile, error) {
+	profileDir, err := s.lib.ProfileDir(gameID, profileID)
+	if err != nil {
+		return library.Profile{}, err
+	}
+	entries, err := os.ReadDir(filepath.Join(profileDir, bethesda.ModsDir))
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return library.Profile{}, err
+	}
+	var folders []string
+	for _, e := range entries {
+		if e.IsDir() && !strings.HasPrefix(e.Name(), ".") {
+			folders = append(folders, e.Name())
+		}
+	}
+	return s.lib.UpdateProfile(gameID, profileID, func(p *library.Profile) error {
+		p.Mods = slices.DeleteFunc(p.Mods, func(m library.Mod) bool {
+			return !m.Separator && !slices.Contains(folders, m.ID)
+		})
+		for _, folder := range folders {
+			if slices.ContainsFunc(p.Mods, func(m library.Mod) bool { return m.ID == folder }) {
+				continue
+			}
+			p.Mods = append(p.Mods, library.Mod{
+				ID:                folder,
+				Name:              folder,
+				Source:            library.ModSource{Type: library.SourceLocal},
+				UnmetDependencies: []string{},
+				Dependencies:      []string{},
+				Files:             []string{},
+				Plugins:           []plugininfo.Plugin{},
+			})
+		}
+		return nil
+	})
+}
+
 // RemoveMod deletes a mod and its folder from the profile, or a separator
 // from its list.
 func (s *BethesdaService) RemoveMod(gameID, profileID, modID string) (library.Profile, error) {

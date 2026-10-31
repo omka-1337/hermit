@@ -26,8 +26,9 @@ import (
 type BethesdaService struct {
 	lib        *library.Library
 	steamRoots []string
-	// OpenWindow opens a window of the app at url; main sets it.
-	OpenWindow func(url, title string)
+	// OpenWindow opens a window of the app at url, calling onClosed when it
+	// closes; main sets it.
+	OpenWindow func(url, title string, onClosed func())
 	// OnUnpack, when set, follows unpacking an archive as well, for the
 	// command line, where there are no events.
 	OnUnpack func(UnpackProgress)

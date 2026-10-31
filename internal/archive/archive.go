@@ -43,6 +43,46 @@ func Supported(name string) bool {
 	return false
 }
 
+// List returns the names of the files in an archive, slash-separated,
+// without unpacking it.
+func List(file string) ([]string, error) {
+	var names []string
+	switch strings.ToLower(filepath.Ext(file)) {
+	case ".zip":
+		r, err := zip.OpenReader(file)
+		if err != nil {
+			return nil, err
+		}
+		defer r.Close()
+		for _, f := range r.File {
+			names = append(names, f.Name)
+		}
+	case ".7z":
+		r, err := sevenzip.OpenReader(file)
+		if err != nil {
+			return nil, err
+		}
+		defer r.Close()
+		for _, f := range r.File {
+			names = append(names, f.Name)
+		}
+	case ".rar":
+		files, err := rardecode.List(file)
+		if err != nil {
+			return nil, err
+		}
+		for _, f := range files {
+			names = append(names, f.Name)
+		}
+	default:
+		return nil, fmt.Errorf("%s: %w", filepath.Base(file), ErrUnsupported)
+	}
+	for i, name := range names {
+		names[i] = strings.ReplaceAll(name, `\`, "/")
+	}
+	return names, nil
+}
+
 // Extract unpacks the archive at file into dir, which it creates. progress,
 // when not nil, is told how many bytes of how many are out so far.
 func Extract(file, dir string, progress func(done, total int64)) error {

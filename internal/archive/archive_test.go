@@ -59,3 +59,17 @@ func TestExtractRefusesEscapes(t *testing.T) {
 		t.Error("unpacked a file outside the folder")
 	}
 }
+
+func TestList(t *testing.T) {
+	names, err := List("testdata/mod.7z")
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, n := range names {
+		found = found || n == "Wrap/fomod/ModuleConfig.xml"
+	}
+	if !found {
+		t.Errorf("names %v", names)
+	}
+}

@@ -169,7 +169,7 @@ func main() {
 	})
 
 	// A FOMOD installer gets a window of its own beside the manager's.
-	bethesda.OpenWindow = func(url, title string) {
+	bethesda.OpenWindow = func(url, title string, onClosed func()) {
 		w := wailsApp.Window.NewWithOptions(application.WebviewWindowOptions{
 			Title:            title,
 			Frameless:        true,
@@ -182,6 +182,7 @@ func main() {
 			BackgroundColour: application.NewRGB(9, 9, 11),
 			URL:              url,
 		})
+		w.OnWindowEvent(events.Common.WindowClosing, func(*application.WindowEvent) { onClosed() })
 		go showFramelessWindow(w)
 	}
 

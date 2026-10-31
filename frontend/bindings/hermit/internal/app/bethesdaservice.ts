@@ -41,6 +41,15 @@ export function CancelInstall(session: string): $CancellablePromise<void> {
 }
 
 /**
+ * CheckFomods tells which archives come with a FOMOD installer, before any
+ * of them is unpacked: a queue of installs counts the installers ahead. An
+ * archive that cannot be read counts as having none; unpacking it says why.
+ */
+export function CheckFomods(files: string[] | null): $CancellablePromise<boolean[] | null> {
+    return $Call.ByID(4013778293, files);
+}
+
+/**
  * ChooseTarget says what installing a prepared archive does to the mod with
  * its name: TargetReplace, TargetMerge, or TargetRename with name the name
  * to install it under, which no mod of the profile may have.
@@ -127,10 +136,12 @@ export function MoveMods(gameID: string, profileID: string, ids: string[] | null
 }
 
 /**
- * OpenFomod shows the installer of a prepared archive in a window of its own.
+ * OpenFomod shows the installer of a prepared archive in a window of its own;
+ * position and total, when total is above one, say which of the installers
+ * of a queue of installs it is. Closing the window cancels the install.
  */
-export function OpenFomod(session: string): $CancellablePromise<void> {
-    return $Call.ByID(2025339566, session);
+export function OpenFomod(session: string, position: number, total: number): $CancellablePromise<void> {
+    return $Call.ByID(2025339566, session, position, total);
 }
 
 /**

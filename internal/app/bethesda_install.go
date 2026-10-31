@@ -24,6 +24,9 @@ const (
 	// ModInstalledEvent says a mod was installed into a profile, so that the
 	// main window shows it whichever window installed it.
 	ModInstalledEvent = "bethesda:installed"
+	// InstallClosedEvent says an install was cancelled, so that the queue of
+	// installs goes on to the next.
+	InstallClosedEvent = "bethesda:install-closed"
 )
 
 // UnpackProgress is the payload of UnpackProgressEvent.
@@ -174,8 +177,21 @@ func modNamed(p library.Profile, name string) (library.Mod, bool) {
 	return p.Mods[i], true
 }
 
-// OpenFomod shows the installer of a prepared archive in a window of its own.
-func (s *BethesdaService) OpenFomod(session string) error {
+// CheckFomods tells which archives come with a FOMOD installer, before any
+// of them is unpacked: a queue of installs counts the installers ahead. An
+// archive that cannot be read counts as having none; unpacking it says why.
+func (s *BethesdaService) CheckFomods(files []string) []bool {
+	has := make([]bool, len(files))
+	for i, f := range files {
+		has[i], _ = bethesda.HasFomod(f)
+	}
+	return has
+}
+
+// OpenFomod shows the installer of a prepared archive in a window of its own;
+// position and total, when total is above one, say which of the installers
+// of a queue of installs it is. Closing the window cancels the install.
+func (s *BethesdaService) OpenFomod(session string, position, total int) error {
 	is, err := s.session(session)
 	if err != nil {
 		return err
@@ -186,7 +202,13 @@ func (s *BethesdaService) OpenFomod(session string) error {
 	if s.OpenWindow == nil {
 		return errors.New("no window can be opened from here")
 	}
-	s.OpenWindow("/#fomod/"+session, "Install "+is.staged.Name)
+	url := fmt.Sprintf("/#fomod/%s/%d/%d", session, position, total)
+	s.OpenWindow(url, "Install "+is.staged.Name, func() {
+		// Closed without installing or cancelling, by the window manager.
+		if _, err := s.session(session); err == nil {
+			s.CancelInstall(session)
+		}
+	})
 	return nil
 }
 
@@ -346,13 +368,20 @@ func (s *BethesdaService) FinishInstall(session string, choices fomod.Choices) (
 	if err != nil {
 		return library.Profile{}, err
 	}
-	s.CancelInstall(session)
-	emit(ModInstalledEvent, map[string]string{"gameId": is.gameID, "profileId": is.profileID})
+	s.drop(session)
+	emit(ModInstalledEvent, map[string]string{"gameId": is.gameID, "profileId": is.profileID, "session": session})
 	return p, nil
 }
 
 // CancelInstall throws away what PrepareInstall unpacked.
 func (s *BethesdaService) CancelInstall(session string) error {
+	err := s.drop(session)
+	emit(InstallClosedEvent, map[string]string{"session": session})
+	return err
+}
+
+// drop forgets an install and removes what it unpacked.
+func (s *BethesdaService) drop(session string) error {
 	s.mu.Lock()
 	is := s.sessions[session]
 	delete(s.sessions, session)

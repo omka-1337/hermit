@@ -94,6 +94,22 @@ func (s *Staged) Install(modDir string, files []fomod.File) error {
 	return nil
 }
 
+// HasFomod reports whether an archive comes with a FOMOD installer, where
+// Stage looks for one, without unpacking it.
+func HasFomod(file string) (bool, error) {
+	names, err := archive.List(file)
+	if err != nil {
+		return false, err
+	}
+	for _, name := range names {
+		parts := strings.Split(strings.Trim(strings.ToLower(name), "/"), "/")
+		if n := len(parts); n >= 2 && n <= 3 && parts[n-1] == "moduleconfig.xml" && parts[n-2] == "fomod" {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 // fomodRoot finds the folder holding an archive's fomod folder, at its top
 // or in the one folder it is wrapped in.
 func fomodRoot(dir string) string {

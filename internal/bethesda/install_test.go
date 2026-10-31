@@ -80,6 +80,12 @@ func TestStageFomodAndNames(t *testing.T) {
 		"Fancy/fomod/info.xml":         `<fomod><Name>Fancy</Name><Author>Someone</Author><Version>1.2.0</Version></fomod>`,
 		"Fancy/core/Fancy.esp":         "",
 	})
+	if has, err := HasFomod(file); err != nil || !has {
+		t.Errorf("HasFomod: %v %v", has, err)
+	}
+	if has, _ := HasFomod(makeZip(t, "plain.zip", map[string]string{"a/b/c/fomod/ModuleConfig.xml": ""})); has {
+		t.Error("an installer deeper than Stage looks counted")
+	}
 	staged, err := Stage(file, t.TempDir(), nil)
 	if err != nil {
 		t.Fatal(err)

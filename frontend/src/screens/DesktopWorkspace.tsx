@@ -137,7 +137,7 @@ export default function DesktopWorkspace({ games, selectedId, onSelect, onGamesC
   // window, or right away.
   const carryOn = async (prepared: PreparedMod) => {
     if (prepared.fomod) {
-      await BethesdaService.OpenFomod(prepared.session);
+      await BethesdaService.OpenFomod(prepared.session, 1, 1);
       return;
     }
     setInstalling(prepared.name);

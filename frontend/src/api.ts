@@ -9,6 +9,7 @@ export type { Settings } from "../bindings/hermit/internal/settings";
 export {
   BethesdaService,
   BrowseService,
+  DownloadService,
   CacheService,
   ConfigService,
   FolderService,
@@ -21,7 +22,7 @@ export {
 } from "../bindings/hermit/internal/app";
 export type { ImportProgress, ImportResult, Preview } from "../bindings/hermit/internal/profileshare";
 export type { MO2Instance } from "../bindings/hermit/internal/bethesda";
-export type { PreparedMod, Tool } from "../bindings/hermit/internal/app";
+export type { Download, NexusAccount, NXMHandler, PreparedMod, Tool } from "../bindings/hermit/internal/app";
 // UnpackProgress travels only in events, so it has no binding of its own.
 export type UnpackProgress = { file: string; done: number; total: number };
 export type { View as FomodView } from "../bindings/hermit/internal/fomod";

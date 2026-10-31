@@ -3,6 +3,7 @@ import { AppInfo, errorMessage, InfoService, Settings, SettingsStore, UIMode, Up
 import { Browser } from "@wailsio/runtime";
 import AddToSteam from "../components/AddToSteam";
 import CacheSettings from "../components/CacheSettings";
+import NexusSettings from "../components/NexusSettings";
 import { Button, ErrorText, Spinner } from "../components/ui";
 import { useUIMode } from "../uimode";
 
@@ -70,6 +71,9 @@ export default function SettingsView() {
           <span className="text-xs text-zinc-500">Now using the {layout === "deck" ? "Steam Deck" : "desktop"} layout.</span>
         </div>
       </section>
+
+      {/* Downloads from Nexus Mods are for the Bethesda games of the desktop layout. */}
+      {layout === "desktop" && <NexusSettings />}
       {settings && (
         <section className="flex flex-col gap-3">
           <h2 className="text-sm font-semibold tracking-wide text-zinc-400 uppercase">Mod browser</h2>

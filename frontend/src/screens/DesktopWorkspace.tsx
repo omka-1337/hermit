@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { Dialogs, Events } from "@wailsio/runtime";
-import { confirmDanger, Engine, errorMessage, Game, Library, Profile } from "../api";
+import { confirmDanger, Download, DownloadService, Engine, errorMessage, Game, Library, Profile } from "../api";
+import { useDownloads, useNexusSetup } from "../downloads";
+import { formatBytes } from "../format";
 import { QueueStatus, useInstallQueue } from "../installQueue";
 import { installFromFileEvent } from "../components/TitleMenus";
 import GamePicker from "../components/GamePicker";
@@ -12,6 +14,7 @@ import ProfileSwitcher from "../components/sidebar/ProfileSwitcher";
 import { TabIcon } from "../components/sidebar/icons";
 import { Button, ErrorText, Modal } from "../components/ui";
 import { requestRefresh, useRefresh } from "../refresh";
+import DownloadsView from "./DownloadsView";
 import SettingsView from "./SettingsView";
 import { GearIcon } from "./shell";
 
@@ -25,16 +28,22 @@ type Props = {
 // DesktopWorkspace is the mouse-and-keyboard layout. The sidebar picks the
 // game, then its profile, which is the active one, then a page of that
 // profile, top to bottom; the page fills the rest of the window, Play in its
-// top right corner. A status bar along the bottom counts the profile's mods
-// and follows a mod being installed.
+// top right corner. Downloads and Settings are pages of their own, at the
+// bottom of the sidebar. A status bar along the bottom counts the profile's
+// mods and follows downloads and installs.
 export default function DesktopWorkspace({ games, selectedId, onSelect, onGamesChanged }: Props) {
-  const [settings, setSettings] = useState(false);
+  // page is what fills the window beside the sidebar: the profile's page
+  // picked in the sidebar, or Settings or Downloads.
+  const [page, setPage] = useState<"profile" | "settings" | "downloads">("profile");
+  const elsewhere = page !== "profile";
   const [adding, setAdding] = useState(false);
   const [tab, setTab] = useState<Tab>("installed");
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [error, setError] = useState("");
   const [addRequest, setAddRequest] = useState(0);
   const queue = useInstallQueue(setError);
+  const downloads = useDownloads();
+  const nexus = useNexusSetup();
   const game = games.find((g) => g.id === selectedId) ?? null;
   const profile = profiles.find((p) => p.id === game?.activeProfile) ?? null;
   const tabs = game ? profileTabs(game, profile, true) : [];
@@ -76,7 +85,7 @@ export default function DesktopWorkspace({ games, selectedId, onSelect, onGamesC
   useEffect(() => {
     const install = async () => {
       if (!game) return;
-      setSettings(false);
+      setPage("profile");
       if (game.engine !== Engine.EngineCreation) {
         setTab("installed");
         setAddRequest((n) => n + 1);
@@ -119,6 +128,39 @@ export default function DesktopWorkspace({ games, selectedId, onSelect, onGamesC
     [gameId, loadProfiles],
   );
 
+  const active = downloads.filter((d) => d.status === "queued" || d.status === "downloading");
+
+  // Coming back from Settings, downloads may be set up.
+  useEffect(() => {
+    if (page !== "settings") nexus.reload();
+  }, [page]);
+
+  // A finished download goes into the queue of installs of the profile it is
+  // for, which comes up; so do downloads that finished before this window was
+  // there to see them.
+  const queueAdd = queue.add;
+  useEffect(() => {
+    const take = async () => {
+      for (const d of (await DownloadService.TakeFinished()) ?? []) {
+        onSelect(d.gameId);
+        setPage("profile");
+        setTab("installed");
+        queueAdd(d.gameId, d.profileId, [d.path]).catch((err) => setError(errorMessage(err)));
+      }
+    };
+    take().catch(console.error);
+    const offFinished = Events.On("downloads:finished", () => take().catch(console.error));
+    // Why a link from Nexus Mods was not downloaded.
+    const offError = Events.On("downloads:error", (ev) => setError(String(ev.data)));
+    DownloadService.TakeErrors()
+      .then((errs) => errs?.length && setError(errs.join("\n")))
+      .catch(console.error);
+    return () => {
+      offFinished();
+      offError();
+    };
+  }, []);
+
   const removeGame = async () => {
     if (!game) return;
     const ok = await confirmDanger(
@@ -146,7 +188,7 @@ export default function DesktopWorkspace({ games, selectedId, onSelect, onGamesC
             games={games}
             selected={game}
             onSelect={(id) => {
-              setSettings(false);
+              setPage("profile");
               onSelect(id);
             }}
             onAdd={() => setAdding(true)}
@@ -168,11 +210,11 @@ export default function DesktopWorkspace({ games, selectedId, onSelect, onGamesC
                 <button
                   key={t.id}
                   onClick={() => {
-                    setSettings(false);
+                    setPage("profile");
                     setTab(t.id);
                   }}
                   className={`flex items-center gap-2.5 rounded-md px-3 py-2 text-left text-sm ${
-                    !settings && tab === t.id ? "bg-zinc-800 font-medium text-zinc-100" : "text-zinc-400 hover:bg-zinc-800/60 hover:text-zinc-200"
+                    !elsewhere && tab === t.id ? "bg-zinc-800 font-medium text-zinc-100" : "text-zinc-400 hover:bg-zinc-800/60 hover:text-zinc-200"
                   }`}
                 >
                   <TabIcon tab={t.id} />
@@ -183,9 +225,21 @@ export default function DesktopWorkspace({ games, selectedId, onSelect, onGamesC
           )}
           <div className="flex-1" />
           <button
-            onClick={() => setSettings(true)}
+            onClick={() => setPage("downloads")}
             className={`flex items-center gap-2 rounded-md px-3 py-2 text-left text-sm ${
-              settings ? "bg-zinc-800 text-zinc-100" : "text-zinc-400 hover:bg-zinc-800/60 hover:text-zinc-200"
+              page === "downloads" ? "bg-zinc-800 text-zinc-100" : "text-zinc-400 hover:bg-zinc-800/60 hover:text-zinc-200"
+            }`}
+          >
+            <DownloadIcon />
+            <span className="flex-1">Downloads</span>
+            {active.length > 0 && (
+              <span className="rounded-full bg-indigo-500 px-1.5 text-xs font-medium text-white tabular-nums">{active.length}</span>
+            )}
+          </button>
+          <button
+            onClick={() => setPage("settings")}
+            className={`-mt-3 flex items-center gap-2 rounded-md px-3 py-2 text-left text-sm ${
+              page === "settings" ? "bg-zinc-800 text-zinc-100" : "text-zinc-400 hover:bg-zinc-800/60 hover:text-zinc-200"
             }`}
           >
             <GearIcon />
@@ -199,9 +253,13 @@ export default function DesktopWorkspace({ games, selectedId, onSelect, onGamesC
               <ErrorText>{error}</ErrorText>
             </div>
           )}
-          {settings ? (
+          {page === "settings" ? (
             <div className="min-h-0 flex-1 overflow-auto">
               <SettingsView />
+            </div>
+          ) : page === "downloads" ? (
+            <div className="min-h-0 flex-1 overflow-auto">
+              <DownloadsView onSetUp={() => setPage("settings")} />
             </div>
           ) : game && profile ? (
             <>
@@ -236,7 +294,33 @@ export default function DesktopWorkspace({ games, selectedId, onSelect, onGamesC
           )}
         </main>
       </div>
-      <StatusBar profile={game && !settings ? profile : null} queue={queue.status} />
+      {game?.engine === Engine.EngineCreation && !elsewhere && nexus.account && nexus.handler && !nexus.ready && (
+        <div className="flex shrink-0 items-center gap-3 border-t border-amber-500/30 bg-amber-500/5 px-3 py-1.5 text-xs text-amber-300">
+          <span className="flex-1">
+            Nexus Mods downloads are not set up:{" "}
+            {!nexus.account.hasKey
+              ? "Hermit is not logged in to Nexus Mods."
+              : "the Mod Manager Download buttons do not open in Hermit."}
+          </span>
+          {nexus.account.hasKey ? (
+            <button
+              className="font-medium hover:underline"
+              onClick={() =>
+                DownloadService.RegisterNXM()
+                  .then(nexus.reload)
+                  .catch((err) => setError(errorMessage(err)))
+              }
+            >
+              Open them in Hermit
+            </button>
+          ) : (
+            <button className="font-medium hover:underline" onClick={() => setPage("settings")}>
+              Log in
+            </button>
+          )}
+        </div>
+      )}
+      <StatusBar profile={game && !elsewhere ? profile : null} queue={queue.status} downloads={active} />
 
       {queue.dialog}
 
@@ -245,7 +329,7 @@ export default function DesktopWorkspace({ games, selectedId, onSelect, onGamesC
           <GamePicker
             onAdded={async (g) => {
               setAdding(false);
-              setSettings(false);
+              setPage("profile");
               onSelect(g.id);
               await onGamesChanged(g.id);
             }}
@@ -262,9 +346,11 @@ export default function DesktopWorkspace({ games, selectedId, onSelect, onGamesC
 }
 
 // StatusBar runs along the bottom of the window: how many mods the profile
-// has and how many of them are on, and how far a queue of installs got, as
-// installed of queued.
-function StatusBar({ profile, queue }: { profile: Profile | null; queue: QueueStatus | null }) {
+// has and how many of them are on, the download under way from Nexus Mods,
+// and how far a queue of installs got, as installed of queued.
+function StatusBar({ profile, queue, downloads }: { profile: Profile | null; queue: QueueStatus | null; downloads: Download[] }) {
+  const current = downloads.find((d) => d.status === "downloading");
+  const waiting = downloads.filter((d) => d.status === "queued").length;
   const mods = profile?.mods?.filter((m) => !m.separator) ?? [];
   const on = mods.filter((m) => m.enabled).length;
   // One archive shows how far it is unpacked; a queue, how many are through.
@@ -283,6 +369,26 @@ function StatusBar({ profile, queue }: { profile: Profile | null; queue: QueueSt
         </span>
       )}
       <span className="flex-1" />
+      {(current || waiting > 0) && (
+        <span className="flex min-w-0 items-center gap-2">
+          <span className="truncate">
+            {current
+              ? `Downloading ${current.name}${current.size ? ` · ${Math.round((current.done / current.size) * 100)}%` : ""}${
+                  current.speed ? ` · ${formatBytes(current.speed)}/s` : ""
+                }`
+              : "Waiting to download"}
+            {waiting > 0 && ` · ${waiting} more`}
+          </span>
+          {current && (
+            <span className="h-1.5 w-28 shrink-0 overflow-hidden rounded-full bg-zinc-800">
+              <span
+                className="block h-full bg-sky-500 transition-[width]"
+                style={{ width: `${current.size ? Math.round((current.done / current.size) * 100) : 0}%` }}
+              />
+            </span>
+          )}
+        </span>
+      )}
       {queue && (
         <span className="flex min-w-0 items-center gap-2">
           <span className="truncate">
@@ -298,5 +404,15 @@ function StatusBar({ profile, queue }: { profile: Profile | null; queue: QueueSt
         </span>
       )}
     </footer>
+  );
+}
+
+function DownloadIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-5 w-5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M12 3v12" />
+      <path d="m7 10 5 5 5-5" />
+      <path d="M5 21h14" />
+    </svg>
   );
 }

@@ -23,7 +23,7 @@ export type { ImportProgress, ImportResult, Preview } from "../bindings/hermit/i
 export type { MO2Instance } from "../bindings/hermit/internal/bethesda";
 export type { ConfigContent } from "../bindings/hermit/internal/app";
 export type { Change, Entry, FileInfo as ConfigFileInfo } from "../bindings/hermit/internal/configs";
-export type { LaunchInfo } from "../bindings/hermit/internal/app";
+export type { LaunchInfo, LogFile } from "../bindings/hermit/internal/app";
 export { ConflictReason, Stage } from "../bindings/hermit/internal/modinstall";
 export type {
   Conflict,

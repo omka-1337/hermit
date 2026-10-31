@@ -207,3 +207,21 @@ func TestConflicts(t *testing.T) {
 		}
 	}
 }
+
+func TestExtenderLogs(t *testing.T) {
+	library := t.TempDir()
+	game := filepath.Join(library, "steamapps", "common", "Skyrim Special Edition")
+	write(t, library, map[string]string{"steamapps/common/Skyrim Special Edition/": "", "steamapps/compatdata/489830/": ""})
+	compatData := SteamCompatData(game, "489830")
+	if compatData != filepath.Join(library, "steamapps", "compatdata", "489830") {
+		t.Fatalf("compatdata %q", compatData)
+	}
+	if SteamCompatData(game, "1") != "" || SteamCompatData(game, "") != "" {
+		t.Error("found compatdata for another game")
+	}
+	g, _ := Find("SkyrimSE.exe")
+	want := filepath.Join(compatData, "pfx/drive_c/users/steamuser/Documents/My Games/Skyrim Special Edition/SKSE")
+	if got := ExtenderLogs(compatData, g); got != want {
+		t.Errorf("logs in %s, want %s", got, want)
+	}
+}

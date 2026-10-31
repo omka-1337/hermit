@@ -33,6 +33,7 @@ export type {
     GitHubRepo,
     LaunchInfo,
     LoaderStatus,
+    LogFile,
     SteamSetup,
     Update
 } from "./models.js";

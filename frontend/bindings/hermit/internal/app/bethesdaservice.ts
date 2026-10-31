@@ -18,6 +18,10 @@ import * as bethesda$0 from "../bethesda/models.js";
 // @ts-ignore: Unused imports
 import * as library$0 from "../library/models.js";
 
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import * as $models from "./models.js";
+
 /**
  * AddSeparator puts a new separator, a heading over the mods after it, at
  * index in the profile's order.
@@ -60,12 +64,35 @@ export function InspectMO2(dir: string): $CancellablePromise<bethesda$0.MO2Insta
 }
 
 /**
+ * Logs lists the logs in the script extender's folder, SKSE for Skyrim,
+ * newest first. A game not started yet has none.
+ */
+export function Logs(gameID: string): $CancellablePromise<$models.LogFile[] | null> {
+    return $Call.ByID(3712306426, gameID);
+}
+
+/**
  * MoveMods moves mods, in the order they have among themselves, to just
  * before the mod before, or to the end when before is empty; later mods win
  * over earlier ones. Dragging a folded separator moves the mods under it too.
  */
 export function MoveMods(gameID: string, profileID: string, ids: string[] | null, before: string): $CancellablePromise<library$0.Profile> {
     return $Call.ByID(2927161509, gameID, profileID, ids, before);
+}
+
+/**
+ * OpenLogs shows the script extender's log folder in the file manager.
+ */
+export function OpenLogs(gameID: string): $CancellablePromise<void> {
+    return $Call.ByID(1977735806, gameID);
+}
+
+/**
+ * ReadLog returns a log from the script extender's folder, or its last
+ * maxLog bytes when it is longer.
+ */
+export function ReadLog(gameID: string, name: string): $CancellablePromise<string> {
+    return $Call.ByID(1501932333, gameID, name);
 }
 
 /**

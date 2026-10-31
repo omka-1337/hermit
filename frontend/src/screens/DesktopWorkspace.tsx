@@ -28,7 +28,7 @@ export default function DesktopWorkspace({ games, selectedId, onSelect, onGamesC
   const [error, setError] = useState("");
   const game = games.find((g) => g.id === selectedId) ?? null;
   const profile = profiles.find((p) => p.id === game?.activeProfile) ?? null;
-  const tabs = game ? profileTabs(game, profile) : [];
+  const tabs = game ? profileTabs(game, profile, true) : [];
 
   const gameId = game?.id;
   const loadProfiles = useCallback(async () => {

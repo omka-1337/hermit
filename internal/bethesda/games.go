@@ -26,6 +26,11 @@ type Game struct {
 	MO2Name string
 	// Nexus is the game's part of nexusmods.com, as in its addresses.
 	Nexus string
+	// MyGames is the game's folder in Documents\My Games, where its INI files,
+	// saves and logs are; Extender is the script extender's folder in it, the
+	// one its plugins write their logs to.
+	MyGames  string
+	Extender string
 }
 
 var Games = []Game{
@@ -33,31 +38,37 @@ var Games = []Game{
 		Exe: "SkyrimSE.exe", Master: "Skyrim.esm", AppData: "Skyrim Special Edition",
 		Loader: "skse64_loader.exe", Launchers: []string{"SkyrimSELauncher.exe", "SkyrimSE.exe"},
 		MO2Name: "Skyrim Special Edition", Nexus: "skyrimspecialedition",
+		MyGames: "Skyrim Special Edition", Extender: "SKSE",
 	},
 	{
 		Exe: "SkyrimVR.exe", Master: "Skyrim.esm", AppData: "Skyrim VR",
 		Loader: "sksevr_loader.exe", Launchers: []string{"SkyrimVR.exe"},
 		MO2Name: "Skyrim VR", Nexus: "skyrimspecialedition",
+		MyGames: "Skyrim VR", Extender: "SKSE",
 	},
 	{
 		Exe: "TESV.exe", Master: "Skyrim.esm", AppData: "Skyrim",
 		Loader: "skse_loader.exe", Launchers: []string{"SkyrimLauncher.exe", "TESV.exe"},
 		MO2Name: "Skyrim", Nexus: "skyrim",
+		MyGames: "Skyrim", Extender: "SKSE",
 	},
 	{
 		Exe: "Fallout4.exe", Master: "Fallout4.esm", AppData: "Fallout4",
 		Loader: "f4se_loader.exe", Launchers: []string{"Fallout4Launcher.exe", "Fallout4.exe"},
 		MO2Name: "Fallout 4", Nexus: "fallout4",
+		MyGames: "Fallout4", Extender: "F4SE",
 	},
 	{
 		Exe: "Fallout4VR.exe", Master: "Fallout4.esm", AppData: "Fallout4VR",
 		Loader: "f4sevr_loader.exe", Launchers: []string{"Fallout4VR.exe"},
 		MO2Name: "Fallout 4 VR", Nexus: "fallout4",
+		MyGames: "Fallout4VR", Extender: "F4SE",
 	},
 	{
 		Exe: "Starfield.exe", Master: "Starfield.esm", EngineVersion: "2", AppData: "Starfield",
 		Loader: "sfse_loader.exe", Launchers: []string{"Starfield.exe"},
 		MO2Name: "Starfield", Nexus: "starfield",
+		MyGames: "Starfield", Extender: "SFSE",
 	},
 }
 

@@ -63,7 +63,7 @@ func WritePlugins(file string, list []Plugin) error {
 // PrefixPluginsPath is where a game running in the Wine prefix of a Proton
 // compatibility data folder (compatdata/<appid>) reads plugins.txt from.
 func PrefixPluginsPath(compatData string, g Game) string {
-	dir := filepath.Join(compatData, "pfx", "drive_c", "users", "steamuser", "AppData", "Local", g.AppData)
+	dir := filepath.Join(prefixUser(compatData), "AppData", "Local", g.AppData)
 	if name, err := findFold(dir, PluginsFile); err == nil && name != "" {
 		return filepath.Join(dir, name)
 	}

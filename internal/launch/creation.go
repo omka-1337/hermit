@@ -95,15 +95,10 @@ func compatDataDir(game library.Game, command, env []string) string {
 			return dir
 		}
 	}
-	if _, ok := portProtonExe(command); ok || game.SteamAppID == "" {
+	if _, ok := portProtonExe(command); ok {
 		return ""
 	}
-	// <library>/steamapps/common/<game> → <library>/steamapps/compatdata/<appid>
-	dir := filepath.Join(filepath.Dir(filepath.Dir(game.Path)), "compatdata", game.SteamAppID)
-	if fi, err := os.Stat(dir); err == nil && fi.IsDir() {
-		return dir
-	}
-	return ""
+	return bethesda.SteamCompatData(game.Path, game.SteamAppID)
 }
 
 // withLoader replaces the game's launcher in command with its script

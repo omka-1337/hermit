@@ -13,17 +13,22 @@ import BrowseTab from "./BrowseTab";
 import ConfigTab from "./ConfigTab";
 import InstalledTab from "./InstalledTab";
 import LoaderNotice from "./LoaderNotice";
+import LogsTab from "./LogsTab";
 import { ProfileProvider } from "./ProfileContext";
 
-export type Tab = "installed" | "browse" | "config";
+export type Tab = "installed" | "browse" | "config" | "logs";
 
 // profileTabs are the pages of a profile. A Creation Engine game has neither
-// Thunderstore nor BepInEx: its profile is the list of its mods.
-export function profileTabs(game: Game, profile: Profile | null): { id: Tab; label: string }[] {
+// Thunderstore nor BepInEx: its profile is the list of its mods, and in the
+// desktop layout, logs, the logs its script extender's plugins wrote.
+export function profileTabs(game: Game, profile: Profile | null, desktop = false): { id: Tab; label: string }[] {
   // Separators head groups of mods and are not mods themselves.
   const modCount = profile?.mods?.filter((m) => !m.separator).length ?? 0;
   return game.engine === Engine.EngineCreation
-    ? [{ id: "installed", label: `Mods${modCount ? ` (${modCount})` : ""}` }]
+    ? [
+        { id: "installed", label: `Mods${modCount ? ` (${modCount})` : ""}` },
+        ...(desktop ? [{ id: "logs" as const, label: "Logs" }] : []),
+      ]
     : [
         { id: "installed", label: `Installed${modCount ? ` (${modCount})` : ""}` },
         { id: "browse", label: "Browse" },
@@ -65,7 +70,7 @@ export default function ProfileView({ game, profileId, onBack, onGameChanged, on
   }, [game.id, profileId]);
 
   const creation = game.engine === Engine.EngineCreation;
-  const tabs = profileTabs(game, profile);
+  const tabs = profileTabs(game, profile, embedded);
 
   const step = (by: number) =>
     setTab((current) => {
@@ -146,9 +151,7 @@ export default function ProfileView({ game, profileId, onBack, onGameChanged, on
         {profile && (
           <ProfileProvider game={game} profile={profile} onProfileChange={setProfile} onOpenProfile={onOpenProfile}>
             {creation ? (
-              <div className="min-h-0 flex-1">
-                <BethesdaModsTab />
-              </div>
+              <div className="min-h-0 flex-1">{tab === "logs" ? <LogsTab /> : <BethesdaModsTab />}</div>
             ) : (
               <>
                 {tab !== "config" && <LoaderNotice />}

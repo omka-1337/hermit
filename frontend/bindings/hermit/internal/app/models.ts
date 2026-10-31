@@ -117,6 +117,15 @@ export interface LoaderStatus {
 }
 
 /**
+ * LogFile is a log the script extender or one of its plugins wrote.
+ */
+export interface LogFile {
+    "name": string;
+    "size": number;
+    "modified": string;
+}
+
+/**
  * SteamSetup is what the interface needs to know to offer the shortcut.
  */
 export interface SteamSetup {

@@ -3,15 +3,19 @@ package app
 import (
 	"errors"
 	"fmt"
+	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
 	"slices"
 	"strings"
+	"time"
 
 	"hermit/internal/bethesda"
 	"hermit/internal/launch"
 	"hermit/internal/library"
+	"hermit/internal/platform"
 	"hermit/internal/plugininfo"
 )
 
@@ -250,6 +254,107 @@ func (s *BethesdaService) RemoveMod(gameID, profileID, modID string) (library.Pr
 		p.Mods = slices.Delete(p.Mods, i, i+1)
 		return nil
 	})
+}
+
+// LogFile is a log the script extender or one of its plugins wrote.
+type LogFile struct {
+	Name     string    `json:"name"`
+	Size     int64     `json:"size"`
+	Modified time.Time `json:"modified"`
+}
+
+// maxLog is how much of a log ReadLog returns: the end of a longer one, where
+// the last session is.
+const maxLog = 2 << 20
+
+// Logs lists the logs in the script extender's folder, SKSE for Skyrim,
+// newest first. A game not started yet has none.
+func (s *BethesdaService) Logs(gameID string) ([]LogFile, error) {
+	dir, err := s.logDir(gameID)
+	if err != nil {
+		return nil, err
+	}
+	entries, err := os.ReadDir(dir)
+	if errors.Is(err, fs.ErrNotExist) {
+		return []LogFile{}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	logs := []LogFile{}
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		fi, err := e.Info()
+		if err != nil {
+			continue
+		}
+		logs = append(logs, LogFile{Name: e.Name(), Size: fi.Size(), Modified: fi.ModTime()})
+	}
+	slices.SortFunc(logs, func(a, b LogFile) int { return b.Modified.Compare(a.Modified) })
+	return logs, nil
+}
+
+// ReadLog returns a log from the script extender's folder, or its last
+// maxLog bytes when it is longer.
+func (s *BethesdaService) ReadLog(gameID, name string) (string, error) {
+	if name == "" || name != filepath.Base(name) || name == "." || name == ".." {
+		return "", fmt.Errorf("%q is not a log file", name)
+	}
+	dir, err := s.logDir(gameID)
+	if err != nil {
+		return "", err
+	}
+	f, err := os.Open(filepath.Join(dir, name))
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+	fi, err := f.Stat()
+	if err != nil {
+		return "", err
+	}
+	cut := ""
+	if fi.Size() > maxLog {
+		if _, err := f.Seek(-maxLog, io.SeekEnd); err != nil {
+			return "", err
+		}
+		cut = fmt.Sprintf("… only the last %d MB of %d MB are shown\n", maxLog>>20, fi.Size()>>20)
+	}
+	data, err := io.ReadAll(f)
+	if err != nil {
+		return "", err
+	}
+	return cut + string(data), nil
+}
+
+// OpenLogs shows the script extender's log folder in the file manager.
+func (s *BethesdaService) OpenLogs(gameID string) error {
+	dir, err := s.logDir(gameID)
+	if err != nil {
+		return err
+	}
+	cmd := platform.Command("xdg-open", dir)
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("opening %s: %w", dir, err)
+	}
+	go cmd.Wait()
+	return nil
+}
+
+// logDir is where the script extender of a game run by Steam's Proton
+// writes its logs, in the game's prefix.
+func (s *BethesdaService) logDir(gameID string) (string, error) {
+	game, bg, err := s.creationGame(gameID)
+	if err != nil {
+		return "", err
+	}
+	compatData := bethesda.SteamCompatData(game.Path, game.SteamAppID)
+	if compatData == "" {
+		return "", errors.New("the game's Proton prefix was not found; Steam makes it the first time it starts the game")
+	}
+	return bethesda.ExtenderLogs(compatData, bg), nil
 }
 
 func (s *BethesdaService) creationGame(gameID string) (library.Game, bethesda.Game, error) {

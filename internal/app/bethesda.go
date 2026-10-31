@@ -35,8 +35,9 @@ func (s *BethesdaService) InspectMO2(dir string) (bethesda.MO2Instance, error) {
 	return bethesda.ReadMO2(dir)
 }
 
-// ImportMO2 fills an empty profile with the mods, their order and the plugin
-// list of a profile of an MO2 instance, together with MO2's overwrite folder.
+// ImportMO2 fills an empty profile with the mods, their order, the plugin
+// list and the INI files of a profile of an MO2 instance, together with MO2's
+// overwrite folder.
 func (s *BethesdaService) ImportMO2(gameID, profileID, dir, mo2Profile string) (library.Profile, error) {
 	game, bg, err := s.creationGame(gameID)
 	if err != nil {
@@ -98,10 +99,11 @@ func (s *BethesdaService) ImportMO2(gameID, profileID, dir, mo2Profile string) (
 			Notes:             m.Comments,
 		}
 	}
-	if err := in.ImportMO2(p, ids, profileDir, data); err != nil {
+	if err := in.ImportMO2(p, ids, profileDir, data, bg.INIs); err != nil {
 		// Take back what was brought over, so the import can be tried again.
 		os.RemoveAll(filepath.Join(profileDir, bethesda.ModsDir))
 		os.RemoveAll(filepath.Join(profileDir, bethesda.OverwriteDir))
+		os.RemoveAll(filepath.Join(profileDir, bethesda.INIDir))
 		os.MkdirAll(filepath.Join(profileDir, bethesda.ModsDir), 0o755)
 		return library.Profile{}, err
 	}

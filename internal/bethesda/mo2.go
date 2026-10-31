@@ -63,6 +63,9 @@ type MO2Profile struct {
 	// the mods it heads, as MO2 shows it.
 	Mods    []MO2Mod `json:"mods"`
 	Plugins []Plugin `json:"plugins"`
+	// INIs are the profile's own INI files, by lower-case name, when MO2
+	// played the game with them instead of the game's (LocalSettings).
+	INIs map[string]string `json:"inis"`
 }
 
 // ReadMO2 reads the instance in dir.
@@ -156,6 +159,23 @@ func (in MO2Instance) ReadProfile(name string) (MO2Profile, error) {
 		p.Mods = append(p.Mods, m)
 	}
 
+	settings, err := readINI(filepath.Join(dir, "settings.ini"))
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return MO2Profile{}, err
+	}
+	if settings["General"]["LocalSettings"] == "true" {
+		entries, err := os.ReadDir(dir)
+		if err != nil {
+			return MO2Profile{}, err
+		}
+		p.INIs = map[string]string{}
+		for _, e := range entries {
+			if name := strings.ToLower(e.Name()); !e.IsDir() && strings.HasSuffix(name, ".ini") {
+				p.INIs[name] = filepath.Join(dir, e.Name())
+			}
+		}
+	}
+
 	// loadorder.txt has every plugin in order, plugins.txt marks the active
 	// ones; an older profile may have only plugins.txt.
 	active, err := ReadPlugins(filepath.Join(dir, "plugins.txt"))
@@ -181,10 +201,12 @@ func (in MO2Instance) ReadProfile(name string) (MO2Profile, error) {
 // profileDir, under ids, the Hermit ids of p.Mods in the same order, and
 // MO2's overwrite folder into its overwrite folder. The game's own plugins,
 // files in gameData, are left out of the plugin list: the game loads them by
-// itself. Files are hard links where the profile is on the same file system
-// as MO2, which takes no time and no space and leaves MO2 as it was;
-// elsewhere they are copied, once it is clear they fit.
-func (in MO2Instance) ImportMO2(p MO2Profile, ids []string, profileDir, gameData string) error {
+// itself. The profile's own INI files, those among inis, the game's, that are
+// not empty, go into the profile's ini folder under the game's names. Files
+// are hard links where the profile is on the same file system as MO2, which
+// takes no time and no space and leaves MO2 as it was; elsewhere they are
+// copied, once it is clear they fit.
+func (in MO2Instance) ImportMO2(p MO2Profile, ids []string, profileDir, gameData string, inis []string) error {
 	type copyJob struct{ from, to string }
 	jobs := make([]copyJob, 0, len(p.Mods)+1)
 	for i, m := range p.Mods {
@@ -217,6 +239,20 @@ func (in MO2Instance) ImportMO2(p MO2Profile, ids []string, profileDir, gameData
 	}
 	for _, j := range jobs {
 		if err := linkTree(j.from, j.to); err != nil {
+			return err
+		}
+	}
+
+	for _, name := range inis {
+		from, ok := p.INIs[strings.ToLower(name)]
+		if fi, err := os.Stat(from); !ok || err != nil || fi.Size() == 0 {
+			continue
+		}
+		if err := os.MkdirAll(filepath.Join(profileDir, INIDir), 0o755); err != nil {
+			return err
+		}
+		// Copied rather than linked: the game writes its settings into them.
+		if err := copyFile(from, filepath.Join(profileDir, INIDir, name)); err != nil {
 			return err
 		}
 	}

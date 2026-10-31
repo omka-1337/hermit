@@ -194,7 +194,7 @@ export default function BethesdaModsTab() {
         </Button>
         <p className="max-w-md text-center text-xs text-zinc-500">
           Brings over the mods of an MO2 profile as they are installed there, with their order, their separators, the
-          options picked in their installers and the plugin list. MO2 itself is left as it is.
+          options picked in their installers, the plugin list and the profile's INI files. MO2 itself is left as it is.
         </p>
         {importModal}
       </div>

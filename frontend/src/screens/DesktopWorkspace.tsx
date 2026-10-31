@@ -17,6 +17,7 @@ import { requestRefresh, useRefresh } from "../refresh";
 import DownloadsView from "./DownloadsView";
 import SettingsView from "./SettingsView";
 import { GearIcon } from "./shell";
+import thunderstoreLogo from "../assets/thunderstore.svg";
 
 type Props = {
   games: Game[];
@@ -28,8 +29,9 @@ type Props = {
 // DesktopWorkspace is the mouse-and-keyboard layout. The sidebar picks the
 // game, then its profile, which is the active one, then a page of that
 // profile, top to bottom; the page fills the rest of the window, Play in its
-// top right corner. Downloads and Settings are pages of their own, at the
-// bottom of the sidebar. A status bar along the bottom counts the profile's
+// top right corner. Browse, beside the mark of the site its mods come from,
+// and then Downloads and Settings, pages of their own, are at the bottom of
+// the sidebar. A status bar along the bottom counts the profile's
 // mods and follows downloads and installs.
 export default function DesktopWorkspace({ games, selectedId, onSelect, onGamesChanged }: Props) {
   // page is what fills the window beside the sidebar: the profile's page
@@ -47,6 +49,7 @@ export default function DesktopWorkspace({ games, selectedId, onSelect, onGamesC
   const game = games.find((g) => g.id === selectedId) ?? null;
   const profile = profiles.find((p) => p.id === game?.activeProfile) ?? null;
   const tabs = game ? profileTabs(game, profile, true) : [];
+  const browse = tabs.some((t) => t.id === "browse");
 
   const gameId = game?.id;
   const loadProfiles = useCallback(async () => {
@@ -206,7 +209,7 @@ export default function DesktopWorkspace({ games, selectedId, onSelect, onGamesC
           )}
           {game && (
             <nav className="flex flex-col gap-0.5">
-              {tabs.map((t) => (
+              {tabs.filter((t) => t.id !== "browse").map((t) => (
                 <button
                   key={t.id}
                   onClick={() => {
@@ -224,27 +227,51 @@ export default function DesktopWorkspace({ games, selectedId, onSelect, onGamesC
             </nav>
           )}
           <div className="flex-1" />
-          <button
-            onClick={() => setPage("downloads")}
-            className={`flex items-center gap-2 rounded-md px-3 py-2 text-left text-sm ${
-              page === "downloads" ? "bg-zinc-800 text-zinc-100" : "text-zinc-400 hover:bg-zinc-800/60 hover:text-zinc-200"
-            }`}
-          >
-            <DownloadIcon />
-            <span className="flex-1">Downloads</span>
-            {active.length > 0 && (
-              <span className="rounded-full bg-indigo-500 px-1.5 text-xs font-medium text-white tabular-nums">{active.length}</span>
-            )}
-          </button>
-          <button
-            onClick={() => setPage("settings")}
-            className={`-mt-3 flex items-center gap-2 rounded-md px-3 py-2 text-left text-sm ${
-              page === "settings" ? "bg-zinc-800 text-zinc-100" : "text-zinc-400 hover:bg-zinc-800/60 hover:text-zinc-200"
-            }`}
-          >
-            <GearIcon />
-            Settings
-          </button>
+          {game && browse && (
+            <button
+              onClick={() => {
+                setPage("profile");
+                setTab("browse");
+              }}
+              className={`flex items-center gap-2.5 rounded-md px-3 py-2 text-left text-sm ${
+                !elsewhere && tab === "browse" ? "bg-zinc-800 font-medium text-zinc-100" : "text-zinc-400 hover:bg-zinc-800/60 hover:text-zinc-200"
+              }`}
+            >
+              <img src={thunderstoreLogo} alt="Thunderstore" className="h-4 w-4 shrink-0" />
+              Browse
+            </button>
+          )}
+          <div className={`grid grid-cols-2 gap-2 ${browse && game ? "-mt-2" : ""}`}>
+            <button
+              onClick={() => setPage("downloads")}
+              title="Downloads"
+              aria-label="Downloads"
+              className={`relative flex h-9 items-center justify-center rounded-md border ${
+                page === "downloads"
+                  ? "border-zinc-600 bg-zinc-800 text-zinc-100"
+                  : "border-zinc-700 text-zinc-400 hover:bg-zinc-800/60 hover:text-zinc-200"
+              }`}
+            >
+              <DownloadIcon />
+              {active.length > 0 && (
+                <span className="absolute -right-1.5 -top-1.5 min-w-4 rounded-full bg-indigo-500 px-1 text-center text-[10px] leading-4 font-medium text-white tabular-nums">
+                  {active.length}
+                </span>
+              )}
+            </button>
+            <button
+              onClick={() => setPage("settings")}
+              title="Settings"
+              aria-label="Settings"
+              className={`flex h-9 items-center justify-center rounded-md border ${
+                page === "settings"
+                  ? "border-zinc-600 bg-zinc-800 text-zinc-100"
+                  : "border-zinc-700 text-zinc-400 hover:bg-zinc-800/60 hover:text-zinc-200"
+              }`}
+            >
+              <GearIcon />
+            </button>
+          </div>
         </aside>
 
         <main className="flex min-w-0 flex-1 flex-col overflow-hidden">

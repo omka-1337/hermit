@@ -6,6 +6,7 @@ import { onModpackSettled } from "../modpackInstalls";
 import ProfileView, { profileTabs, Tab } from "../components/profile/ProfileView";
 import GameSwitcher from "../components/sidebar/GameSwitcher";
 import ProfileSwitcher from "../components/sidebar/ProfileSwitcher";
+import { TabIcon } from "../components/sidebar/icons";
 import { Button, ErrorText, Modal } from "../components/ui";
 import SettingsView from "./SettingsView";
 import { GearIcon } from "./shell";
@@ -112,10 +113,11 @@ export default function DesktopWorkspace({ games, selectedId, onSelect, onGamesC
                   setSettings(false);
                   setTab(t.id);
                 }}
-                className={`rounded-md px-3 py-2 text-left text-sm ${
+                className={`flex items-center gap-2.5 rounded-md px-3 py-2 text-left text-sm ${
                   !settings && tab === t.id ? "bg-zinc-800 font-medium text-zinc-100" : "text-zinc-400 hover:bg-zinc-800/60 hover:text-zinc-200"
                 }`}
               >
+                <TabIcon tab={t.id} />
                 {t.label}
               </button>
             ))}

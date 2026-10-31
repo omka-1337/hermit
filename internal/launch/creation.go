@@ -19,7 +19,8 @@ import (
 const deployFile = "deploy.json"
 
 // deployCreation links the enabled mods of a profile into the Data folder of
-// a Creation Engine game and gives the game the profile's plugin list. It
+// a Creation Engine game and gives the game the profile's plugin list and INI
+// files. It
 // returns the command to run, which starts the script extender instead of
 // the game's launcher once the game folder has one, unless the user picked
 // the file the game starts from.
@@ -38,11 +39,11 @@ func deployCreation(game library.Game, profile library.Profile, profileDir, data
 	if err := undeployCreation(game, dataDir); err != nil {
 		return nil, fmt.Errorf("removing the mods of the last session: %w", err)
 	}
-	pluginsPath := ""
+	var prefix bethesda.Prefix
 	if compatData := compatDataDir(game, command, env); compatData != "" {
-		pluginsPath = bethesda.PrefixPluginsPath(compatData, g)
+		prefix = bethesda.PrefixFor(compatData, g)
 	}
-	state, err := bethesda.Deploy(game.Path, profileDir, mods, pluginsPath)
+	state, err := bethesda.Deploy(game.Path, profileDir, mods, prefix)
 	if err != nil {
 		return nil, err
 	}

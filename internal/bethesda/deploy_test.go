@@ -63,7 +63,7 @@ func setup(t *testing.T) (game, profile string) {
 
 func TestDeployOrderCaseAndGameFiles(t *testing.T) {
 	game, profile := setup(t)
-	s, err := Deploy(game, profile, []string{"low", "high", "skse"}, "")
+	s, err := Deploy(game, profile, []string{"low", "high", "skse"}, Prefix{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -107,7 +107,7 @@ func TestDeployOrderCaseAndGameFiles(t *testing.T) {
 
 func TestUndeployCapturesFilesWrittenDuringSession(t *testing.T) {
 	game, profile := setup(t)
-	s, err := Deploy(game, profile, []string{"low"}, "")
+	s, err := Deploy(game, profile, []string{"low"}, Prefix{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -140,11 +140,11 @@ func TestUndeployCapturesFilesWrittenDuringSession(t *testing.T) {
 
 func TestDeployReplacesLinksLeftByUnfinishedSession(t *testing.T) {
 	game, profile := setup(t)
-	if _, err := Deploy(game, profile, []string{"low"}, ""); err != nil {
+	if _, err := Deploy(game, profile, []string{"low"}, Prefix{}); err != nil {
 		t.Fatal(err)
 	}
 	// The session never ended; the next one starts over the old links.
-	s, err := Deploy(game, profile, []string{"low", "high"}, "")
+	s, err := Deploy(game, profile, []string{"low", "high"}, Prefix{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -162,7 +162,7 @@ func TestDeploySwapsPlugins(t *testing.T) {
 	prefixList := filepath.Join(t.TempDir(), "Plugins.txt")
 	write(t, filepath.Dir(prefixList), map[string]string{"Plugins.txt": "*Theirs.esp\r\n"})
 
-	s, err := Deploy(game, profile, []string{"low", "high"}, prefixList)
+	s, err := Deploy(game, profile, []string{"low", "high"}, Prefix{Plugins: prefixList})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -223,5 +223,39 @@ func TestExtenderLogs(t *testing.T) {
 	want := filepath.Join(compatData, "pfx/drive_c/users/steamuser/Documents/My Games/Skyrim Special Edition/SKSE")
 	if got := ExtenderLogs(compatData, g); got != want {
 		t.Errorf("logs in %s, want %s", got, want)
+	}
+}
+
+func TestDeploySwapsINIs(t *testing.T) {
+	game, profile := setup(t)
+	write(t, profile, map[string]string{"ini/Skyrim.ini": "[Papyrus]\r\nbEnableLogging=1\r\n", "ini/SkyrimCustom.ini": "custom"})
+	myGames := t.TempDir()
+	write(t, myGames, map[string]string{"skyrim.ini": "the game's"})
+
+	s, err := Deploy(game, profile, nil, Prefix{MyGames: myGames})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The game's file keeps its spelling; the one it lacked is added.
+	if got := read(t, filepath.Join(myGames, "skyrim.ini")); got != "[Papyrus]\r\nbEnableLogging=1\r\n" {
+		t.Errorf("game plays with %q", got)
+	}
+	if got := read(t, filepath.Join(myGames, "SkyrimCustom.ini")); got != "custom" {
+		t.Errorf("custom ini %q", got)
+	}
+
+	// Settings changed in the game's menus.
+	write(t, myGames, map[string]string{"skyrim.ini": "changed in game"})
+	if _, err := Undeploy(game, s); err != nil {
+		t.Fatal(err)
+	}
+	if got := read(t, filepath.Join(profile, "ini", "Skyrim.ini")); got != "changed in game" {
+		t.Errorf("profile keeps %q", got)
+	}
+	if got := read(t, filepath.Join(myGames, "skyrim.ini")); got != "the game's" {
+		t.Errorf("game's own ini after the session: %q", got)
+	}
+	if _, err := os.Stat(filepath.Join(myGames, "SkyrimCustom.ini")); !os.IsNotExist(err) {
+		t.Error("the ini the game did not have is still there")
 	}
 }

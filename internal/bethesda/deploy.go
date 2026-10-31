@@ -36,6 +36,8 @@ type State struct {
 	// session; OriginalPlugins is what it held, nil when there was none.
 	PluginsPath     string  `json:"pluginsPath,omitempty"`
 	OriginalPlugins *string `json:"originalPlugins,omitempty"`
+	// INIs are the game's INI files the profile's replaced for the session.
+	INIs []INISwap `json:"inis,omitempty"`
 }
 
 // source is the file of a mod that wins a path.
@@ -50,8 +52,9 @@ type source struct {
 // profile's overwrite folder. Where two mods have the same file, the later
 // one wins; where the game has a file of its own, the game's stays. The
 // profile's plugin list is brought up to date with the plugins deployed and
-// written to pluginsPath, unless that is empty.
-func Deploy(gamePath, profileDir string, mods []string, pluginsPath string) (State, error) {
+// given to the game, and its INI files, if it has them, take the place of
+// the game's, in the places prefix names.
+func Deploy(gamePath, profileDir string, mods []string, prefix Prefix) (State, error) {
 	dataName, err := findFold(gamePath, "Data")
 	if err != nil {
 		return State{}, err
@@ -107,8 +110,14 @@ func Deploy(gamePath, profileDir string, mods []string, pluginsPath string) (Sta
 		s.Links = append(s.Links, rel)
 	}
 
-	if pluginsPath != "" {
-		if err := s.swapPlugins(profileDir, dataDir, plugins, pluginsPath); err != nil {
+	if prefix.Plugins != "" {
+		if err := s.swapPlugins(profileDir, dataDir, plugins, prefix.Plugins); err != nil {
+			Undeploy(gamePath, s)
+			return State{}, err
+		}
+	}
+	if prefix.MyGames != "" {
+		if err := s.swapINIs(profileDir, prefix.MyGames); err != nil {
 			Undeploy(gamePath, s)
 			return State{}, err
 		}
@@ -118,7 +127,8 @@ func Deploy(gamePath, profileDir string, mods []string, pluginsPath string) (Sta
 
 // Undeploy removes the links Deploy made, moves the files written into Data
 // during the session into the profile's overwrite folder, removes folders
-// that were not there before and puts the original plugins.txt back. It
+// that were not there before and puts the original plugins.txt back, and the
+// game's INI files, keeping what the game changed in the profile's. It
 // returns the moved files, relative to Data.
 func Undeploy(gamePath string, s State) ([]string, error) {
 	profileDir := s.ProfileDir
@@ -140,6 +150,7 @@ func Undeploy(gamePath string, s State) ([]string, error) {
 	}
 	errs = append(errs, err)
 
+	errs = append(errs, s.restoreINIs())
 	if s.PluginsPath != "" {
 		if s.OriginalPlugins != nil {
 			errs = append(errs, os.WriteFile(s.PluginsPath, []byte(*s.OriginalPlugins), 0o644))

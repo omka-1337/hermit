@@ -25,8 +25,27 @@ func prefixUser(compatData string) string {
 	return filepath.Join(compatData, "pfx", "drive_c", "users", "steamuser")
 }
 
+// MyGamesDir is the game's folder in Documents\My Games, with its INI files.
+func MyGamesDir(compatData string, g Game) string {
+	return filepath.Join(prefixUser(compatData), "Documents", "My Games", g.MyGames)
+}
+
 // ExtenderLogs is the folder the script extender and its plugins write their
 // logs to, Documents\My Games\<game>\SKSE for Skyrim.
 func ExtenderLogs(compatData string, g Game) string {
-	return filepath.Join(prefixUser(compatData), "Documents", "My Games", g.MyGames, g.Extender)
+	return filepath.Join(MyGamesDir(compatData, g), g.Extender)
+}
+
+// Prefix is where in its Wine prefix a game reads what a profile gives it
+// for a session; Deploy leaves what is empty alone.
+type Prefix struct {
+	// Plugins is the plugins.txt the game reads.
+	Plugins string
+	// MyGames is the game's folder in Documents\My Games, with its INI files.
+	MyGames string
+}
+
+// PrefixFor is the Prefix of a game in a compatibility data folder.
+func PrefixFor(compatData string, g Game) Prefix {
+	return Prefix{Plugins: PrefixPluginsPath(compatData, g), MyGames: MyGamesDir(compatData, g)}
 }

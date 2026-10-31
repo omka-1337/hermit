@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Dialogs, Events } from "@wailsio/runtime";
 import { BethesdaService, confirmDanger, Engine, errorMessage, Game, Library, Profile, UnpackProgress } from "../api";
+import PlayBar from "../components/PlayBar";
 import { installFromFileEvent } from "../components/TitleMenus";
 import GamePicker from "../components/GamePicker";
 import { LaunchSetup } from "../components/launch";
@@ -23,7 +24,8 @@ type Props = {
 
 // DesktopWorkspace is the mouse-and-keyboard layout. The sidebar picks the
 // game, then its profile, which is the active one, then a page of that
-// profile, top to bottom; the page fills the rest of the window.
+// profile, top to bottom; the page fills the middle of the window, and the
+// panel on the right starts the game.
 export default function DesktopWorkspace({ games, selectedId, onSelect, onGamesChanged }: Props) {
   const [settings, setSettings] = useState(false);
   const [adding, setAdding] = useState(false);
@@ -229,6 +231,12 @@ export default function DesktopWorkspace({ games, selectedId, onSelect, onGamesC
           )
         )}
       </main>
+
+      {game && profile && !settings && (
+        <aside className="flex w-72 shrink-0 flex-col gap-4 border-l border-zinc-800 bg-zinc-900 p-3">
+          <PlayBar game={game} profileId={profile.id} onGameChanged={() => onGamesChanged(game.id)} stretch />
+        </aside>
+      )}
 
       {unpacking && (
         <Modal title="Installing" onClose={() => {}}>

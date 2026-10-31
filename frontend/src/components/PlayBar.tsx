@@ -7,6 +7,8 @@ import { ChevronDownIcon } from "./sidebar/icons";
 type Props = {
   game: Game;
   profileId: string;
+  // stretch fills the width it is given, as in the right panel.
+  stretch?: boolean;
   // onGameChanged runs when the game was started, or the file it starts from
   // was changed.
   onGameChanged: () => void;
@@ -24,7 +26,7 @@ function exeLabel(exe: string): string {
 
 // PlayBar is Play in the desktop layout, with the file the game starts from
 // picked right next to it.
-export default function PlayBar({ game, profileId, onGameChanged }: Props) {
+export default function PlayBar({ game, profileId, onGameChanged, stretch = false }: Props) {
   const { info, play, starting, error, viaPortProton } = usePlay(game, profileId, onGameChanged);
   const portProtonIcon = usePortProtonIcon();
   const [executables, setExecutables] = useState<string[]>([]);
@@ -68,7 +70,7 @@ export default function PlayBar({ game, profileId, onGameChanged }: Props) {
 
   const disabled = !info?.supported || info.running || starting;
   return (
-    <div className="flex flex-col items-end gap-1">
+    <div className={`flex flex-col gap-1 ${stretch ? "items-stretch" : "items-end"}`}>
       <div className="flex items-center gap-1 rounded-xl border border-emerald-500/20 bg-emerald-950/60 p-1">
         {pickable && (
           <button
@@ -84,7 +86,9 @@ export default function PlayBar({ game, profileId, onGameChanged }: Props) {
           disabled={disabled}
           onClick={play}
           title={info?.supported ? "" : info?.reason}
-          className="flex items-center gap-2 rounded-lg bg-emerald-500 px-5 py-2 text-sm font-bold tracking-wide text-zinc-950 uppercase transition-colors hover:bg-emerald-400 disabled:pointer-events-none disabled:opacity-50"
+          className={`flex items-center justify-center gap-2 rounded-lg bg-emerald-500 px-5 py-2 text-sm font-bold tracking-wide text-zinc-950 uppercase transition-colors hover:bg-emerald-400 disabled:pointer-events-none disabled:opacity-50 ${
+            stretch ? "flex-1" : ""
+          }`}
         >
           <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden>
             <path d="M7 4.5v15a1 1 0 0 0 1.5.86l12.5-7.5a1 1 0 0 0 0-1.72L8.5 3.64A1 1 0 0 0 7 4.5Z" />

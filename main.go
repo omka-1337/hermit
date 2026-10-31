@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/adrg/xdg"
@@ -95,7 +96,28 @@ func main() {
 	}
 
 	bethesda := app.NewBethesdaService(b.lib, b.steamRoots)
+	downloads := app.NewDownloadService(b.lib, b.root, app.ID+"/"+app.Version)
+	// window is the main window; a link from Nexus Mods brings it up.
+	var window *application.WebviewWindow
 	wailsApp := application.New(application.Options{
+		// A second Hermit, started to open an nxm:// link from a "Mod Manager
+		// Download" button, hands the link to the one running and quits.
+		SingleInstance: &application.SingleInstanceOptions{
+			UniqueID: "io.github.omka1337." + app.ID,
+			OnSecondInstanceLaunch: func(data application.SecondInstanceData) {
+				for _, arg := range data.Args {
+					if strings.HasPrefix(strings.ToLower(arg), "nxm://") {
+						go downloads.HandleLink(arg)
+					}
+				}
+				if window != nil {
+					application.InvokeSync(func() {
+						window.Show()
+						window.Focus()
+					})
+				}
+			},
+		},
 		Name:        app.Name,
 		Description: "BepInEx mod manager for Linux",
 		Services: []application.Service{
@@ -111,6 +133,7 @@ func main() {
 			application.NewService(app.NewCacheService(filepath.Join(b.root, "cache"))),
 			application.NewService(app.NewConfigService(b.lib)),
 			application.NewService(bethesda),
+			application.NewService(downloads),
 			application.NewService(app.NewShareService(
 				profileshare.NewSharer(b.lib, b.installer, b.ts, filepath.Join(b.root, "cache", "imports")),
 			)),
@@ -139,7 +162,7 @@ func main() {
 		windowOptions.MinWidth, windowOptions.MinHeight = 800, 500
 		windowOptions.StartState = application.WindowStateFullscreen
 	}
-	window := wailsApp.Window.NewWithOptions(windowOptions)
+	window = wailsApp.Window.NewWithOptions(windowOptions)
 
 	// On the very first run a small window of its own asks whether Hermit
 	// should put itself into Steam, the way a launcher asks before it settles
@@ -158,6 +181,13 @@ func main() {
 			BackgroundColour: application.NewRGB(9, 9, 11),
 			URL:              "/#steam-setup",
 		})
+	}
+
+	// Started to open a link from Nexus Mods.
+	for _, arg := range os.Args[1:] {
+		if strings.HasPrefix(strings.ToLower(arg), "nxm://") {
+			go downloads.HandleLink(arg)
+		}
 	}
 
 	wailsApp.Event.OnApplicationEvent(events.Common.ApplicationStarted, func(*application.ApplicationEvent) {

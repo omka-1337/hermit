@@ -7,6 +7,7 @@ package bethesda
 //	overwrite/...           files the game and tools wrote into Data
 //	plugins.txt             the plugin list, "*" marking active plugins
 //	ini/                    the game's INI files, when the profile has its own
+//	downloads/              the archives of mods downloaded from Nexus Mods
 //
 // The Root folder follows MO2's Root Builder, so mods set up there come over
 // unchanged.
@@ -15,5 +16,6 @@ const (
 	OverwriteDir = "overwrite"
 	PluginsFile  = "plugins.txt"
 	INIDir       = "ini"
+	DownloadsDir = "downloads"
 	RootDir      = "root"
 )

@@ -5,6 +5,7 @@ import * as BethesdaService from "./bethesdaservice.js";
 import * as BrowseService from "./browseservice.js";
 import * as CacheService from "./cacheservice.js";
 import * as ConfigService from "./configservice.js";
+import * as DownloadService from "./downloadservice.js";
 import * as FolderService from "./folderservice.js";
 import * as IconService from "./iconservice.js";
 import * as InfoService from "./infoservice.js";
@@ -17,6 +18,7 @@ export {
     BrowseService,
     CacheService,
     ConfigService,
+    DownloadService,
     FolderService,
     IconService,
     InfoService,
@@ -26,14 +28,21 @@ export {
     SteamService
 };
 
+export {
+    DownloadStatus
+} from "./models.js";
+
 export type {
     AppInfo,
     BepInExBuild,
     ConfigContent,
+    Download,
     GitHubRepo,
     LaunchInfo,
     LoaderStatus,
     LogFile,
+    NXMHandler,
+    NexusAccount,
     PreparedMod,
     SteamSetup,
     Tool,

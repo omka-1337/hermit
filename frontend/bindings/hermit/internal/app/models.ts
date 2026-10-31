@@ -49,6 +49,53 @@ export interface ConfigContent {
     "document": configs$0.Document | null;
 }
 
+/**
+ * Download is a file from Nexus Mods, queued, on its way or there.
+ */
+export interface Download {
+    "id": string;
+    "gameId": string;
+    "gameName": string;
+
+    /**
+     * ProfileID is the profile the mod goes into: the game's active one
+     * when the link came. Its archive is kept in the profile's downloads.
+     */
+    "profileId": string;
+    "modId": number;
+    "fileId": number;
+    "name": string;
+    "fileName": string;
+    "version": string;
+    "size": number;
+    "done": number;
+
+    /**
+     * Speed is in bytes a second, while downloading.
+     */
+    "speed": number;
+    "status": DownloadStatus;
+    "error": string;
+
+    /**
+     * Path is where the file is once it is there.
+     */
+    "path": string;
+}
+
+export enum DownloadStatus {
+    /**
+     * The Go zero value for the underlying type of the enum.
+     */
+    $zero = "",
+
+    DownloadQueued = "queued",
+    DownloadRunning = "downloading",
+    DownloadDone = "done",
+    DownloadFailed = "failed",
+    DownloadCancelled = "cancelled",
+};
+
 export interface GitHubRepo {
     "owner": string;
     "repo": string;
@@ -128,6 +175,20 @@ export interface LogFile {
     "name": string;
     "size": number;
     "modified": string;
+}
+
+export interface NXMHandler {
+    "hermit": boolean;
+    "entry": string;
+}
+
+/**
+ * NexusAccount is the Nexus Mods account downloads are made with.
+ */
+export interface NexusAccount {
+    "hasKey": boolean;
+    "name": string;
+    "premium": boolean;
 }
 
 /**

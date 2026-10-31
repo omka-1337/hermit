@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
-import { confirmDanger, errorMessage, Game, Library, Profile } from "../api";
+import { confirmDanger, Engine, errorMessage, Game, Library, Profile } from "../api";
 import CreateProfileModal from "./CreateProfileModal";
 import EditableName from "./EditableName";
 import GameIcon from "./GameIcon";
 import GameSettings from "./GameSettings";
+import ImportMO2Modal from "./ImportMO2Modal";
 import { onModpackSettled } from "../modpackInstalls";
 import ProfileList from "./ProfileList";
 import { LaunchSetup, PlayButton } from "./launch";
@@ -116,7 +117,7 @@ export default function GameView({ game, onChanged, onRemoved, onOpenProfile }: 
             Create a new profile
           </Button>
           <Button variant="ghost" onClick={() => setImporting(true)}>
-            Import…
+            {game.engine === Engine.EngineCreation ? "Import from MO2…" : "Import…"}
           </Button>
         </div>
       </section>
@@ -133,7 +134,19 @@ export default function GameView({ game, onChanged, onRemoved, onOpenProfile }: 
         />
       )}
 
-      {importing && (
+      {/* A Creation Engine game has no profile codes or r2modman exports:
+          its profiles come over from Mod Organizer 2. */}
+      {importing && game.engine === Engine.EngineCreation && (
+        <ImportMO2Modal
+          game={game}
+          onClose={() => setImporting(false)}
+          onImported={(profile) => {
+            setImporting(false);
+            onOpenProfile(profile.id);
+          }}
+        />
+      )}
+      {importing && game.engine !== Engine.EngineCreation && (
         <ImportModal
           game={game}
           onClose={() => {

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { errorMessage, Game, Library } from "../api";
+import { Engine, errorMessage, Game, Library } from "../api";
 import ModpackInstallButton from "./browse/ModpackInstallButton";
 import PackageBrowser from "./browse/PackageBrowser";
 import { Button, ErrorText, inputClass, Modal } from "./ui";
@@ -13,7 +13,8 @@ type Props = {
   onCreated: (profileId: string, open: boolean) => void;
 };
 
-// CreateProfileModal creates an empty profile or one from a Thunderstore modpack.
+// CreateProfileModal creates an empty profile or one from a Thunderstore
+// modpack; Creation Engine games have no modpacks there.
 export default function CreateProfileModal({ game, onClose, onCreated }: Props) {
   const [tab, setTab] = useState<Tab>("empty");
   const [name, setName] = useState("");
@@ -36,12 +37,12 @@ export default function CreateProfileModal({ game, onClose, onCreated }: Props) 
 
   const tabs: { id: Tab; label: string }[] = [
     { id: "empty", label: "Empty profile" },
-    { id: "modpack", label: "From modpack" },
+    ...(game.engine === Engine.EngineCreation ? [] : [{ id: "modpack" as const, label: "From modpack" }]),
   ];
 
   return (
     <Modal title="Create a new profile" size={tab === "modpack" ? "xl" : "md"} onClose={onClose}>
-      <nav className="mb-4 flex gap-1 border-b border-zinc-800">
+      <nav className={`mb-4 flex gap-1 border-b border-zinc-800 ${tabs.length > 1 ? "" : "hidden"}`}>
         {tabs.map((t) => (
           <button
             key={t.id}

@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { Browser, Dialogs } from "@wailsio/runtime";
-import { BethesdaService, confirmDanger, errorMessage, MO2Instance, Mod } from "../../api";
+import { Browser } from "@wailsio/runtime";
+import { BethesdaService, confirmDanger, errorMessage, Mod } from "../../api";
 import ContextMenu, { MenuAnchor, MenuItem } from "../ContextMenu";
 import EditableName from "../EditableName";
-import { Button, ErrorText, inputClass, Modal, Spinner, Toggle } from "../ui";
+import ImportMO2Modal from "../ImportMO2Modal";
+import { Button, ErrorText, inputClass, Spinner, Toggle } from "../ui";
 import { useProfile } from "./ProfileContext";
 
 // BethesdaModsTab lists the mods of a Creation Engine profile in the order
@@ -99,7 +100,17 @@ export default function BethesdaModsTab() {
     return { m, i, count: 0, priority: ++priority, hidden: hiddenBy !== null };
   });
 
-  const importModal = importing && <ImportMO2Modal onClose={() => setImporting(false)} />;
+  const importModal = importing && (
+    <ImportMO2Modal
+      game={game}
+      profileId={profile.id}
+      onClose={() => setImporting(false)}
+      onImported={(imported) => {
+        setImporting(false);
+        applyProfile(imported);
+      }}
+    />
+  );
 
   if (mods.length === 0) {
     return (
@@ -236,94 +247,5 @@ function ChevronIcon({ open }: { open: boolean }) {
     >
       <path d="m9 18 6-6-6-6" />
     </svg>
-  );
-}
-
-function ImportMO2Modal({ onClose }: { onClose: () => void }) {
-  const { game, profile, applyProfile } = useProfile();
-  const [instance, setInstance] = useState<MO2Instance | null>(null);
-  const [chosen, setChosen] = useState("");
-  const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
-
-  const pick = async () => {
-    setError("");
-    try {
-      const dir = await Dialogs.OpenFile({
-        Title: "Choose the Mod Organizer 2 folder, the one with ModOrganizer.ini",
-        CanChooseDirectories: true,
-        CanChooseFiles: false,
-      });
-      if (!dir) return;
-      const found = await BethesdaService.InspectMO2(dir);
-      setInstance(found);
-      setChosen(found.profiles?.includes(found.selected) ? found.selected : (found.profiles?.[0] ?? ""));
-    } catch (err) {
-      setError(errorMessage(err));
-    }
-  };
-
-  const run = async () => {
-    if (!instance) return;
-    setBusy(true);
-    setError("");
-    try {
-      applyProfile(await BethesdaService.ImportMO2(game.id, profile.id, instance.dir, chosen));
-      onClose();
-    } catch (err) {
-      setError(errorMessage(err));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <Modal title="Import from Mod Organizer 2" onClose={busy ? () => {} : onClose}>
-      <div className="flex flex-col gap-4">
-        <div className="flex flex-col gap-1.5">
-          <span className="text-sm text-zinc-400">MO2 folder</span>
-          <div className="flex gap-2">
-            <div className="flex-1 truncate rounded-md border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-sm text-zinc-300 select-text">
-              {instance?.dir ?? <span className="text-zinc-500">Not selected</span>}
-            </div>
-            <Button onClick={pick} disabled={busy}>
-              Browse…
-            </Button>
-          </div>
-          {instance && <span className="text-xs text-zinc-500">Set up for {instance.gameName}</span>}
-        </div>
-        {instance && (instance.profiles?.length ?? 0) > 1 && (
-          <label className="flex flex-col gap-1.5 text-sm">
-            <span className="text-zinc-400">MO2 profile</span>
-            <select className={inputClass} value={chosen} disabled={busy} onChange={(e) => setChosen(e.target.value)}>
-              {instance.profiles!.map((p) => (
-                <option key={p} value={p}>
-                  {p}
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
-        <p className="text-xs text-zinc-500">
-          On the disk MO2 is on, files are linked rather than copied: the import takes seconds and no space. Move this
-          profile to that disk first (right click on it, Move to folder…) if it is not there yet.
-        </p>
-        <ErrorText>{error}</ErrorText>
-        <div className="flex justify-end gap-2">
-          <Button variant="ghost" onClick={onClose} disabled={busy}>
-            Cancel
-          </Button>
-          <Button variant="primary" onClick={run} disabled={!instance || !chosen || busy}>
-            {busy ? (
-              <span className="flex items-center gap-2">
-                <Spinner /> Importing…
-              </span>
-            ) : (
-              "Import"
-            )}
-          </Button>
-        </div>
-      </div>
-    </Modal>
   );
 }

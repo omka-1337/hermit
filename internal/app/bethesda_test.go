@@ -97,3 +97,45 @@ func TestImportMO2AndOrderMods(t *testing.T) {
 		t.Error("the removed mod's folder is still there")
 	}
 }
+
+func TestImportMO2AsProfile(t *testing.T) {
+	tmp := t.TempDir()
+	lib, err := library.New(filepath.Join(tmp, "lib"), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gamePath := filepath.Join(tmp, "Skyrim Special Edition")
+	writeFiles(t, gamePath, map[string]string{"SkyrimSE.exe": "", "Data/Skyrim.esm": ""})
+	game, err := lib.AddGame("Skyrim", gamePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mo2 := filepath.Join(tmp, "MO2")
+	writeFiles(t, mo2, map[string]string{
+		"ModOrganizer.ini":             "[General]\ngameName=Skyrim Special Edition\n",
+		"profiles/Default/modlist.txt": "+SkyUI\r\n",
+		"mods/SkyUI/SkyUI_SE.esp":      "ui",
+	})
+	s := NewBethesdaService(lib)
+
+	location := filepath.Join(tmp, "Hermit")
+	if err := os.Mkdir(location, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	p, err := s.ImportMO2AsProfile(game.ID, mo2, "Default", "From MO2", location)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir, _ := lib.ProfileDir(game.ID, p.ID)
+	if p.Name != "From MO2" || len(p.Mods) != 1 || filepath.Dir(dir) != location {
+		t.Fatalf("profile %+v in %s", p, dir)
+	}
+
+	// A failed import leaves no profile behind.
+	if _, err := s.ImportMO2AsProfile(game.ID, mo2, "Missing", "Broken", location); err == nil {
+		t.Fatal("imported a profile MO2 does not have")
+	}
+	if profiles, _ := lib.ListProfiles(game.ID); len(profiles) != 2 {
+		t.Errorf("profiles after a failed import: %d", len(profiles))
+	}
+}

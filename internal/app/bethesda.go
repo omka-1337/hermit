@@ -107,6 +107,35 @@ func (s *BethesdaService) ImportMO2(gameID, profileID, dir, mo2Profile string) (
 	})
 }
 
+// ImportMO2AsProfile creates a profile called name, in a folder of its own
+// inside location unless that is empty, and imports a profile of an MO2
+// instance into it. Nothing is left behind when the import fails.
+func (s *BethesdaService) ImportMO2AsProfile(gameID, dir, mo2Profile, name, location string) (library.Profile, error) {
+	if _, _, err := s.creationGame(gameID); err != nil {
+		return library.Profile{}, err
+	}
+	// A folder that is no MO2 instance should not cost an empty profile.
+	if _, err := bethesda.ReadMO2(dir); err != nil {
+		return library.Profile{}, err
+	}
+	created, err := s.lib.CreateProfile(gameID, strings.TrimSpace(name))
+	if err != nil {
+		return library.Profile{}, err
+	}
+	if location != "" {
+		if _, err := s.lib.MoveProfile(gameID, created.ID, location); err != nil {
+			s.lib.RemoveProfile(gameID, created.ID)
+			return library.Profile{}, err
+		}
+	}
+	p, err := s.ImportMO2(gameID, created.ID, dir, mo2Profile)
+	if err != nil {
+		s.lib.RemoveProfile(gameID, created.ID)
+		return library.Profile{}, err
+	}
+	return p, nil
+}
+
 // AddSeparator puts a new separator, a heading over the mods after it, at
 // index in the profile's order.
 func (s *BethesdaService) AddSeparator(gameID, profileID, name string, index int) (library.Profile, error) {

@@ -35,6 +35,15 @@ export function ImportMO2(gameID: string, profileID: string, dir: string, mo2Pro
 }
 
 /**
+ * ImportMO2AsProfile creates a profile called name, in a folder of its own
+ * inside location unless that is empty, and imports a profile of an MO2
+ * instance into it. Nothing is left behind when the import fails.
+ */
+export function ImportMO2AsProfile(gameID: string, dir: string, mo2Profile: string, name: string, location: string): $CancellablePromise<library$0.Profile> {
+    return $Call.ByID(350305471, gameID, dir, mo2Profile, name, location);
+}
+
+/**
  * InspectMO2 reads a Mod Organizer 2 instance, to show what importing it
  * would bring.
  */

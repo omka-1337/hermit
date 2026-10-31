@@ -84,6 +84,11 @@ func main() {
 
 	platform.ConfigureRendering()
 	platform.SetProgramName(app.ID, app.Name)
+	// Wayland shows the window's icon from the desktop entry named after the
+	// program name, which has to be there before the window is.
+	if err := app.InstallDesktopEntry(); err != nil {
+		log.Printf("desktop entry: %v", err)
+	}
 
 	b, err := newBackend()
 	if err != nil {

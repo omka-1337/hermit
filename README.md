@@ -1,22 +1,60 @@
-# Hermit
+<p align="center">
+  <img src="docs/header.png" alt="Hermit — a mod manager for Linux" width="100%">
+</p>
 
-A mod manager for games using [BepInEx](https://github.com/BepInEx/BepInEx), built for Linux.
+<p align="center">
+  <a href="https://github.com/omka-1337/hermit/actions/workflows/ci.yml"><img src="https://github.com/omka-1337/hermit/actions/workflows/ci.yml/badge.svg?branch=dev" alt="CI"></a>
+  <a href="https://github.com/omka-1337/hermit/releases/latest"><img src="https://img.shields.io/github/v/release/omka-1337/hermit?color=43b5a4" alt="Latest release"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0-43b5a4" alt="License: GPL-3.0"></a>
+  <img src="https://img.shields.io/badge/platform-Linux%20%7C%20Steam%20Deck-43b5a4" alt="Platform: Linux and Steam Deck">
+</p>
 
 Like a hermit crab changing shells, the game stays untouched while mod profiles are swapped around it: mods live in
-the manager's profiles and are only linked into the game while it runs.
+Hermit's profiles and are linked into the game only while it runs. Close the game and its folder is exactly what Steam
+installed.
+
+## Features
+
+**Unity games, through BepInEx**
 
 - Thunderstore browser with dependencies, updates and conflict detection
-- Multiple profiles per game, enable/disable mods, config editor
-- Launch from Hermit or straight from Steam via launch options (Proton and native Linux games)
-- Profile export/import compatible with r2modman (`.r2z` files and profile codes)
+- BepInEx installed for you: the pack from Thunderstore, or the right build from BepInEx's own releases for games
+  without one (Mono or IL2CPP, Windows or Linux files)
+- Config editor for the mods' settings
+- Profile export and import compatible with r2modman (`.r2z` files and profile codes)
+
+**Skyrim, Fallout 4, Starfield, Cyberpunk 2077, Batman: Arkham Knight**
+
+- A load order of mods, as in Mod Organizer 2: drag mods into place, group them under separators, and see at a click
+  which mods a mod overwrites and which overwrite it
+- Install from archives — zip, 7z, rar — with FOMOD installers in a window of their own, several archives at once
+- "Mod Manager Download" from Nexus Mods opens in Hermit and installs into the game's active profile
+- Creation Engine games get their plugin list and INI files per profile, start through their script extender, and can
+  bring in a Mod Organizer 2 instance whole
+- Tools that come with mods, such as BodySlide or Pandora, run in the game's Proton prefix with the profile in place
+
+**Everywhere**
+
+- Several profiles per game, each with its own mods, switched with a click
+- Launch from Hermit, or straight from Steam through the game's launch options — Proton and native Linux games
 - A Steam Deck layout driven by the controller, next to the regular desktop one
 
-Built with [Wails v3](https://v3.wails.io) (Go + React/TypeScript). Windows support is planned.
+Built with [Wails v3](https://v3.wails.io): Go and React with TypeScript.
 
 ## Screenshots
 
-Hermit has two layouts. The Steam Deck one is built for a controller: games sit in a bar along the top and are
-switched with the shoulder buttons, the d-pad moves the focus and B steps back out.
+![A game and its profiles on the desktop](docs/screenshots/desktop-gamescreen.png)
+
+<details>
+<summary>More screenshots</summary>
+
+The desktop layout keeps the games in a sidebar and fits more on screen; the mod browser can be shown as cards or as
+a list in either layout.
+
+![Browsing Thunderstore as a list](docs/screenshots/desktop-browsescreen.png)
+
+The Steam Deck layout is built for a controller: games sit in a bar along the top and are switched with the shoulder
+buttons, the d-pad moves the focus and B steps back out.
 
 ![A game and its profiles in the Steam Deck layout](docs/screenshots/deck-gamescreen.png)
 
@@ -24,23 +62,20 @@ switched with the shoulder buttons, the d-pad moves the focus and B steps back o
 
 ![Browsing Thunderstore as cards](docs/screenshots/deck-browsescreen.png)
 
-The desktop layout keeps the games in a sidebar and fits more on screen; the mod browser can be shown as cards or
-as a list in either layout.
-
-![A game and its profiles on the desktop](docs/screenshots/desktop-gamescreen.png)
-
-![Browsing Thunderstore as a list](docs/screenshots/desktop-browsescreen.png)
+</details>
 
 ## Install
 
-Download the AppImage from the [releases page](https://github.com/omka-1337/hermit/releases), make it
-executable (`chmod +x Hermit-*.AppImage`) and run it. It needs FUSE; on SteamOS and most distributions it is already
-there. To use it from Game Mode on a Steam Deck, add the AppImage to Steam as a non-Steam game.
+Download the AppImage from the [releases page](https://github.com/omka-1337/hermit/releases), make it executable
+(`chmod +x Hermit-*.AppImage`) and run it. It needs FUSE; on SteamOS and most distributions it is already there. To
+use it from Game Mode on a Steam Deck, add the AppImage to Steam as a non-Steam game.
 
-An AUR package, and Windows and macOS builds, are planned before 1.0; for now the AppImage is the only build.
-What changed in each release is in [CHANGELOG.md](CHANGELOG.md).
+An AUR package, and Windows and macOS builds, are planned before 1.0; for now the AppImage is the only build. What
+changed in each release is in [CHANGELOG.md](CHANGELOG.md).
 
 ## Compatibility
+
+### Systems
 
 The AppImage carries GTK and WebKit inside, so the distribution does not have to provide them. What it does need is a
 recent enough C library, which is the only thing that decides whether it starts at all:
@@ -73,22 +108,28 @@ launch wrapper runs the game through the shell.
 
 ### Games
 
-Hermit works wherever BepInEx works, and BepInEx keeps its own
-[platform compatibility chart](https://github.com/BepInEx/BepInEx#platform-compatibility-chart). Games on
-Thunderstore get their pack with the first mod that depends on it; for the rest Hermit installs BepInEx from its
-GitHub releases, picking the build the game's backend needs.
-[GAMES.md](GAMES.md) says what has been used in practice and what to do about a modpack that no longer starts.
+| Engine | Games | Mods from | Status |
+| --- | --- | --- | --- |
+| Unity (BepInEx) | Lethal Company, PEAK, R.E.P.O., Content Warning, MiSide and any other BepInEx game | Thunderstore, GitHub, archives | Used in practice on the games named |
+| Creation Engine | Skyrim (SE, VR, Legendary), Fallout 4 (and VR), Starfield | Nexus Mods, archives, MO2 | Used on Skyrim SE; the others share its code |
+| REDengine 4 | Cyberpunk 2077 | Nexus Mods, archives | New, not yet tried with real mods |
+| Unreal Engine 3 | Batman: Arkham Knight | Nexus Mods, archives | New, not yet tried with real mods |
 
-## Requirements (Arch Linux)
+For Unity games Hermit works wherever BepInEx works, and BepInEx keeps its own
+[platform compatibility chart](https://github.com/BepInEx/BepInEx#platform-compatibility-chart).
+[GAMES.md](GAMES.md) says how mods reach each engine's games, what has been used in practice, and what to do about a
+modpack that no longer starts.
+
+## Building from source
+
+On Arch Linux:
 
 ```sh
 sudo pacman -S go nodejs npm gtk4 webkitgtk-6.0
 go install github.com/wailsapp/wails/v3/cmd/wails3@latest
 ```
 
-Make sure `~/go/bin` is in your `PATH`. Run `wails3 doctor` to verify the setup.
-
-## Development
+Make sure `~/go/bin` is in your `PATH`, and run `wails3 doctor` to check the setup. Then:
 
 ```sh
 wails3 dev      # run with hot reload
@@ -97,22 +138,30 @@ wails3 package  # AppImage / deb / rpm / arch packages
 go test ./internal/...
 ```
 
-After changing Go services, bindings in `frontend/bindings` are regenerated by `wails3 dev`/`wails3 build`
-(or manually via `wails3 generate bindings -ts -i`).
+After changing Go services, the bindings in `frontend/bindings` are regenerated by `wails3 dev` and `wails3 build`, or
+by hand with `wails3 generate bindings -ts -i`.
 
 Work happens on `dev`; `releases` is protected and only updated through pull requests with passing checks.
 
-## Layout
+### Layout
 
 ```
-main.go                  entry point: GUI, or the Steam launch wrapper (`hermit run -- %command%`)
+main.go                  entry point: the GUI, the Steam launch wrapper (`hermit run -- %command%`)
+                         and `hermit install` for mod archives
 internal/app/            services exposed to the frontend
-internal/library/        games and profiles on disk
-internal/modinstall/     installing, enabling and updating mods
-internal/thunderstore/   Thunderstore API client
+internal/library/        games and profiles on disk, and which engine a game is on
 internal/launch/         launch wrapper, profile linking, BepInEx log reports
+internal/modinstall/     installing, enabling and updating BepInEx mods
+internal/thunderstore/   Thunderstore API client
 internal/profileshare/   r2modman-compatible profile export/import
 internal/configs/        config file editing
+internal/deploy/         mod folders linked into a game for a session, for the engines below
+internal/creation/       Creation Engine games: Data, plugins.txt, INI files, MO2 import
+internal/redengine/      REDengine games: Cyberpunk 2077
+internal/unreal/         Unreal Engine games: Batman: Arkham Knight
+internal/archive/        zip, 7z and rar archives, without tools from the system
+internal/fomod/          FOMOD installers
+internal/nexus/          Nexus Mods API and nxm:// links
 internal/steam/          Steam libraries, launch options, icons
 frontend/                React + TypeScript + Tailwind (Vite)
 build/                   Wails build and packaging config

@@ -225,7 +225,7 @@ export default function BethesdaModsTab() {
               data-drag-row={m.id}
               onPointerDown={(e) => busy === null && start(e, dragRows(m, i, count), m.name)}
               onContextMenu={openMenu(i, collapsed.has(m.id) ? i + 1 + count : i + 1)}
-              className={`flex items-center gap-2 border-l-2 border-transparent bg-zinc-900/60 py-1.5 ${
+              className={`-mx-6 flex items-center gap-2 border-l-2 border-transparent bg-zinc-900/60 px-6 py-1.5 ${
                 drag?.ids.includes(m.id) ? "opacity-40" : ""
               }`}
             >

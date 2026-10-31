@@ -44,6 +44,10 @@ LICENSE_FILES = re.compile(r"^(LICEN[CS]E|COPYING|NOTICE)", re.IGNORECASE)
 def identify(text: str) -> str:
     """Name the license of a license file, as an SPDX identifier where possible."""
     t = " ".join(text.split())
+    # Before the GPLs: MPL 2.0 names them as its secondary licenses. It is
+    # spelled "Version 2.0" or "version 2.0", with or without a comma.
+    if re.search(r"Mozilla Public License,? version 2\.0", t, re.IGNORECASE):
+        return "MPL-2.0"
     if "GNU AFFERO GENERAL PUBLIC LICENSE" in t.upper():
         return "AGPL-3.0"
     if "GNU LESSER GENERAL PUBLIC LICENSE" in t.upper():
@@ -52,8 +56,6 @@ def identify(text: str) -> str:
         return "GPL"
     if "covered by two different licenses: MIT and Apache" in t:
         return "MIT and Apache-2.0"
-    if "Mozilla Public License Version 2.0" in t:
-        return "MPL-2.0"
     if "Apache License" in t and "Version 2.0" in t:
         return "Apache-2.0"
     if "Permission is hereby granted, free of charge" in t:

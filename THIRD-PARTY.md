@@ -12,11 +12,24 @@ Linked into the `hermit` binary.
 | Module | Version | License |
 | --- | --- | --- |
 | `github.com/adrg/xdg` | v0.5.3 | MIT |
+| `github.com/andybalholm/brotli` | v1.2.2 | MIT |
+| `github.com/bodgit/plumbing` | v1.3.0 | BSD-3-Clause |
+| `github.com/bodgit/sevenzip` | v1.6.5 | BSD-3-Clause |
+| `github.com/bodgit/windows` | v1.0.1 | BSD-3-Clause |
 | `github.com/godbus/dbus/v5` | v5.2.2 | BSD-2-Clause |
+| `github.com/hashicorp/golang-lru/v2` | v2.0.7 | MPL-2.0 |
+| `github.com/klauspost/compress` | v1.19.0 | Apache-2.0 |
 | `github.com/mattn/go-isatty` | v0.0.20 | MIT |
+| `github.com/nwaples/rardecode/v2` | v2.4.5 | BSD-2-Clause |
+| `github.com/pierrec/lz4/v4` | v4.1.27 | BSD-3-Clause |
+| `github.com/spf13/afero` | v1.15.0 | Apache-2.0 |
+| `github.com/stangelandcl/ppmd` | v0.1.1 | MIT |
+| `github.com/ulikunitz/xz` | v0.5.15 | BSD-2-Clause |
 | `github.com/wailsapp/wails/v3` | v3.0.0-beta.23 | MIT |
 | `go.yaml.in/yaml/v3` | v3.0.5 | MIT and Apache-2.0 |
+| `go4.org` | v0.0.0-20260112195520-a5071408f32f | Apache-2.0 |
 | `golang.org/x/sys` | v0.46.0 | BSD-3-Clause |
+| `golang.org/x/text` | v0.40.0 | BSD-3-Clause |
 
 ## npm packages
 
@@ -108,8 +121,8 @@ are not listed.
 | `ms` | 2.1.3 | MIT |
 | `parse-entities` | 4.0.2 | MIT |
 | `property-information` | 7.2.0 | MIT |
-| `react` | 19.3.0 | MIT |
-| `react-dom` | 19.3.0 | MIT |
+| `react` | 19.3.1 | MIT |
+| `react-dom` | 19.3.1 | MIT |
 | `react-markdown` | 10.1.0 | MIT |
 | `remark-gfm` | 4.0.1 | MIT |
 | `remark-parse` | 11.0.0 | MIT |

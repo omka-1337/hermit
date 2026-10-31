@@ -154,6 +154,18 @@ func Undeploy(gamePath string, s State) ([]string, error) {
 // mods before it, and adds the plugins it has that are not in plugins yet. A
 // missing folder has nothing to add.
 func collect(folder string, winners map[string]source, plugins *[]string) error {
+	return walkMod(folder, func(key string, src source) {
+		winners[key] = src
+		if !src.root && isPlugin(src.rel) && !slices.ContainsFunc(*plugins, func(p string) bool { return strings.EqualFold(p, src.rel) }) {
+			*plugins = append(*plugins, src.rel)
+		}
+	})
+}
+
+// walkMod calls fn for each file of a mod folder that is deployed, with the
+// key two mods having the same file share: its lower-case path in Data, or
+// in the game folder after a "/". A missing folder has no files.
+func walkMod(folder string, fn func(key string, src source)) error {
 	err := filepath.WalkDir(folder, func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -180,10 +192,7 @@ func collect(folder string, winners map[string]source, plugins *[]string) error 
 		if src.root {
 			key = "/" + key // never the same as a Data path
 		}
-		winners[key] = src
-		if !src.root && isPlugin(src.rel) && !slices.ContainsFunc(*plugins, func(p string) bool { return strings.EqualFold(p, src.rel) }) {
-			*plugins = append(*plugins, src.rel)
-		}
+		fn(key, src)
 		return nil
 	})
 	if errors.Is(err, fs.ErrNotExist) {

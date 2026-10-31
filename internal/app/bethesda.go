@@ -182,6 +182,26 @@ func separator(id, name string) library.Mod {
 	}
 }
 
+// Conflicts tells, for each mod of the profile, which other mods have files
+// in common with it and how many; the order decides which of them wins.
+func (s *BethesdaService) Conflicts(gameID, profileID string) (map[string]map[string]int, error) {
+	profile, err := s.lib.GetProfile(gameID, profileID)
+	if err != nil {
+		return nil, err
+	}
+	profileDir, err := s.lib.ProfileDir(gameID, profileID)
+	if err != nil {
+		return nil, err
+	}
+	var mods []string
+	for _, m := range profile.Mods {
+		if !m.Separator {
+			mods = append(mods, m.ID)
+		}
+	}
+	return bethesda.Conflicts(profileDir, mods)
+}
+
 // MoveMod puts a mod at index in the profile's order, where later mods win
 // over earlier ones.
 func (s *BethesdaService) MoveMod(gameID, profileID, modID string, index int) (library.Profile, error) {

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Browser } from "@wailsio/runtime";
 import { BethesdaService, confirmDanger, errorMessage, Mod } from "../../api";
 import ContextMenu, { MenuAnchor, MenuItem } from "../ContextMenu";
@@ -11,7 +11,8 @@ import { useProfile } from "./ProfileContext";
 // they are deployed into Data: where two mods have the same file, the one
 // further down wins, as in Mod Organizer 2. Separators head groups of the
 // mods after them and fold them away; a right click on a row adds one next
-// to it.
+// to it. Clicking a mod shows its conflicts: in green the mods whose files it
+// replaces, in red the ones replacing its files.
 export default function BethesdaModsTab() {
   const { game, profile, applyProfile, setEnabled } = useProfile();
   const [error, setError] = useState("");
@@ -22,7 +23,42 @@ export default function BethesdaModsTab() {
   const [naming, setNaming] = useState<{ at: number; name: string } | null>(null);
   // above and below are where a separator added from the menu goes.
   const [menu, setMenu] = useState<{ above: number; below: number; at: MenuAnchor } | null>(null);
+  const [selected, setSelected] = useState<string | null>(null);
+  // conflicts maps each mod to the mods it shares files with, and how many.
+  const [conflicts, setConflicts] = useState<Record<string, Record<string, number>>>({});
   const mods = profile.mods ?? [];
+
+  // Which mods share files changes only when mods come or go, not when they
+  // are moved or switched on and off.
+  const modSet = mods
+    .filter((m) => !m.separator)
+    .map((m) => m.id)
+    .sort()
+    .join("\n");
+  useEffect(() => {
+    let current = true;
+    BethesdaService.Conflicts(game.id, profile.id)
+      .then((found) => current && setConflicts((found ?? {}) as Record<string, Record<string, number>>))
+      .catch(console.error);
+    return () => {
+      current = false;
+    };
+  }, [game.id, profile.id, modSet]);
+
+  // relation is how a mod stands to the selected one: "replaced" when the
+  // selected mod wins over some of its files, "replaces" when it wins over
+  // the selected mod's. Mods that are off take no part.
+  const selectedAt = mods.findIndex((m) => m.id === selected);
+  const relation = (m: Mod, i: number): "replaced" | "replaces" | null => {
+    const sel = mods[selectedAt];
+    if (!sel || m.id === sel.id || !sel.enabled || !m.enabled || !conflicts[sel.id]?.[m.id]) return null;
+    return i > selectedAt ? "replaces" : "replaced";
+  };
+
+  const select = (m: Mod) => (e: React.MouseEvent) => {
+    if ((e.target as HTMLElement).closest("button, input, a, select")) return;
+    setSelected((s) => (s === m.id ? null : m.id));
+  };
 
   const act = async (id: string, action: () => Promise<void>) => {
     setError("");
@@ -94,11 +130,14 @@ export default function BethesdaModsTab() {
     if (m.separator) {
       hiddenBy = collapsed.has(m.id) ? m.id : null;
       const end = mods.findIndex((n, j) => j > i && n.separator);
-      const count = mods.slice(i + 1, end < 0 ? undefined : end).length;
-      return { m, i, count, priority: 0, hidden: false };
+      const group = mods.slice(i + 1, end < 0 ? undefined : end);
+      // A folded group still shows that it holds mods in conflict.
+      const relations = new Set(group.map((n, k) => relation(n, i + 1 + k)));
+      return { m, i, count: group.length, priority: 0, hidden: false, rel: null, relations };
     }
-    return { m, i, count: 0, priority: ++priority, hidden: hiddenBy !== null };
+    return { m, i, count: 0, priority: ++priority, hidden: hiddenBy !== null, rel: relation(m, i), relations: null };
   });
+  const selectedName = mods[selectedAt]?.name;
 
   const importModal = importing && (
     <ImportMO2Modal
@@ -133,13 +172,13 @@ export default function BethesdaModsTab() {
       {importModal}
       <ErrorText>{error}</ErrorText>
       <ul className="divide-y divide-zinc-800">
-        {rows.map(({ m, i, count, priority, hidden }) => [
+        {rows.map(({ m, i, count, priority, hidden, rel, relations }) => [
           naming?.at === i && nameInput,
           hidden ? null : m.separator ? (
             <li
               key={m.id}
               onContextMenu={openMenu(i, collapsed.has(m.id) ? i + 1 + count : i + 1)}
-              className="flex items-center gap-2 bg-zinc-900/60 py-1.5 pr-0 pl-1"
+              className="flex items-center gap-2 border-l-2 border-transparent bg-zinc-900/60 py-1.5 pr-0 pl-1"
             >
               <button
                 aria-label={collapsed.has(m.id) ? `Show the mods under ${m.name}` : `Fold the mods under ${m.name}`}
@@ -154,6 +193,12 @@ export default function BethesdaModsTab() {
                 onSave={(name) => rename(m, name)}
               />
               <span className="text-xs text-zinc-600">{count}</span>
+              {collapsed.has(m.id) && relations?.has("replaced") && (
+                <span className="h-2 w-2 rounded-full bg-emerald-500" title={`${selectedName} replaces files of mods here`} />
+              )}
+              {collapsed.has(m.id) && relations?.has("replaces") && (
+                <span className="h-2 w-2 rounded-full bg-red-500" title={`Mods here replace files of ${selectedName}`} />
+              )}
               <span className="flex-1" />
               {busy === m.id && <Spinner />}
               <MoveButtons i={i} last={mods.length - 1} busy={busy !== null} onMove={(to) => move(m, to)} />
@@ -162,7 +207,27 @@ export default function BethesdaModsTab() {
               </Button>
             </li>
           ) : (
-            <li key={m.id} onContextMenu={openMenu(i, i + 1)} className="flex items-center gap-3 py-2">
+            <li
+              key={m.id}
+              onContextMenu={openMenu(i, i + 1)}
+              onClick={select(m)}
+              title={
+                rel === "replaced"
+                  ? `${selectedName} replaces ${conflicts[selected!]?.[m.id]} of its files`
+                  : rel === "replaces"
+                    ? `Replaces ${conflicts[selected!]?.[m.id]} files of ${selectedName}`
+                    : undefined
+              }
+              className={`flex cursor-default items-center gap-3 border-l-2 py-2 ${
+                m.id === selected
+                  ? "border-indigo-500 bg-indigo-500/15"
+                  : rel === "replaced"
+                    ? "border-emerald-500 bg-emerald-500/10"
+                    : rel === "replaces"
+                      ? "border-red-500 bg-red-500/10"
+                      : "border-transparent"
+              }`}
+            >
               <span className="w-7 shrink-0 text-right text-xs text-zinc-600 tabular-nums">{priority}</span>
               <Toggle
                 first={i === 0}

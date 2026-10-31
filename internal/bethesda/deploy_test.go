@@ -182,3 +182,28 @@ func TestDeploySwapsPlugins(t *testing.T) {
 		t.Errorf("plugins.txt after the session = %q", got)
 	}
 }
+
+func TestConflicts(t *testing.T) {
+	_, profile := setup(t)
+	got, err := Conflicts(profile, []string{"low", "high", "skse", "off", "missing"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// low and high share textures/sky.dds (in different letter case); off
+	// has sky.dds too. meta.ini is MO2's, not a file of the mod.
+	want := map[string]map[string]int{
+		"low":  {"high": 1, "off": 1},
+		"high": {"low": 1, "off": 1},
+		"off":  {"low": 1, "high": 1},
+	}
+	if len(got) != len(want) {
+		t.Fatalf("conflicts %v, want %v", got, want)
+	}
+	for a, others := range want {
+		for b, n := range others {
+			if got[a][b] != n {
+				t.Errorf("%s/%s = %d, want %d (all: %v)", a, b, got[a][b], n, got)
+			}
+		}
+	}
+}

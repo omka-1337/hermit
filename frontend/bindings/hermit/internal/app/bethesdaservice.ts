@@ -27,6 +27,14 @@ export function AddSeparator(gameID: string, profileID: string, name: string, in
 }
 
 /**
+ * Conflicts tells, for each mod of the profile, which other mods have files
+ * in common with it and how many; the order decides which of them wins.
+ */
+export function Conflicts(gameID: string, profileID: string): $CancellablePromise<{ [_ in string]?: { [_ in string]?: number } | null } | null> {
+    return $Call.ByID(1619166192, gameID, profileID);
+}
+
+/**
  * ImportMO2 fills an empty profile with the mods, their order and the plugin
  * list of a profile of an MO2 instance, together with MO2's overwrite folder.
  */

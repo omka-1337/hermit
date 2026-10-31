@@ -1,0 +1,184 @@
+package bethesda
+
+import (
+	"os"
+	"path/filepath"
+	"slices"
+	"strings"
+	"testing"
+)
+
+func write(t *testing.T, root string, files map[string]string) {
+	t.Helper()
+	for rel, content := range files {
+		p := filepath.Join(root, filepath.FromSlash(rel))
+		if strings.HasSuffix(rel, "/") {
+			if err := os.MkdirAll(p, 0o755); err != nil {
+				t.Fatal(err)
+			}
+			continue
+		}
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func read(t *testing.T, p string) string {
+	t.Helper()
+	data, err := os.ReadFile(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(data)
+}
+
+func setup(t *testing.T) (game, profile string) {
+	game, profile = t.TempDir(), t.TempDir()
+	write(t, game, map[string]string{
+		"SkyrimSE.exe":              "game",
+		"skse64_loader.exe":         "the user's own",
+		"Data/Skyrim.esm":           "master",
+		"Data/Textures/vanilla.dds": "vanilla loose file",
+		"Data/Scripts/actor.pex":    "game script",
+	})
+	write(t, profile, map[string]string{
+		"mods/low/textures/sky.dds":        "low",
+		"mods/low/textures/ground.dds":     "low",
+		"mods/low/Low.esp":                 "plugin",
+		"mods/low/meta.ini":                "mo2",
+		"mods/high/Textures/SKY.dds":       "high",
+		"mods/high/scripts/actor.pex":      "mod script",
+		"mods/high/High.esm":               "plugin",
+		"mods/skse/Root/skse64_loader.exe": "skse",
+		"mods/skse/Root/skse64_1_7.dll":    "skse",
+		"mods/off/textures/sky.dds":        "disabled",
+		"overwrite/textures/ground.dds":    "overwrite",
+	})
+	return game, profile
+}
+
+func TestDeployOrderCaseAndGameFiles(t *testing.T) {
+	game, profile := setup(t)
+	s, err := Deploy(game, profile, []string{"low", "high", "skse"}, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for rel, want := range map[string]string{
+		"Data/Textures/SKY.dds":     "high",      // the later mod wins, under the game's own spelling
+		"Data/Textures/ground.dds":  "overwrite", // overwrite comes after every mod
+		"Data/Textures/vanilla.dds": "vanilla loose file",
+		"Data/Scripts/actor.pex":    "game script", // the game's own file stays
+		"Data/Low.esp":              "plugin",
+		"skse64_1_7.dll":            "skse",
+		"skse64_loader.exe":         "the user's own",
+	} {
+		if got := read(t, filepath.Join(game, rel)); got != want {
+			t.Errorf("%s = %q, want %q", rel, got, want)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(game, "Data", "textures")); err == nil {
+		t.Error("a second textures folder was made next to Textures")
+	}
+	if _, err := os.Stat(filepath.Join(game, "Data", "meta.ini")); err == nil {
+		t.Error("MO2's meta.ini was deployed")
+	}
+	slices.Sort(s.Hidden)
+	if want := []string{"Data/Scripts/actor.pex", "skse64_loader.exe"}; !slices.Equal(s.Hidden, want) {
+		t.Errorf("hidden = %v, want %v", s.Hidden, want)
+	}
+
+	if _, err := Undeploy(game, s); err != nil {
+		t.Fatal(err)
+	}
+	for _, rel := range []string{"Data/Textures/SKY.dds", "Data/Low.esp", "skse64_1_7.dll"} {
+		if _, err := os.Lstat(filepath.Join(game, rel)); !os.IsNotExist(err) {
+			t.Errorf("%s is still there after the session", rel)
+		}
+	}
+	if got := read(t, filepath.Join(game, "Data", "Textures", "vanilla.dds")); got != "vanilla loose file" {
+		t.Errorf("the game's file changed: %q", got)
+	}
+}
+
+func TestUndeployCapturesFilesWrittenDuringSession(t *testing.T) {
+	game, profile := setup(t)
+	s, err := Deploy(game, profile, []string{"low"}, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// A shader cache in a new folder, and a tool replacing a linked file.
+	write(t, game, map[string]string{"Data/ShaderCache/a.bin": "cache"})
+	sky := filepath.Join(game, "Data", "Textures", "sky.dds")
+	if err := os.Remove(sky); err != nil {
+		t.Fatal(err)
+	}
+	write(t, game, map[string]string{"Data/Textures/sky.dds": "rebuilt"})
+
+	captured, err := Undeploy(game, s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	slices.Sort(captured)
+	if want := []string{"ShaderCache/a.bin", "Textures/sky.dds"}; !slices.Equal(captured, want) {
+		t.Fatalf("captured %v, want %v", captured, want)
+	}
+	if got := read(t, filepath.Join(profile, "overwrite", "ShaderCache", "a.bin")); got != "cache" {
+		t.Errorf("overwrite has %q", got)
+	}
+	if _, err := os.Stat(filepath.Join(game, "Data", "ShaderCache")); !os.IsNotExist(err) {
+		t.Error("the folder made during the session is still in Data")
+	}
+	if got := read(t, filepath.Join(profile, "mods", "low", "textures", "sky.dds")); got != "low" {
+		t.Errorf("the mod's own file changed: %q", got)
+	}
+}
+
+func TestDeployReplacesLinksLeftByUnfinishedSession(t *testing.T) {
+	game, profile := setup(t)
+	if _, err := Deploy(game, profile, []string{"low"}, ""); err != nil {
+		t.Fatal(err)
+	}
+	// The session never ended; the next one starts over the old links.
+	s, err := Deploy(game, profile, []string{"low", "high"}, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := read(t, filepath.Join(game, "Data", "Textures", "sky.dds")); got != "high" {
+		t.Errorf("sky.dds = %q, want high", got)
+	}
+	if len(s.Hidden) != 1 {
+		t.Errorf("old links were taken for game files: %v", s.Hidden)
+	}
+}
+
+func TestDeploySwapsPlugins(t *testing.T) {
+	game, profile := setup(t)
+	write(t, profile, map[string]string{"plugins.txt": "# comment\r\n*Gone.esp\r\nHigh.esm\r\n"})
+	prefixList := filepath.Join(t.TempDir(), "Plugins.txt")
+	write(t, filepath.Dir(prefixList), map[string]string{"Plugins.txt": "*Theirs.esp\r\n"})
+
+	s, err := Deploy(game, profile, []string{"low", "high"}, prefixList)
+	if err != nil {
+		t.Fatal(err)
+	}
+	given, _ := ReadPlugins(prefixList)
+	if want := []Plugin{{"High.esm", false}, {"Low.esp", true}}; !slices.Equal(given, want) {
+		t.Errorf("game is given %v, want %v", given, want)
+	}
+	kept, _ := ReadPlugins(filepath.Join(profile, "plugins.txt"))
+	if want := []Plugin{{"Gone.esp", true}, {"High.esm", false}, {"Low.esp", true}}; !slices.Equal(kept, want) {
+		t.Errorf("profile keeps %v, want %v", kept, want)
+	}
+
+	if _, err := Undeploy(game, s); err != nil {
+		t.Fatal(err)
+	}
+	if got := read(t, prefixList); got != "*Theirs.esp\r\n" {
+		t.Errorf("plugins.txt after the session = %q", got)
+	}
+}

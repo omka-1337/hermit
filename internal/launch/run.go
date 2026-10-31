@@ -159,7 +159,13 @@ func (w *Wrapper) Prepare(gameID string, command, env []string, pid int, logOut 
 
 	session := Session{ProfileID: profile.ID, PID: pid, StartedAt: time.Now(), Links: []string{}, ProfileDir: profileDir}
 	modded := false
-	if game.Runtime == library.RuntimeNative {
+	switch {
+	case game.Engine == library.EngineCreation:
+		if command, err = deployCreation(game, profile, profileDir, dataDir, command, env); err != nil {
+			return plan, err
+		}
+		session.Deployed, modded = true, true
+	case game.Runtime == library.RuntimeNative:
 		launcher, err := nativeLauncher(profileDir)
 		if err != nil {
 			return plan, err
@@ -168,7 +174,7 @@ func (w *Wrapper) Prepare(gameID string, command, env []string, pid int, logOut 
 			command = append([]string{launcher}, command...)
 			modded = true
 		}
-	} else {
+	default:
 		session.Links, err = LinkProfile(game.Path, profileDir, profileDir)
 		if err != nil {
 			return plan, err
@@ -192,6 +198,9 @@ func (w *Wrapper) Prepare(gameID string, command, env []string, pid int, logOut 
 	session.Modded = modded
 	if err := writeSession(dataDir, session); err != nil {
 		Unlink(game.Path, session.Links, profileDir)
+		if session.Deployed {
+			undeployCreation(game, dataDir)
+		}
 		if session.PPDB != "" {
 			removePPDBOverride(session.PPDB, "winhttp", "n,b")
 		}
@@ -223,7 +232,13 @@ func (w *Wrapper) Cleanup(gameID string) error {
 	}
 
 	var reportErr error
-	if session.Modded {
+	if session.Deployed {
+		// The session stays while the mods are not out of the game folder,
+		// so they are not forgotten there.
+		if err := undeployCreation(game, dataDir); err != nil {
+			return fmt.Errorf("removing the mods from the game folder: %w", err)
+		}
+	} else if session.Modded {
 		profileDir, err := w.Lib.ProfileDir(game.ID, session.ProfileID)
 		if err != nil {
 			return err

@@ -321,3 +321,72 @@ func TestNotStarted(t *testing.T) {
 		t.Errorf("not started = %q", missing)
 	}
 }
+
+func TestRunCreationEngineGame(t *testing.T) {
+	tmp := t.TempDir()
+	lib, err := library.New(filepath.Join(tmp, "lib"), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gamePath := filepath.Join(tmp, "Skyrim Special Edition")
+	mkfile(t, filepath.Join(gamePath, "SkyrimSE.exe"))
+	mkfile(t, filepath.Join(gamePath, "SkyrimSELauncher.exe"))
+	mkfile(t, filepath.Join(gamePath, "Data", "Skyrim.esm"))
+	game, err := lib.AddGame("Skyrim", gamePath)
+	if err != nil || game.Engine != library.EngineCreation {
+		t.Fatalf("add game: %+v %v", game, err)
+	}
+	profileDir, _ := lib.ProfileDir(game.ID, game.ActiveProfile)
+	mkfile(t, filepath.Join(profileDir, "mods", "skse", "Root", "skse64_loader.exe"))
+	mkfile(t, filepath.Join(profileDir, "mods", "ui", "SkyUI_SE.esp"))
+	mkfile(t, filepath.Join(profileDir, "mods", "off", "Off.esp"))
+	if _, err := lib.UpdateProfile(game.ID, game.ActiveProfile, func(p *library.Profile) error {
+		p.Mods = []library.Mod{
+			{ID: "skse", Name: "SKSE", Enabled: true, Active: true},
+			{ID: "ui", Name: "SkyUI", Enabled: true, Active: true},
+			{ID: "off", Name: "Off", Enabled: false},
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	compatData := filepath.Join(tmp, "compatdata", "489830")
+	t.Setenv("STEAM_COMPAT_DATA_PATH", compatData)
+	plugins := filepath.Join(compatData, "pfx/drive_c/users/steamuser/AppData/Local/Skyrim Special Edition/Plugins.txt")
+
+	// The "game" records what it sees: which file it was started as, the
+	// mods in Data and the plugin list.
+	report := filepath.Join(tmp, "report")
+	script := `basename "$1" >> ` + report + `; test -L Data/SkyUI_SE.esp && echo linked >> ` + report +
+		`; test -e Data/Off.esp && echo disabled mod deployed >> ` + report +
+		`; grep -c SkyUI_SE '` + plugins + `' >> ` + report +
+		`; mkdir -p Data/SKSE && echo log > Data/SKSE/written.log`
+	w := &Wrapper{Lib: lib, Installer: modinstall.NewInstaller(lib, nil, nil)}
+	var notified string
+	w.Notify = func(s, b string) { notified = s + ": " + b }
+
+	t.Chdir(gamePath)
+	if code := w.Run([]string{"--game", game.ID, "--", "sh", "-c", script, "sh", filepath.Join(gamePath, "SkyrimSELauncher.exe")}); code != 0 {
+		t.Errorf("exit code %d", code)
+	}
+	if data, _ := os.ReadFile(report); string(data) != "skse64_loader.exe\nlinked\n1\n" || notified != "" {
+		t.Errorf("game saw %q, notified %q", data, notified)
+	}
+	for _, rel := range []string{"Data/SkyUI_SE.esp", "skse64_loader.exe", "Data/SKSE"} {
+		if _, err := os.Lstat(filepath.Join(gamePath, rel)); err == nil {
+			t.Errorf("%s is still in the game folder", rel)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(profileDir, "overwrite", "SKSE", "written.log")); err != nil {
+		t.Errorf("the file written during the session is not in overwrite: %v", err)
+	}
+	if _, err := os.Stat(plugins); err == nil {
+		t.Error("plugins.txt the session made is still in the prefix")
+	}
+	dataDir, _ := lib.GameDataDir(game.ID)
+	for _, name := range []string{library.SessionFile, deployFile} {
+		if _, err := os.Stat(filepath.Join(dataDir, name)); err == nil {
+			t.Errorf("%s not removed", name)
+		}
+	}
+}

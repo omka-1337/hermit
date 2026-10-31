@@ -39,6 +39,9 @@ type Settings struct {
 	UIMode UIMode `json:"uiMode"`
 	// BrowseView is the mod browser layout; empty means auto.
 	BrowseView BrowseView `json:"browseView"`
+	// LastGame is the game that was open last, opened again on the next
+	// start; its active profile comes with it.
+	LastGame string `json:"lastGame,omitempty"`
 }
 
 type Store struct {
@@ -68,7 +71,8 @@ func (s *Store) CompleteSetup() (Settings, error) {
 	return st, s.save(st)
 }
 
-// Update replaces user-editable preferences; SetupCompleted is kept as stored.
+// Update replaces user-editable preferences; SetupCompleted and LastGame are
+// kept as stored.
 func (s *Store) Update(st Settings) (Settings, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -78,7 +82,24 @@ func (s *Store) Update(st Settings) (Settings, error) {
 		return Settings{}, err
 	}
 	st.SetupCompleted = current.SetupCompleted
+	st.LastGame = current.LastGame
 	return st, s.save(st)
+}
+
+// SetLastGame records the game that is open, to open it again next time.
+func (s *Store) SetLastGame(gameID string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	st, err := s.load()
+	if err != nil {
+		return err
+	}
+	if st.LastGame == gameID {
+		return nil
+	}
+	st.LastGame = gameID
+	return s.save(st)
 }
 
 func (s *Store) load() (Settings, error) {

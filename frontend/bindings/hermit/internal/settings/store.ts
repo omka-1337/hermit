@@ -18,7 +18,15 @@ export function Get(): $CancellablePromise<$models.Settings> {
 }
 
 /**
- * Update replaces user-editable preferences; SetupCompleted is kept as stored.
+ * SetLastGame records the game that is open, to open it again next time.
+ */
+export function SetLastGame(gameID: string): $CancellablePromise<void> {
+    return $Call.ByID(2708070645, gameID);
+}
+
+/**
+ * Update replaces user-editable preferences; SetupCompleted and LastGame are
+ * kept as stored.
  */
 export function Update(st: $models.Settings): $CancellablePromise<$models.Settings> {
     return $Call.ByID(971130280, st);

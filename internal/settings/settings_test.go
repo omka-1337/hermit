@@ -49,3 +49,17 @@ func TestUIModeDefaultsToAuto(t *testing.T) {
 		t.Errorf("unknown mode should fall back to auto: %q", st.UIMode)
 	}
 }
+
+func TestLastGameSurvivesUpdate(t *testing.T) {
+	store := NewStore(t.TempDir())
+	if err := store.SetLastGame("skyrim"); err != nil {
+		t.Fatal(err)
+	}
+	// The settings page saves what it was given before the game was opened.
+	if _, err := store.Update(Settings{AllowNSFW: true}); err != nil {
+		t.Fatal(err)
+	}
+	if st, _ := store.Get(); st.LastGame != "skyrim" || !st.AllowNSFW {
+		t.Fatalf("after update: %+v", st)
+	}
+}

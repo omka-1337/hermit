@@ -36,12 +36,18 @@ function App() {
   };
 
   useEffect(() => {
-    Promise.all([SettingsStore.Get(), InfoService.GetInfo(), reloadGames()])
+    // The game open last time comes back, with its active profile.
+    SettingsStore.Get()
+      .then((settings) => Promise.all([settings, InfoService.GetInfo(), reloadGames(settings.lastGame || undefined)]))
       .then(([settings, info]) =>
         setState({ status: "ready", setup: !settings.setupCompleted, settings, steamDeck: info.steamDeck }),
       )
       .catch((err) => setState({ status: "error", message: errorMessage(err) }));
   }, []);
+
+  useEffect(() => {
+    if (selectedId) SettingsStore.SetLastGame(selectedId).catch(console.error);
+  }, [selectedId]);
 
   const finishSetup = async (game?: Game) => {
     try {

@@ -61,7 +61,7 @@ func prepareCommand(args []string) int {
 	if b, err := newBackend(); err == nil {
 		w.Lib, w.Installer = b.lib, b.installer
 	}
-	plan, err := w.Prepare(gameID, command, os.Environ(), pid, nil)
+	plan, err := w.Prepare(gameID, command, os.Environ(), pid, nil, false)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "hermit: launching without mods: %v\n", err)
 		return 1

@@ -99,6 +99,11 @@ export interface LaunchInfo {
      * RunningProfile is the profile of the running session, if any.
      */
     "runningProfile": string;
+
+    /**
+     * RunningTool names the modding tool running instead of the game, if one is.
+     */
+    "runningTool": string;
 }
 
 /**
@@ -154,6 +159,24 @@ export interface SteamSetup {
      * Exe is the path Steam would start.
      */
     "exe": string;
+}
+
+/**
+ * Tool is a modding tool a mod of the profile brings, such as Pandora or
+ * BodySlide: a program run with the profile's mods in Data.
+ */
+export interface Tool {
+    /**
+     * Path is where the tool is in Data while the profile is deployed,
+     * slash-separated.
+     */
+    "path": string;
+    "name": string;
+
+    /**
+     * Mod is the name of the mod the tool comes with.
+     */
+    "mod": string;
 }
 
 /**

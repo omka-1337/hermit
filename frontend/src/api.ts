@@ -21,6 +21,7 @@ export {
 } from "../bindings/hermit/internal/app";
 export type { ImportProgress, ImportResult, Preview } from "../bindings/hermit/internal/profileshare";
 export type { MO2Instance } from "../bindings/hermit/internal/bethesda";
+export type { Tool } from "../bindings/hermit/internal/app";
 export type { ConfigContent } from "../bindings/hermit/internal/app";
 export type { Change, Entry, FileInfo as ConfigFileInfo } from "../bindings/hermit/internal/configs";
 export type { LaunchInfo, LogFile } from "../bindings/hermit/internal/app";

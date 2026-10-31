@@ -39,8 +39,9 @@ export function Conflicts(gameID: string, profileID: string): $CancellablePromis
 }
 
 /**
- * ImportMO2 fills an empty profile with the mods, their order and the plugin
- * list of a profile of an MO2 instance, together with MO2's overwrite folder.
+ * ImportMO2 fills an empty profile with the mods, their order, the plugin
+ * list and the INI files of a profile of an MO2 instance, together with MO2's
+ * overwrite folder.
  */
 export function ImportMO2(gameID: string, profileID: string, dir: string, mo2Profile: string): $CancellablePromise<library$0.Profile> {
     return $Call.ByID(664787782, gameID, profileID, dir, mo2Profile);
@@ -108,4 +109,22 @@ export function RemoveMod(gameID: string, profileID: string, modID: string): $Ca
  */
 export function RenameSeparator(gameID: string, profileID: string, id: string, name: string): $CancellablePromise<library$0.Profile> {
     return $Call.ByID(1329687082, gameID, profileID, id, name);
+}
+
+/**
+ * RunTool runs a tool of the profile in the game's Proton prefix, the way
+ * Steam runs the game, with the profile deployed for as long as it runs;
+ * what the tool writes into Data is kept in the profile's overwrite folder.
+ * It returns once the tool has started.
+ */
+export function RunTool(gameID: string, path: string): $CancellablePromise<void> {
+    return $Call.ByID(3112121880, gameID, path);
+}
+
+/**
+ * Tools lists the tools the enabled mods of the active profile bring, in
+ * the order of the mods.
+ */
+export function Tools(gameID: string): $CancellablePromise<$models.Tool[] | null> {
+    return $Call.ByID(144729248, gameID);
 }

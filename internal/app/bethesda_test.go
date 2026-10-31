@@ -44,7 +44,7 @@ func TestImportMO2AndOrderMods(t *testing.T) {
 		"mods/Patch/Patch.esp":         "patch",
 	})
 
-	s := NewBethesdaService(lib)
+	s := NewBethesdaService(lib, nil)
 	p, err := s.ImportMO2(game.ID, game.ActiveProfile, mo2, "Default")
 	if err != nil {
 		t.Fatal(err)
@@ -125,7 +125,7 @@ func TestImportMO2AsProfile(t *testing.T) {
 		"profiles/Default/modlist.txt": "+SkyUI\r\n",
 		"mods/SkyUI/SkyUI_SE.esp":      "ui",
 	})
-	s := NewBethesdaService(lib)
+	s := NewBethesdaService(lib, nil)
 
 	location := filepath.Join(tmp, "Hermit")
 	if err := os.Mkdir(location, 0o755); err != nil {
@@ -146,5 +146,50 @@ func TestImportMO2AsProfile(t *testing.T) {
 	}
 	if profiles, _ := lib.ListProfiles(game.ID); len(profiles) != 2 {
 		t.Errorf("profiles after a failed import: %d", len(profiles))
+	}
+}
+
+func TestTools(t *testing.T) {
+	tmp := t.TempDir()
+	lib, err := library.New(filepath.Join(tmp, "lib"), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gamePath := filepath.Join(tmp, "Skyrim Special Edition")
+	writeFiles(t, gamePath, map[string]string{"SkyrimSE.exe": "", "Data/Skyrim.esm": ""})
+	game, err := lib.AddGame("Skyrim", gamePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	profileDir, _ := lib.ProfileDir(game.ID, game.ActiveProfile)
+	writeFiles(t, filepath.Join(profileDir, "mods"), map[string]string{
+		"bodyslide/CalienteTools/BodySlide/BodySlide.exe":              "",
+		"nemesis/Nemesis_Engine/Nemesis Unlimited Behavior Engine.exe": "",
+		"nemesis/Nemesis_Engine/hkxcmd.exe":                            "",
+		"nemesis/Nemesis_Engine/Lib/distutils/command/wininst-9.0.exe": "",
+		"skse/Root/skse64_loader.exe":                                  "",
+		"off/Tool.exe":                                                 "",
+	})
+	if _, err := lib.UpdateProfile(game.ID, game.ActiveProfile, func(p *library.Profile) error {
+		p.Mods = []library.Mod{
+			{ID: "skse", Name: "SKSE", Enabled: true},
+			{ID: "bodyslide", Name: "BodySlide", Enabled: true},
+			{ID: "nemesis", Name: "Nemesis", Enabled: true},
+			{ID: "off", Name: "Off", Enabled: false},
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	tools, err := NewBethesdaService(lib, nil).Tools(game.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []Tool{
+		{Path: "CalienteTools/BodySlide/BodySlide.exe", Name: "BodySlide", Mod: "BodySlide"},
+		{Path: "Nemesis_Engine/Nemesis Unlimited Behavior Engine.exe", Name: "Nemesis Unlimited Behavior Engine", Mod: "Nemesis"},
+	}
+	if !slices.Equal(tools, want) {
+		t.Errorf("tools:\n got  %+v\n want %+v", tools, want)
 	}
 }

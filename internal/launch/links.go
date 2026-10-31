@@ -43,6 +43,8 @@ type Session struct {
 	// Deployed is set for a Creation Engine game whose profile is deployed
 	// into Data; what was changed is in deploy.json.
 	Deployed bool `json:"deployed,omitempty"`
+	// Tool names the modding tool running instead of the game, if one is.
+	Tool string `json:"tool,omitempty"`
 	// PPDB is the PortProton settings file the winhttp override was added to
 	// for this session; Cleanup takes it out again.
 	PPDB string `json:"ppdb,omitempty"`

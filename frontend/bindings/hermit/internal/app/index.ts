@@ -35,5 +35,6 @@ export type {
     LoaderStatus,
     LogFile,
     SteamSetup,
+    Tool,
     Update
 } from "./models.js";

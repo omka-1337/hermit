@@ -425,7 +425,7 @@ func TestChosenExecutableOverridesSKSE(t *testing.T) {
 	w := &Wrapper{Lib: lib, Installer: modinstall.NewInstaller(lib, nil, nil)}
 	run := func() string {
 		t.Helper()
-		plan, err := w.Prepare(game.ID, []string{"proton", "waitforexitandrun", filepath.Join(gamePath, "SkyrimSELauncher.exe")}, nil, os.Getpid(), nil)
+		plan, err := w.Prepare(game.ID, []string{"proton", "waitforexitandrun", filepath.Join(gamePath, "SkyrimSELauncher.exe")}, nil, os.Getpid(), nil, false)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -442,5 +442,87 @@ func TestChosenExecutableOverridesSKSE(t *testing.T) {
 	}
 	if got := run(); got != "SkyrimSE.exe" {
 		t.Errorf("chosen: started %s", got)
+	}
+}
+
+func TestSteamProtonCommand(t *testing.T) {
+	root := t.TempDir()
+	steamRoot := filepath.Join(root, "Steam")
+	proton := filepath.Join(steamRoot, "steamapps/common/Proton - Experimental")
+	runtime := filepath.Join(steamRoot, "steamapps/common/SteamLinuxRuntime_4")
+	compatData := filepath.Join(root, "Library/steamapps/compatdata/489830")
+	for path, content := range map[string]string{
+		filepath.Join(proton, "proton"):                               "",
+		filepath.Join(proton, "toolmanifest.vdf"):                     `"manifest" { "commandline" "/proton %verb%" "require_tool_appid" "4183110" }`,
+		filepath.Join(runtime, "_v2-entry-point"):                     "",
+		filepath.Join(steamRoot, "steamapps/appmanifest_4183110.acf"): `"AppState" { "appid" "4183110" "name" "Steam Linux Runtime 4.0" "installdir" "SteamLinuxRuntime_4" }`,
+		filepath.Join(compatData, "config_info"):                      "11.0-100\n" + proton + "/files/share/fonts/\n" + proton + "/files/lib/\n",
+	} {
+		os.MkdirAll(filepath.Dir(path), 0o755)
+		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	got, err := SteamProtonCommand([]string{steamRoot}, compatData, "489830", `/games/Skyrim/Data/Tool.exe`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{
+		"env", "STEAM_COMPAT_DATA_PATH=" + compatData, "STEAM_COMPAT_CLIENT_INSTALL_PATH=" + steamRoot,
+		"SteamAppId=489830", "SteamGameId=489830",
+		filepath.Join(runtime, "_v2-entry-point"), "--verb=waitforexitandrun", "--",
+		filepath.Join(proton, "proton"), "waitforexitandrun", "/games/Skyrim/Data/Tool.exe",
+	}
+	if !slices.Equal(got, want) {
+		t.Errorf("command:\n got  %q\n want %q", got, want)
+	}
+
+	if _, err := SteamProtonCommand([]string{steamRoot}, t.TempDir(), "489830", "x.exe"); err == nil {
+		t.Error("ran in a prefix Steam never set up")
+	}
+}
+
+func TestRunTool(t *testing.T) {
+	tmp := t.TempDir()
+	lib, err := library.New(filepath.Join(tmp, "lib"), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gamePath := filepath.Join(tmp, "Skyrim Special Edition")
+	for _, f := range []string{"SkyrimSE.exe", "SkyrimSELauncher.exe", "Data/Skyrim.esm"} {
+		mkfile(t, filepath.Join(gamePath, f))
+	}
+	game, err := lib.AddGame("Skyrim", gamePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := lib.SetLaunchExecutable(game.ID, "SkyrimSE.exe"); err != nil {
+		t.Fatal(err)
+	}
+	profileDir, _ := lib.ProfileDir(game.ID, game.ActiveProfile)
+	mkfile(t, filepath.Join(profileDir, "mods", "tool", "Tools", "Thing", "Thing.exe"))
+	if _, err := lib.UpdateProfile(game.ID, game.ActiveProfile, func(p *library.Profile) error {
+		p.Mods = []library.Mod{{ID: "tool", Name: "Thing", Enabled: true}}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	// The "tool" notes how it was started and writes its output into Data.
+	report := filepath.Join(tmp, "report")
+	exe := filepath.Join(gamePath, "Data", "Tools", "Thing", "Thing.exe")
+	script := `basename "$1" >> ` + report + `; basename "$PWD" >> ` + report + `; mkdir -p ../../meshes && echo out > ../../meshes/made.nif`
+	w := &Wrapper{Lib: lib, Installer: modinstall.NewInstaller(lib, nil, nil)}
+	if code := w.Run([]string{"--game", game.ID, "--tool", "--", "sh", "-c", script, "sh", exe}); code != 0 {
+		t.Fatalf("exit code %d", code)
+	}
+	if data, _ := os.ReadFile(report); string(data) != "Thing.exe\nThing\n" {
+		t.Errorf("tool saw %q", data)
+	}
+	if _, err := os.Stat(filepath.Join(profileDir, "overwrite", "meshes", "made.nif")); err != nil {
+		t.Errorf("the tool's output is not in overwrite: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(gamePath, "Data", "Tools")); !os.IsNotExist(err) {
+		t.Error("the tool's folder is still in Data")
 	}
 }

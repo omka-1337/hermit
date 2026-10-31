@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"syscall"
 	"time"
 
 	"hermit/internal/bethesda"
@@ -22,11 +23,12 @@ import (
 // BethesdaService manages the profiles of Creation Engine games, whose mods
 // each keep a folder of their own and are deployed into Data in order.
 type BethesdaService struct {
-	lib *library.Library
+	lib        *library.Library
+	steamRoots []string
 }
 
-func NewBethesdaService(lib *library.Library) *BethesdaService {
-	return &BethesdaService{lib: lib}
+func NewBethesdaService(lib *library.Library, steamRoots []string) *BethesdaService {
+	return &BethesdaService{lib: lib, steamRoots: steamRoots}
 }
 
 // InspectMO2 reads a Mod Organizer 2 instance, to show what importing it
@@ -256,6 +258,104 @@ func (s *BethesdaService) RemoveMod(gameID, profileID, modID string) (library.Pr
 		p.Mods = slices.Delete(p.Mods, i, i+1)
 		return nil
 	})
+}
+
+// Tool is a modding tool a mod of the profile brings, such as Pandora or
+// BodySlide: a program run with the profile's mods in Data.
+type Tool struct {
+	// Path is where the tool is in Data while the profile is deployed,
+	// slash-separated.
+	Path string `json:"path"`
+	Name string `json:"name"`
+	// Mod is the name of the mod the tool comes with.
+	Mod string `json:"mod"`
+}
+
+// notTools are programs mods carry along that tools run themselves, never
+// the user: converters, compilers, installers of the libraries they ship.
+var notTools = regexp.MustCompile(`(?i)^(hkxcmd|papyrus(compiler|assembler)|wininst-.*|unins.*|vc_?redist.*|.*crash.*report.*)\.exe$`)
+
+// Tools lists the tools the enabled mods of the active profile bring, in
+// the order of the mods.
+func (s *BethesdaService) Tools(gameID string) ([]Tool, error) {
+	game, _, err := s.creationGame(gameID)
+	if err != nil {
+		return nil, err
+	}
+	profile, err := s.lib.GetProfile(gameID, game.ActiveProfile)
+	if err != nil {
+		return nil, err
+	}
+	profileDir, err := s.lib.ProfileDir(gameID, game.ActiveProfile)
+	if err != nil {
+		return nil, err
+	}
+	tools := []Tool{}
+	for _, m := range profile.Mods {
+		if !m.Enabled || m.Separator {
+			continue
+		}
+		modDir := filepath.Join(profileDir, bethesda.ModsDir, m.ID)
+		filepath.WalkDir(modDir, func(p string, d fs.DirEntry, err error) error {
+			if err != nil {
+				return nil
+			}
+			rel, _ := filepath.Rel(modDir, p)
+			if d.IsDir() {
+				// Root holds what starts the game, Lib a tool's own libraries.
+				if name := strings.ToLower(d.Name()); rel != "." && (name == bethesda.RootDir && filepath.Dir(rel) == "." || name == "lib") {
+					return filepath.SkipDir
+				}
+				return nil
+			}
+			if strings.EqualFold(filepath.Ext(p), ".exe") && !notTools.MatchString(d.Name()) {
+				tools = append(tools, Tool{Path: filepath.ToSlash(rel), Name: strings.TrimSuffix(d.Name(), filepath.Ext(d.Name())), Mod: m.Name})
+			}
+			return nil
+		})
+	}
+	return tools, nil
+}
+
+// RunTool runs a tool of the profile in the game's Proton prefix, the way
+// Steam runs the game, with the profile deployed for as long as it runs;
+// what the tool writes into Data is kept in the profile's overwrite folder.
+// It returns once the tool has started.
+func (s *BethesdaService) RunTool(gameID, path string) error {
+	game, _, err := s.creationGame(gameID)
+	if err != nil {
+		return err
+	}
+	if err := s.notRunning(gameID); err != nil {
+		return err
+	}
+	tools, err := s.Tools(gameID)
+	if err != nil {
+		return err
+	}
+	if !slices.ContainsFunc(tools, func(t Tool) bool { return t.Path == path }) {
+		return fmt.Errorf("no mod of the profile brings %s", path)
+	}
+	compatData := bethesda.SteamCompatData(game.Path, game.SteamAppID)
+	if compatData == "" {
+		return errors.New("the game's Proton prefix was not found; Steam makes it the first time it starts the game")
+	}
+	data, err := gameData(game.Path)
+	if err != nil {
+		return err
+	}
+	command, err := launch.SteamProtonCommand(s.steamRoots, compatData, game.SteamAppID, filepath.Join(data, filepath.FromSlash(path)))
+	if err != nil {
+		return err
+	}
+	// The wrapper deploys the profile, runs the tool and cleans up after it,
+	// as a process of its own: the tool may outlive Hermit's window.
+	cmd := platform.Command(executablePath(), append([]string{"run", "--game", game.ID, "--tool", "--"}, command...)...)
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("starting %s: %w", filepath.Base(path), err)
+	}
+	return cmd.Process.Release()
 }
 
 // LogFile is a log the script extender or one of its plugins wrote.

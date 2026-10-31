@@ -23,8 +23,8 @@ const deployFile = "deploy.json"
 // files. It
 // returns the command to run, which starts the script extender instead of
 // the game's launcher once the game folder has one, unless the user picked
-// the file the game starts from.
-func deployCreation(game library.Game, profile library.Profile, profileDir, dataDir string, command, env []string) ([]string, error) {
+// the file the game starts from or a tool runs instead of the game.
+func deployCreation(game library.Game, profile library.Profile, profileDir, dataDir string, command, env []string, tool bool) ([]string, error) {
 	g, ok := bethesda.Find(game.Executable)
 	if !ok {
 		return nil, fmt.Errorf("%s is not a Creation Engine game Hermit knows", game.Executable)
@@ -51,7 +51,7 @@ func deployCreation(game library.Game, profile library.Profile, profileDir, data
 		bethesda.Undeploy(game.Path, state)
 		return nil, err
 	}
-	if game.LaunchExecutable != "" {
+	if game.LaunchExecutable != "" || tool {
 		return command, nil
 	}
 	return withLoader(command, game.Path, g), nil

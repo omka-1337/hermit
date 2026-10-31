@@ -40,6 +40,8 @@ type LaunchInfo struct {
 	Running    bool `json:"running"`
 	// RunningProfile is the profile of the running session, if any.
 	RunningProfile string `json:"runningProfile"`
+	// RunningTool names the modding tool running instead of the game, if one is.
+	RunningTool string `json:"runningTool"`
 }
 
 type LaunchService struct {
@@ -81,6 +83,7 @@ func (s *LaunchService) GetLaunchInfo(gameID string) (LaunchInfo, error) {
 		if session, err := launch.ReadSession(dataDir); err == nil && session.Running() {
 			info.Running = true
 			info.RunningProfile = session.ProfileID
+			info.RunningTool = session.Tool
 		}
 	}
 	return info, nil

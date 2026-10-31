@@ -32,11 +32,12 @@ type Wrapper struct {
 
 var appIDArg = regexp.MustCompile(`^AppId=(\d+)$`)
 
-// Run parses "[--game <id>] -- <command...>", runs the command and returns
-// its exit code. Mod setup problems never prevent the game from starting: the
-// game is then launched without mods.
+// Run parses "[--game <id>] [--tool] -- <command...>", runs the command and
+// returns its exit code. Mod setup problems never prevent the game from
+// starting: the game is then launched without mods. --tool runs a modding
+// tool rather than the game, with the profile in place all the same.
 func (w *Wrapper) Run(args []string) int {
-	gameID, command, err := parseArgs(args)
+	gameID, tool, command, err := parseArgs(args)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 2
@@ -45,7 +46,7 @@ func (w *Wrapper) Run(args []string) int {
 	logOut := io.Writer(os.Stderr)
 	// Inside the AppImage, give the game the environment Steam provided, not
 	// the one AppRun prepared for Hermit's bundled GTK and WebKit.
-	plan, setupErr := w.Prepare(gameID, command, platform.OriginalEnv(), os.Getpid(), &logOut)
+	plan, setupErr := w.Prepare(gameID, command, platform.OriginalEnv(), os.Getpid(), &logOut, tool)
 	logger := log.New(logOut, "[hermit] ", log.LstdFlags)
 	switch {
 	case setupErr != nil:
@@ -59,7 +60,12 @@ func (w *Wrapper) Run(args []string) int {
 		logger.Printf("launching with profile %s: %q", plan.ProfileID, plan.Command)
 	}
 
-	code := runCommand(plan.Command, plan.Env, logger)
+	dir := platform.OriginalWorkingDir()
+	if tool {
+		// Tools look for their own files next to themselves.
+		dir = filepath.Dir(command[len(command)-1])
+	}
+	code := runCommand(plan.Command, plan.Env, dir, logger)
 	if plan.GameID != "" {
 		if err := w.Cleanup(plan.GameID); err != nil {
 			logger.Printf("cleanup: %v", err)
@@ -68,26 +74,28 @@ func (w *Wrapper) Run(args []string) int {
 	return code
 }
 
-func parseArgs(args []string) (gameID string, command []string, err error) {
+func parseArgs(args []string) (gameID string, tool bool, command []string, err error) {
 	for i := 0; i < len(args); i++ {
 		switch args[i] {
 		case "--game":
 			if i+1 >= len(args) {
-				return "", nil, errors.New("--game needs a value")
+				return "", false, nil, errors.New("--game needs a value")
 			}
 			gameID = args[i+1]
 			i++
+		case "--tool":
+			tool = true
 		case "--":
 			command = args[i+1:]
 			if len(command) == 0 {
-				return "", nil, errors.New("no command after --")
+				return "", false, nil, errors.New("no command after --")
 			}
-			return gameID, command, nil
+			return gameID, tool, command, nil
 		default:
-			return "", nil, fmt.Errorf("unexpected argument %q", args[i])
+			return "", false, nil, fmt.Errorf("unexpected argument %q", args[i])
 		}
 	}
-	return "", nil, errors.New(`usage: run [--game <id>] -- <command...> (in Steam: run -- %command%)`)
+	return "", false, nil, errors.New(`usage: run [--game <id>] [--tool] -- <command...> (in Steam: run -- %command%)`)
 }
 
 // Plan is how a game should be started. Prepare fills it in fully only when
@@ -113,8 +121,10 @@ var nativeLaunchers = []string{"run_bepinex.sh", "start_game_bepinex.sh"}
 // Prepare links the active profile of a game and returns how to launch it.
 // The session is owned by pid: it is the process expected to run the game, so
 // that a leftover session can be told from a running one. Whoever calls
-// Prepare must call Cleanup once the game has exited.
-func (w *Wrapper) Prepare(gameID string, command, env []string, pid int, logOut *io.Writer) (Plan, error) {
+// Prepare must call Cleanup once the game has exited. A tool, a program
+// modding the game rather than the game, is run as it is given, never
+// replaced by the file the game starts from.
+func (w *Wrapper) Prepare(gameID string, command, env []string, pid int, logOut *io.Writer, tool bool) (Plan, error) {
 	plan := Plan{Command: command, Env: env}
 	if w.Lib == nil || w.Installer == nil {
 		return plan, errors.New("mod manager data could not be opened")
@@ -159,10 +169,13 @@ func (w *Wrapper) Prepare(gameID string, command, env []string, pid int, logOut 
 	}
 
 	session := Session{ProfileID: profile.ID, PID: pid, StartedAt: time.Now(), Links: []string{}, ProfileDir: profileDir}
+	if tool {
+		session.Tool = strings.TrimSuffix(filepath.Base(command[len(command)-1]), filepath.Ext(command[len(command)-1]))
+	}
 	modded := false
 	switch {
 	case game.Engine == library.EngineCreation:
-		if command, err = deployCreation(game, profile, profileDir, dataDir, command, env); err != nil {
+		if command, err = deployCreation(game, profile, profileDir, dataDir, command, env, tool); err != nil {
 			return plan, err
 		}
 		session.Deployed, modded = true, true
@@ -196,7 +209,7 @@ func (w *Wrapper) Prepare(gameID string, command, env []string, pid int, logOut 
 			}
 		}
 	}
-	if game.Runtime == library.RuntimeProton && game.LaunchExecutable != "" {
+	if game.Runtime == library.RuntimeProton && game.LaunchExecutable != "" && !tool {
 		exe := filepath.Join(game.Path, filepath.FromSlash(game.LaunchExecutable))
 		command = withExecutable(command, game.Path, exe, filepath.Base(game.Executable))
 	}
@@ -349,10 +362,10 @@ func withDLLOverride(env []string, dll, mode string) []string {
 	return append(env, key+dll+"="+mode)
 }
 
-func runCommand(command, env []string, logger *log.Logger) int {
+func runCommand(command, env []string, dir string, logger *log.Logger) int {
 	cmd := exec.Command(command[0], command[1:]...)
 	cmd.Env = env
-	cmd.Dir = platform.OriginalWorkingDir()
+	cmd.Dir = dir
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, os.Stdout, os.Stderr
 	if err := cmd.Start(); err != nil {
 		logger.Printf("start %s: %v", command[0], err)

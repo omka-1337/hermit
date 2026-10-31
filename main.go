@@ -94,6 +94,7 @@ func main() {
 		log.Printf("settings: %v", err)
 	}
 
+	bethesda := app.NewBethesdaService(b.lib, b.steamRoots)
 	wailsApp := application.New(application.Options{
 		Name:        app.Name,
 		Description: "BepInEx mod manager for Linux",
@@ -109,7 +110,7 @@ func main() {
 			application.NewService(app.NewFolderService(b.lib)),
 			application.NewService(app.NewCacheService(filepath.Join(b.root, "cache"))),
 			application.NewService(app.NewConfigService(b.lib)),
-			application.NewService(app.NewBethesdaService(b.lib, b.steamRoots)),
+			application.NewService(bethesda),
 			application.NewService(app.NewShareService(
 				profileshare.NewSharer(b.lib, b.installer, b.ts, filepath.Join(b.root, "cache", "imports")),
 			)),
@@ -166,6 +167,23 @@ func main() {
 		}
 		go showFramelessWindow(window)
 	})
+
+	// A FOMOD installer gets a window of its own beside the manager's.
+	bethesda.OpenWindow = func(url, title string) {
+		w := wailsApp.Window.NewWithOptions(application.WebviewWindowOptions{
+			Title:            title,
+			Frameless:        true,
+			Hidden:           true,
+			Width:            1000,
+			Height:           700,
+			MinWidth:         760,
+			MinHeight:        520,
+			InitialPosition:  application.WindowCentered,
+			BackgroundColour: application.NewRGB(9, 9, 11),
+			URL:              url,
+		})
+		go showFramelessWindow(w)
+	}
 
 	// The small window says when it is done; the manager itself opens then.
 	wailsApp.Event.On(steamSetupDoneEvent, func(*application.CustomEvent) {

@@ -131,6 +131,27 @@ export interface LogFile {
 }
 
 /**
+ * PreparedMod is an archive unpacked for installing.
+ */
+export interface PreparedMod {
+    "session": string;
+    "name": string;
+    "version": string;
+    "author": string;
+
+    /**
+     * Fomod is set when the archive has an installer with options to pick.
+     */
+    "fomod": boolean;
+    "image": string;
+
+    /**
+     * Unsure is set when nothing in a plain archive looked like Data.
+     */
+    "unsure": boolean;
+}
+
+/**
  * SteamSetup is what the interface needs to know to offer the shortcut.
  */
 export interface SteamSetup {

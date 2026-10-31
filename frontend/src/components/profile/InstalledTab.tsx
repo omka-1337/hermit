@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { confirmDanger, errorMessage, Mod } from "../../api";
 import { progressText } from "../../format";
 import { Button, ErrorText, Spinner, Toggle } from "../ui";
@@ -14,7 +14,9 @@ const columns = "grid grid-cols-[3.25rem_minmax(0,1fr)_7rem_7rem_10rem_auto] ite
 
 const sourceLabels: Record<string, string> = { thunderstore: "Thunderstore", github: "GitHub", local: "Local" };
 
-export default function InstalledTab({ onBrowse }: { onBrowse: () => void }) {
+// addRequest opens the dialog for adding a mod from a file whenever it goes
+// up: File → Install from file in the title bar.
+export default function InstalledTab({ onBrowse, addRequest = 0 }: { onBrowse: () => void; addRequest?: number }) {
   const {
     profile,
     installed,
@@ -36,6 +38,9 @@ export default function InstalledTab({ onBrowse }: { onBrowse: () => void }) {
   const deck = useLayout() === "deck";
   const [error, setError] = useState("");
   const [adding, setAdding] = useState(false);
+  useEffect(() => {
+    if (addRequest > 0) setAdding(true);
+  }, [addRequest]);
   const mods = profile.mods ?? [];
   // done counts the mods of the current "Update all" that are already through.
   const done = [...queued].filter((id) => updated.has(id)).length;

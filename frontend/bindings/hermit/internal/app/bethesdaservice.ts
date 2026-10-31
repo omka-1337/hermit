@@ -16,6 +16,9 @@ import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wails
 import * as bethesda$0 from "../bethesda/models.js";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
+import * as fomod$0 from "../fomod/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
 import * as library$0 from "../library/models.js";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -31,11 +34,42 @@ export function AddSeparator(gameID: string, profileID: string, name: string, in
 }
 
 /**
+ * CancelInstall throws away what PrepareInstall unpacked.
+ */
+export function CancelInstall(session: string): $CancellablePromise<void> {
+    return $Call.ByID(1687846134, session);
+}
+
+/**
  * Conflicts tells, for each mod of the profile, which other mods have files
  * in common with it and how many; the order decides which of them wins.
  */
 export function Conflicts(gameID: string, profileID: string): $CancellablePromise<{ [_ in string]?: { [_ in string]?: number } | null } | null> {
     return $Call.ByID(1619166192, gameID, profileID);
+}
+
+/**
+ * FinishInstall installs a prepared archive as a new mod at the end of the
+ * profile's order, where it wins over the mods before it; a FOMOD with the
+ * options picked in choices.
+ */
+export function FinishInstall(session: string, choices: fomod$0.Choices): $CancellablePromise<library$0.Profile> {
+    return $Call.ByID(3102955077, session, choices);
+}
+
+/**
+ * FomodImage returns a picture of the installer as a data URL.
+ */
+export function FomodImage(session: string, path: string): $CancellablePromise<string> {
+    return $Call.ByID(3315270135, session, path);
+}
+
+/**
+ * FomodView is the installer of a prepared archive with the options picked
+ * so far.
+ */
+export function FomodView(session: string, choices: fomod$0.Choices): $CancellablePromise<fomod$0.View> {
+    return $Call.ByID(1084865467, session, choices);
 }
 
 /**
@@ -82,10 +116,32 @@ export function MoveMods(gameID: string, profileID: string, ids: string[] | null
 }
 
 /**
+ * OpenFomod shows the installer of a prepared archive in a window of its own.
+ */
+export function OpenFomod(session: string): $CancellablePromise<void> {
+    return $Call.ByID(2025339566, session);
+}
+
+/**
  * OpenLogs shows the script extender's log folder in the file manager.
  */
 export function OpenLogs(gameID: string): $CancellablePromise<void> {
     return $Call.ByID(1977735806, gameID);
+}
+
+/**
+ * PrepareInstall unpacks a mod archive for a profile and looks at it. What
+ * it unpacked stays until the mod is installed or the install is cancelled.
+ */
+export function PrepareInstall(gameID: string, profileID: string, file: string): $CancellablePromise<$models.PreparedMod> {
+    return $Call.ByID(3067006755, gameID, profileID, file);
+}
+
+/**
+ * PreparedInfo describes a prepared archive to the installer's window.
+ */
+export function PreparedInfo(session: string): $CancellablePromise<$models.PreparedMod> {
+    return $Call.ByID(1692445168, session);
 }
 
 /**

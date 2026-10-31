@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Events } from "@wailsio/runtime";
 import { Engine, errorMessage, FolderService, Game, InstallService, Profile } from "../../api";
 import { packageLabel } from "../../format";
 import { PlayButton } from "../launch";
@@ -54,9 +55,21 @@ type Props = {
   // keeps only the tab's content and Play.
   tab?: Tab;
   onProfileChange?: (profile: Profile) => void;
+  // addRequest opens the dialog for adding a mod from a file each time it
+  // goes up, for File → Install from file.
+  addRequest?: number;
 };
 
-export default function ProfileView({ game, profileId, onBack, onGameChanged, onOpenProfile, tab: chosenTab, onProfileChange }: Props) {
+export default function ProfileView({
+  game,
+  profileId,
+  onBack,
+  onGameChanged,
+  onOpenProfile,
+  tab: chosenTab,
+  onProfileChange,
+  addRequest = 0,
+}: Props) {
   const deck = useLayout() === "deck";
   const modalOpen = useModalOpen();
   const [profile, setProfileState] = useState<Profile | null>(null);
@@ -69,6 +82,17 @@ export default function ProfileView({ game, profileId, onBack, onGameChanged, on
   };
   const [error, setError] = useState("");
   const [exporting, setExporting] = useState(false);
+
+  // A mod installed from a FOMOD installer's window, or anywhere else.
+  useEffect(
+    () =>
+      Events.On("bethesda:installed", (ev) => {
+        if (ev.data?.gameId === game.id && ev.data?.profileId === profileId) {
+          InstallService.OpenProfile(game.id, profileId).then(setProfile).catch(console.error);
+        }
+      }),
+    [game.id, profileId],
+  );
 
   useEffect(() => {
     InstallService.OpenProfile(game.id, profileId)
@@ -165,7 +189,7 @@ export default function ProfileView({ game, profileId, onBack, onGameChanged, on
               <>
                 {tab !== "config" && <LoaderNotice />}
                 <div className="min-h-0 flex-1">
-                  {tab === "installed" && <InstalledTab onBrowse={() => setTab("browse")} />}
+                  {tab === "installed" && <InstalledTab onBrowse={() => setTab("browse")} addRequest={addRequest} />}
                   {tab === "config" && <ConfigTab />}
                   {/* Browse stays mounted so search and scroll survive tab switches. */}
                   <div className={tab === "browse" ? "h-full" : "hidden"}>

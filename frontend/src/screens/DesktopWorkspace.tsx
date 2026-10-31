@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
-import { confirmDanger, errorMessage, Game, Library, Profile } from "../api";
+import { Dialogs, Events } from "@wailsio/runtime";
+import { BethesdaService, confirmDanger, Engine, errorMessage, Game, Library, Profile, UnpackProgress } from "../api";
+import { installFromFileEvent } from "../components/TitleMenus";
 import GamePicker from "../components/GamePicker";
 import { LaunchSetup } from "../components/launch";
 import { onModpackSettled } from "../modpackInstalls";
@@ -8,6 +10,7 @@ import GameSwitcher from "../components/sidebar/GameSwitcher";
 import ProfileSwitcher from "../components/sidebar/ProfileSwitcher";
 import { TabIcon } from "../components/sidebar/icons";
 import { Button, ErrorText, Modal } from "../components/ui";
+import { formatBytes } from "../format";
 import SettingsView from "./SettingsView";
 import { GearIcon } from "./shell";
 
@@ -27,6 +30,9 @@ export default function DesktopWorkspace({ games, selectedId, onSelect, onGamesC
   const [tab, setTab] = useState<Tab>("installed");
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [error, setError] = useState("");
+  // unpacking is an archive being unpacked for File → Install from file.
+  const [unpacking, setUnpacking] = useState<UnpackProgress | null>(null);
+  const [addRequest, setAddRequest] = useState(0);
   const game = games.find((g) => g.id === selectedId) ?? null;
   const profile = profiles.find((p) => p.id === game?.activeProfile) ?? null;
   const tabs = game ? profileTabs(game, profile, true) : [];
@@ -61,6 +67,52 @@ export default function DesktopWorkspace({ games, selectedId, onSelect, onGamesC
   }, [tabIds, tab]);
 
   const changed = (g: Game) => onGamesChanged(g.id);
+
+  // File → Install from file: a Bethesda game's archive is unpacked here and
+  // installed, through its FOMOD installer's window when it has one; other
+  // games add the file in the dialog the Installed page has for it.
+  useEffect(() => {
+    const install = async () => {
+      if (!game) return;
+      setSettings(false);
+      if (game.engine !== Engine.EngineCreation) {
+        setTab("installed");
+        setAddRequest((n) => n + 1);
+        return;
+      }
+      const file = await Dialogs.OpenFile({
+        Title: "Choose a mod archive",
+        CanChooseFiles: true,
+        Filters: [{ DisplayName: "Mod archives (zip, 7z, rar)", Pattern: "*.zip;*.7z;*.rar" }],
+      });
+      if (!file) return;
+      setError("");
+      setUnpacking({ file: file.split("/").pop() ?? file, done: 0, total: 0 });
+      try {
+        const prepared = await BethesdaService.PrepareInstall(game.id, game.activeProfile, file);
+        if (prepared.fomod) await BethesdaService.OpenFomod(prepared.session);
+        else await BethesdaService.FinishInstall(prepared.session, null);
+        setTab("installed");
+      } catch (err) {
+        setError(errorMessage(err));
+      } finally {
+        setUnpacking(null);
+      }
+    };
+    window.addEventListener(installFromFileEvent, install);
+    return () => window.removeEventListener(installFromFileEvent, install);
+  }, [game]);
+
+  useEffect(() => Events.On("bethesda:unpack", (ev) => setUnpacking((u) => (u ? ev.data : u))), []);
+
+  // A mod installed from a FOMOD installer's window changes the profile's count.
+  useEffect(
+    () =>
+      Events.On("bethesda:installed", (ev) => {
+        if (ev.data?.gameId === gameId) loadProfiles().catch(console.error);
+      }),
+    [gameId, loadProfiles],
+  );
 
   const removeGame = async () => {
     if (!game) return;
@@ -160,6 +212,7 @@ export default function DesktopWorkspace({ games, selectedId, onSelect, onGamesC
                 onGameChanged={() => onGamesChanged(game.id)}
                 onOpenProfile={async (profileId) => changed(await Library.SetActiveProfile(game.id, profileId))}
                 onProfileChange={profileChanged}
+                addRequest={addRequest}
               />
             </div>
           </>
@@ -176,6 +229,25 @@ export default function DesktopWorkspace({ games, selectedId, onSelect, onGamesC
           )
         )}
       </main>
+
+      {unpacking && (
+        <Modal title="Installing" onClose={() => {}}>
+          <div className="flex flex-col gap-3">
+            <span className="truncate text-sm">Unpacking {unpacking.file}…</span>
+            <div className="h-2 overflow-hidden rounded-full bg-zinc-800">
+              <div
+                className="h-full bg-indigo-500 transition-[width]"
+                style={{ width: unpacking.total ? `${Math.round((unpacking.done / unpacking.total) * 100)}%` : "0%" }}
+              />
+            </div>
+            {unpacking.total > 0 && (
+              <span className="text-xs text-zinc-500">
+                {formatBytes(unpacking.done)} of {formatBytes(unpacking.total)}
+              </span>
+            )}
+          </div>
+        </Modal>
+      )}
 
       {adding && (
         <Modal title="Add game" size="lg" onClose={() => setAdding(false)}>

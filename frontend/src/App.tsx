@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { errorMessage, Game, InfoService, Library, Settings, SettingsStore } from "./api";
 import ConfirmHost from "./confirm";
 import SteamSetupWindow from "./screens/SteamSetupWindow";
+import FomodWindow from "./screens/FomodWindow";
 import { UIModeProvider } from "./uimode";
 import WindowFrame from "./components/WindowFrame";
 import Main from "./screens/Main";
@@ -16,9 +17,15 @@ type State =
 // /#steam-setup; it shares this bundle but none of the manager's chrome.
 const isSteamSetupWindow = window.location.hash === "#steam-setup";
 
+// A FOMOD installer opens in a window of its own at /#fomod/<session>.
+const fomodSession = window.location.hash.startsWith("#fomod/") ? window.location.hash.slice("#fomod/".length) : null;
+
 function App() {
   if (isSteamSetupWindow) {
     return <SteamSetupWindow />;
+  }
+  if (fomodSession) {
+    return <FomodWindow session={fomodSession} />;
   }
 
   const [state, setState] = useState<State>({ status: "loading" });

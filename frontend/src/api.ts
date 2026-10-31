@@ -21,7 +21,10 @@ export {
 } from "../bindings/hermit/internal/app";
 export type { ImportProgress, ImportResult, Preview } from "../bindings/hermit/internal/profileshare";
 export type { MO2Instance } from "../bindings/hermit/internal/bethesda";
-export type { Tool } from "../bindings/hermit/internal/app";
+export type { PreparedMod, Tool } from "../bindings/hermit/internal/app";
+// UnpackProgress travels only in events, so it has no binding of its own.
+export type UnpackProgress = { file: string; done: number; total: number };
+export type { View as FomodView } from "../bindings/hermit/internal/fomod";
 export type { ConfigContent } from "../bindings/hermit/internal/app";
 export type { Change, Entry, FileInfo as ConfigFileInfo } from "../bindings/hermit/internal/configs";
 export type { LaunchInfo, LogFile } from "../bindings/hermit/internal/app";

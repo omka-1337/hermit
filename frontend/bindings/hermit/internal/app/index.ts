@@ -34,6 +34,7 @@ export type {
     LaunchInfo,
     LoaderStatus,
     LogFile,
+    PreparedMod,
     SteamSetup,
     Tool,
     Update

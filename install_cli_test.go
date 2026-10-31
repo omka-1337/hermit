@@ -2,6 +2,7 @@ package main
 
 import (
 	"archive/zip"
+	"bufio"
 	"os"
 	"path/filepath"
 	"strings"
@@ -106,5 +107,31 @@ func TestParseInstallArgs(t *testing.T) {
 	}
 	if _, err := parseInstallArgs([]string{"--defaults"}); err == nil {
 		t.Error("no archive given, no error")
+	}
+}
+
+func TestExistingTarget(t *testing.T) {
+	prepared := app.PreparedMod{Name: "Lux", Existing: "Lux"}
+	ask := func(input string) (string, string) {
+		target, name, err := existingTarget(prepared, installArgs{}, true, bufio.NewReader(strings.NewReader(input)), &strings.Builder{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return target, name
+	}
+	if target, _ := ask("x\nm\n"); target != app.TargetMerge {
+		t.Errorf("merge: %s", target)
+	}
+	if target, name := ask("n\nLux 2\n"); target != app.TargetRename || name != "Lux 2" {
+		t.Errorf("rename: %s %q", target, name)
+	}
+	if _, _, err := existingTarget(prepared, installArgs{}, false, nil, nil); err == nil {
+		t.Error("went on without being told what to do")
+	}
+	if target, _, _ := existingTarget(prepared, installArgs{existing: "replace"}, false, nil, nil); target != app.TargetReplace {
+		t.Errorf("flag: %s", target)
+	}
+	if _, err := parseInstallArgs([]string{"--existing", "rename", "mod.7z"}); err == nil {
+		t.Error("rename without a name")
 	}
 }

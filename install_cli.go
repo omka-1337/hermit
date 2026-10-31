@@ -16,15 +16,19 @@ import (
 	"hermit/internal/settings"
 )
 
-const installUsage = `usage: hermit install [--game <id>] [--profile <id>] [--choose "[Step/]Group=Option[,Option]"]... [--defaults] <archive>...
+const installUsage = `usage: hermit install [--game <id>] [--profile <id>] [--choose "[Step/]Group=Option[,Option]"]... [--defaults]
+                      [--existing replace|merge|rename|cancel] [--name <name>] <archive>...
   Installs mod archives (zip, 7z, rar) into a profile of a Bethesda game, the active one unless --profile says
   otherwise. A FOMOD installer takes its options from --choose, or its defaults with --defaults; with neither, it
-  asks for them step by step when run in a terminal.`
+  asks for them step by step when run in a terminal. An archive with the name of a mod the profile has replaces it,
+  merges with it, is installed under --name, or is skipped, as --existing says; in a terminal it asks.`
 
 type installArgs struct {
 	game, profile string
 	choose        []string
 	defaults      bool
+	existing      string
+	name          string
 	files         []string
 }
 
@@ -50,6 +54,13 @@ func parseInstallArgs(args []string) (installArgs, error) {
 			a.choose = append(a.choose, c)
 		case "--defaults":
 			a.defaults = true
+		case "--existing":
+			a.existing, err = value()
+			if err == nil && !slices.Contains([]string{app.TargetReplace, app.TargetMerge, app.TargetRename, "cancel"}, a.existing) {
+				err = fmt.Errorf("--existing is replace, merge, rename or cancel, not %q", a.existing)
+			}
+		case "--name":
+			a.name, err = value()
 		default:
 			if strings.HasPrefix(args[i], "--") {
 				return a, fmt.Errorf("unexpected option %q", args[i])
@@ -62,6 +73,9 @@ func parseInstallArgs(args []string) (installArgs, error) {
 	}
 	if len(a.files) == 0 {
 		return a, errors.New("no archive given")
+	}
+	if a.existing == app.TargetRename && a.name == "" {
+		return a, errors.New("--existing rename needs --name")
 	}
 	return a, nil
 }
@@ -112,6 +126,19 @@ func installOne(svc *app.BethesdaService, game library.Game, profile, file strin
 	fmt.Fprintln(os.Stderr)
 	if err != nil {
 		return err
+	}
+	if prepared.Existing != "" {
+		target, name, err := existingTarget(prepared, a, isTerminal(os.Stdin), bufio.NewReader(os.Stdin), os.Stdout)
+		if err == nil && target != "cancel" {
+			err = svc.ChooseTarget(prepared.Session, target, name)
+		}
+		if err != nil || target == "cancel" {
+			svc.CancelInstall(prepared.Session)
+			if target == "cancel" {
+				fmt.Printf("skipped %s: a mod named %s is installed already\n", file, prepared.Existing)
+			}
+			return err
+		}
 	}
 	var choices fomod.Choices
 	if prepared.Fomod {
@@ -195,6 +222,42 @@ func pickOptions(svc *app.BethesdaService, prepared app.PreparedMod, choose []st
 		}
 	}
 	return choices, nil
+}
+
+// existingTarget settles what to do about a mod the profile has with the
+// archive's name: what --existing says, or, in a terminal, what the user
+// answers.
+func existingTarget(prepared app.PreparedMod, a installArgs, interactive bool, in *bufio.Reader, out io.Writer) (target, name string, err error) {
+	if a.existing != "" {
+		return a.existing, a.name, nil
+	}
+	if !interactive {
+		return "", "", fmt.Errorf("a mod named %s is installed already; say what to do with --existing replace, merge, rename or cancel", prepared.Existing)
+	}
+	for {
+		fmt.Fprintf(out, "A mod named %s is installed already. [r]eplace it, [m]erge with it, re[n]ame this one, or [c]ancel? ", prepared.Existing)
+		line, err := in.ReadString('\n')
+		if err != nil && line == "" {
+			return "", "", err
+		}
+		switch strings.ToLower(strings.TrimSpace(line)) {
+		case "r", "replace":
+			return app.TargetReplace, "", nil
+		case "m", "merge":
+			return app.TargetMerge, "", nil
+		case "c", "cancel":
+			return "cancel", "", nil
+		case "n", "rename":
+			fmt.Fprint(out, "name: ")
+			name, err := in.ReadString('\n')
+			if name = strings.TrimSpace(name); name != "" {
+				return app.TargetRename, name, nil
+			}
+			if err != nil {
+				return "", "", err
+			}
+		}
+	}
 }
 
 var errNoGroup = errors.New("no such group")

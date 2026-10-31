@@ -106,7 +106,7 @@ export default function ProfileList({
         )}
         {profiles.map((p) => {
           const active = p.id === game.activeProfile;
-          const modCount = p.mods?.length ?? 0;
+          const modCount = p.mods?.filter((m) => !m.separator).length ?? 0;
           const folder = game.profileDirs?.[p.id];
           return (
             <li key={p.id} className="relative">

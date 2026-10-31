@@ -30,7 +30,7 @@ func deployCreation(game library.Game, profile library.Profile, profileDir, data
 	}
 	var mods []string
 	for _, m := range profile.Mods {
-		if m.Enabled {
+		if m.Enabled && !m.Separator {
 			mods = append(mods, m.ID)
 		}
 	}

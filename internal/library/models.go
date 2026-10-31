@@ -99,6 +99,9 @@ type Mod struct {
 	// Notes are the user's own words about the mod, such as the options
 	// picked in its installer.
 	Notes string `json:"notes,omitempty"`
+	// Separator marks an entry that is not a mod but a heading over the mods
+	// after it, as Mod Organizer 2 groups its list; it has no files.
+	Separator bool `json:"separator,omitempty"`
 }
 
 type ModSourceType string

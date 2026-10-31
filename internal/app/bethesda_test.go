@@ -37,7 +37,7 @@ func TestImportMO2AndOrderMods(t *testing.T) {
 	mo2 := filepath.Join(tmp, "MO2")
 	writeFiles(t, mo2, map[string]string{
 		"ModOrganizer.ini":             "[General]\ngameName=Skyrim Special Edition\nselected_profile=@ByteArray(Default)\n",
-		"profiles/Default/modlist.txt": "+Patch\r\n+Sky UI\r\n",
+		"profiles/Default/modlist.txt": "+Patch\r\n-PATCHES_separator\r\n+Sky UI\r\n",
 		"profiles/Default/plugins.txt": "*SkyUI_SE.esp\r\n",
 		"mods/Sky UI/SkyUI_SE.esp":     "ui",
 		"mods/Sky UI/meta.ini":         "[General]\nmodid=12604\nversion=6.11\ncomments=\"from the FOMOD\"\n",
@@ -56,8 +56,26 @@ func TestImportMO2AndOrderMods(t *testing.T) {
 		}
 		return out
 	}
-	if !slices.Equal(ids(p), []string{"sky-ui", "patch"}) {
+	if !slices.Equal(ids(p), []string{"sky-ui", "patches-separator", "patch"}) {
 		t.Fatalf("mods: %v", ids(p))
+	}
+	if sep := p.Mods[1]; !sep.Separator || sep.Name != "PATCHES" || sep.Enabled {
+		t.Errorf("separator: %+v", sep)
+	}
+	if p, err = s.RemoveMod(game.ID, game.ActiveProfile, "patches-separator"); err != nil {
+		t.Fatal(err)
+	}
+	if p, err = s.AddSeparator(game.ID, game.ActiveProfile, "Patches", 1); err != nil || p.Mods[1].ID != "patches-separator" {
+		t.Fatalf("added separator: %v %v", ids(p), err)
+	}
+	if p, err = s.RenameSeparator(game.ID, game.ActiveProfile, "patches-separator", "Fixes"); err != nil || p.Mods[1].Name != "Fixes" {
+		t.Fatalf("renamed separator: %+v %v", p.Mods[1], err)
+	}
+	if _, err := s.RenameSeparator(game.ID, game.ActiveProfile, "patch", "Not a separator"); err == nil {
+		t.Error("renamed a mod as a separator")
+	}
+	if p, err = s.RemoveMod(game.ID, game.ActiveProfile, "patches-separator"); err != nil {
+		t.Fatal(err)
 	}
 	ui := p.Mods[0]
 	if ui.Source.Type != library.SourceNexus || ui.Source.URL != "https://www.nexusmods.com/skyrimspecialedition/mods/12604" ||

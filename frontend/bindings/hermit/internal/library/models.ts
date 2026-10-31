@@ -156,6 +156,12 @@ export interface Mod {
      * picked in its installer.
      */
     "notes"?: string;
+
+    /**
+     * Separator marks an entry that is not a mod but a heading over the mods
+     * after it, as Mod Organizer 2 groups its list; it has no files.
+     */
+    "separator"?: boolean;
 }
 
 /**

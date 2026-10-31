@@ -72,6 +72,10 @@ func (s *BethesdaService) ImportMO2(gameID, profileID, dir, mo2Profile string) (
 	mods := make([]library.Mod, len(p.Mods))
 	for i, m := range p.Mods {
 		ids[i] = uniqueModID(m.Folder, ids[:i])
+		if m.Separator {
+			mods[i] = separator(ids[i], m.SeparatorName())
+			continue
+		}
 		source := library.ModSource{Type: library.SourceLocal, URL: m.File}
 		if m.NexusID > 0 {
 			source = library.ModSource{Type: library.SourceNexus, URL: bg.NexusURL(m.NexusID), Asset: m.File}
@@ -103,6 +107,52 @@ func (s *BethesdaService) ImportMO2(gameID, profileID, dir, mo2Profile string) (
 	})
 }
 
+// AddSeparator puts a new separator, a heading over the mods after it, at
+// index in the profile's order.
+func (s *BethesdaService) AddSeparator(gameID, profileID, name string, index int) (library.Profile, error) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return library.Profile{}, library.ErrEmptyName
+	}
+	return s.lib.UpdateProfile(gameID, profileID, func(p *library.Profile) error {
+		taken := make([]string, len(p.Mods))
+		for i, m := range p.Mods {
+			taken[i] = m.ID
+		}
+		index = max(0, min(index, len(p.Mods)))
+		p.Mods = slices.Insert(p.Mods, index, separator(uniqueModID(name+" separator", taken), name))
+		return nil
+	})
+}
+
+// RenameSeparator changes the heading of a separator.
+func (s *BethesdaService) RenameSeparator(gameID, profileID, id, name string) (library.Profile, error) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return library.Profile{}, library.ErrEmptyName
+	}
+	return s.lib.UpdateProfile(gameID, profileID, func(p *library.Profile) error {
+		i := slices.IndexFunc(p.Mods, func(m library.Mod) bool { return m.ID == id && m.Separator })
+		if i < 0 {
+			return fmt.Errorf("separator %q: %w", id, library.ErrNotFound)
+		}
+		p.Mods[i].Name = name
+		return nil
+	})
+}
+
+func separator(id, name string) library.Mod {
+	return library.Mod{
+		ID:                id,
+		Name:              name,
+		Separator:         true,
+		UnmetDependencies: []string{},
+		Dependencies:      []string{},
+		Files:             []string{},
+		Plugins:           []plugininfo.Plugin{},
+	}
+}
+
 // MoveMod puts a mod at index in the profile's order, where later mods win
 // over earlier ones.
 func (s *BethesdaService) MoveMod(gameID, profileID, modID string, index int) (library.Profile, error) {
@@ -119,7 +169,8 @@ func (s *BethesdaService) MoveMod(gameID, profileID, modID string, index int) (l
 	})
 }
 
-// RemoveMod deletes a mod and its folder from the profile.
+// RemoveMod deletes a mod and its folder from the profile, or a separator
+// from its list.
 func (s *BethesdaService) RemoveMod(gameID, profileID, modID string) (library.Profile, error) {
 	if err := s.notRunning(gameID); err != nil {
 		return library.Profile{}, err

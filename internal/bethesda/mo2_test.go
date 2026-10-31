@@ -44,6 +44,7 @@ func TestReadAndImportMO2(t *testing.T) {
 		"mods/Patch/Patch.esp":        "patch",
 		"mods/Patch/meta.ini":         "[General]\nmodid=0\nversion=1.0\ncomments=\"Generated, load last\"\n",
 		"mods/Old/Old.esp":            "old",
+		"mods/UI_separator/meta.ini":  "[General]\nmodid=0\n",
 		"overwrite/SKSE/log.txt":      "log",
 	})
 	in, err := ReadMO2(mo2)
@@ -60,6 +61,7 @@ func TestReadAndImportMO2(t *testing.T) {
 	}
 	want := []MO2Mod{
 		{Folder: "SkyUI", Enabled: true, NexusID: 12604, Version: "6.11", File: "SkyUI-12604-6-11-1778020881.zip"},
+		{Folder: "UI_separator", Separator: true},
 		{Folder: "Old", Enabled: false},
 		{Folder: "Patch", Enabled: true, Version: "1.0", Comments: "Generated, load last"},
 	}
@@ -73,11 +75,17 @@ func TestReadAndImportMO2(t *testing.T) {
 	gameData := t.TempDir()
 	write(t, gameData, map[string]string{"Skyrim.esm": "master"})
 	profile := t.TempDir()
-	if err := in.ImportMO2(p, []string{"skyui", "old", "patch"}, profile, gameData); err != nil {
+	if err := in.ImportMO2(p, []string{"skyui", "ui-separator", "old", "patch"}, profile, gameData); err != nil {
 		t.Fatal(err)
 	}
 	if got := read(t, filepath.Join(profile, "mods", "skyui", "SkyUI_SE.esp")); got != "ui" {
 		t.Errorf("imported file: %q", got)
+	}
+	if _, err := os.Stat(filepath.Join(profile, "mods", "ui-separator")); !os.IsNotExist(err) {
+		t.Error("a separator got a mod folder")
+	}
+	if p.Mods[1].SeparatorName() != "UI" {
+		t.Errorf("separator heading %q", p.Mods[1].SeparatorName())
 	}
 	if got := read(t, filepath.Join(profile, "overwrite", "SKSE", "log.txt")); got != "log" {
 		t.Errorf("overwrite: %q", got)

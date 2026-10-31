@@ -43,12 +43,24 @@ type MO2Mod struct {
 	// Comments are MO2's notes on the mod, often the options chosen in its
 	// installer.
 	Comments string `json:"comments"`
+	// Separator is set for MO2's separators, the headings it groups the
+	// list with; their folders hold nothing but MO2's own settings.
+	Separator bool `json:"separator"`
 }
+
+// SeparatorName is the heading of an MO2 separator, whose folder is named
+// "<heading>_separator".
+func (m MO2Mod) SeparatorName() string {
+	return strings.TrimSuffix(m.Folder, mo2SeparatorSuffix)
+}
+
+const mo2SeparatorSuffix = "_separator"
 
 // MO2Profile is what Hermit takes over from an MO2 profile.
 type MO2Profile struct {
 	// Mods are lowest priority first, the order Hermit keeps them in; MO2's
-	// modlist.txt lists them the other way round.
+	// modlist.txt lists them the other way round. A separator comes before
+	// the mods it heads, as MO2 shows it.
 	Mods    []MO2Mod `json:"mods"`
 	Plugins []Plugin `json:"plugins"`
 }
@@ -111,7 +123,11 @@ func (in MO2Instance) ReadProfile(name string) (MO2Profile, error) {
 		// "+" enabled, "-" disabled, "*" the game's own content MO2 lists
 		// but does not manage.
 		mark, folder := line[:1], line[1:]
-		if (mark != "+" && mark != "-") || strings.HasSuffix(folder, "_separator") {
+		if mark != "+" && mark != "-" {
+			continue
+		}
+		if strings.HasSuffix(folder, mo2SeparatorSuffix) {
+			p.Mods = append(p.Mods, MO2Mod{Folder: folder, Separator: true})
 			continue
 		}
 		m := MO2Mod{Folder: folder, Enabled: mark == "+"}
@@ -172,7 +188,9 @@ func (in MO2Instance) ImportMO2(p MO2Profile, ids []string, profileDir, gameData
 	type copyJob struct{ from, to string }
 	jobs := make([]copyJob, 0, len(p.Mods)+1)
 	for i, m := range p.Mods {
-		jobs = append(jobs, copyJob{filepath.Join(in.modsDir, m.Folder), filepath.Join(profileDir, ModsDir, ids[i])})
+		if !m.Separator {
+			jobs = append(jobs, copyJob{filepath.Join(in.modsDir, m.Folder), filepath.Join(profileDir, ModsDir, ids[i])})
+		}
 	}
 	jobs = append(jobs, copyJob{in.overwriteDir, filepath.Join(profileDir, OverwriteDir)})
 

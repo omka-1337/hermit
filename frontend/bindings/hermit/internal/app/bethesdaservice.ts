@@ -19,6 +19,14 @@ import * as bethesda$0 from "../bethesda/models.js";
 import * as library$0 from "../library/models.js";
 
 /**
+ * AddSeparator puts a new separator, a heading over the mods after it, at
+ * index in the profile's order.
+ */
+export function AddSeparator(gameID: string, profileID: string, name: string, index: number): $CancellablePromise<library$0.Profile> {
+    return $Call.ByID(2880847759, gameID, profileID, name, index);
+}
+
+/**
  * ImportMO2 fills an empty profile with the mods, their order and the plugin
  * list of a profile of an MO2 instance, together with MO2's overwrite folder.
  */
@@ -43,8 +51,16 @@ export function MoveMod(gameID: string, profileID: string, modID: string, index:
 }
 
 /**
- * RemoveMod deletes a mod and its folder from the profile.
+ * RemoveMod deletes a mod and its folder from the profile, or a separator
+ * from its list.
  */
 export function RemoveMod(gameID: string, profileID: string, modID: string): $CancellablePromise<library$0.Profile> {
     return $Call.ByID(400521263, gameID, profileID, modID);
+}
+
+/**
+ * RenameSeparator changes the heading of a separator.
+ */
+export function RenameSeparator(gameID: string, profileID: string, id: string, name: string): $CancellablePromise<library$0.Profile> {
+    return $Call.ByID(1329687082, gameID, profileID, id, name);
 }

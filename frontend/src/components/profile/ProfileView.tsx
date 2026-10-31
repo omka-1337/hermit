@@ -41,7 +41,8 @@ export default function ProfileView({ game, profileId, onBack, onGameChanged, on
   // A Creation Engine game has neither Thunderstore nor BepInEx: its
   // profile is the list of its mods.
   const creation = game.engine === Engine.EngineCreation;
-  const modCount = profile?.mods?.length ?? 0;
+  // Separators head groups of mods and are not mods themselves.
+  const modCount = profile?.mods?.filter((m) => !m.separator).length ?? 0;
   const tabs: { id: Tab; label: string }[] = creation
     ? [{ id: "installed", label: `Mods${modCount ? ` (${modCount})` : ""}` }]
     : [

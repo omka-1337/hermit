@@ -6,6 +6,8 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"slices"
+	"strings"
 	"time"
 
 	"github.com/adrg/xdg"
@@ -76,12 +78,17 @@ func newBackend() (*backend, error) {
 
 func main() {
 	// "run -- <command>" is the Steam launch options wrapper; no GUI.
-	if len(os.Args) > 1 && os.Args[1] == "run" {
-		os.Exit(runWrapper(os.Args[2:]))
+	if code, handled := runCLI(os.Args[1:]); handled {
+		os.Exit(code)
 	}
 
 	platform.ConfigureRendering()
 	platform.SetProgramName(app.ID, app.Name)
+	// Wayland shows the window's icon from the desktop entry named after the
+	// program name, which has to be there before the window is.
+	if err := app.InstallDesktopEntry(); err != nil {
+		log.Printf("desktop entry: %v", err)
+	}
 
 	b, err := newBackend()
 	if err != nil {
@@ -93,7 +100,29 @@ func main() {
 		log.Printf("settings: %v", err)
 	}
 
+	modList := app.NewModListService(b.lib, b.steamRoots)
+	downloads := app.NewDownloadService(b.lib, b.root, app.ID+"/"+app.Version)
+	// window is the main window; a link from Nexus Mods brings it up.
+	var window *application.WebviewWindow
 	wailsApp := application.New(application.Options{
+		// A second Hermit, started to open an nxm:// link from a "Mod Manager
+		// Download" button, hands the link to the one running and quits.
+		SingleInstance: &application.SingleInstanceOptions{
+			UniqueID: "io.github.omka1337." + app.ID,
+			OnSecondInstanceLaunch: func(data application.SecondInstanceData) {
+				for _, arg := range data.Args {
+					if strings.HasPrefix(strings.ToLower(arg), "nxm://") {
+						go downloads.HandleLink(arg)
+					}
+				}
+				if window != nil {
+					application.InvokeSync(func() {
+						window.Show()
+						window.Focus()
+					})
+				}
+			},
+		},
 		Name:        app.Name,
 		Description: "BepInEx mod manager for Linux",
 		Services: []application.Service{
@@ -101,10 +130,16 @@ func main() {
 			application.NewService(b.lib),
 			application.NewService(settingsStore),
 			application.NewService(app.NewBrowseService(b.lib, b.ts, settingsStore)),
-			application.NewService(app.NewInstallService(b.installer, b.github)),
+			application.NewService(app.NewInstallService(b.lib, b.installer, b.github)),
 			application.NewService(app.NewLaunchService(b.lib, b.steamRoots)),
 			application.NewService(app.NewIconService(b.steamRoots)),
+			application.NewService(app.NewSteamService(b.steamRoots, b.root)),
+			application.NewService(app.NewFolderService(b.lib)),
+			application.NewService(app.NewCacheService(filepath.Join(b.root, "cache"))),
 			application.NewService(app.NewConfigService(b.lib)),
+			application.NewService(modList),
+			application.NewService(app.NewCreationService(b.lib)),
+			application.NewService(downloads),
 			application.NewService(app.NewShareService(
 				profileshare.NewSharer(b.lib, b.installer, b.ts, filepath.Join(b.root, "cache", "imports")),
 			)),
@@ -133,9 +168,66 @@ func main() {
 		windowOptions.MinWidth, windowOptions.MinHeight = 800, 500
 		windowOptions.StartState = application.WindowStateFullscreen
 	}
-	window := wailsApp.Window.NewWithOptions(windowOptions)
+	window = wailsApp.Window.NewWithOptions(windowOptions)
+
+	// On the very first run a small window of its own asks whether Hermit
+	// should put itself into Steam, the way a launcher asks before it settles
+	// in. The main window waits behind it.
+	var setupWindow *application.WebviewWindow
+	if !stored.SetupCompleted || slices.Contains(os.Args[1:], "--setup") {
+		setupWindow = wailsApp.Window.NewWithOptions(application.WebviewWindowOptions{
+			Title:     app.Name,
+			Frameless: true,
+			Hidden:    true,
+			Width:     520,
+			// The window resizes itself to its contents once it is drawn.
+			Height:           330,
+			DisableResize:    true,
+			InitialPosition:  application.WindowCentered,
+			BackgroundColour: application.NewRGB(9, 9, 11),
+			URL:              "/#steam-setup",
+		})
+	}
+
+	// Started to open a link from Nexus Mods.
+	for _, arg := range os.Args[1:] {
+		if strings.HasPrefix(strings.ToLower(arg), "nxm://") {
+			go downloads.HandleLink(arg)
+		}
+	}
 
 	wailsApp.Event.OnApplicationEvent(events.Common.ApplicationStarted, func(*application.ApplicationEvent) {
+		if setupWindow != nil {
+			go showFramelessWindow(setupWindow)
+			return
+		}
+		go showFramelessWindow(window)
+	})
+
+	// A FOMOD installer gets a window of its own beside the manager's.
+	modList.OpenWindow = func(url, title string, onClosed func()) {
+		w := wailsApp.Window.NewWithOptions(application.WebviewWindowOptions{
+			Title:            title,
+			Frameless:        true,
+			Hidden:           true,
+			Width:            1000,
+			Height:           700,
+			MinWidth:         760,
+			MinHeight:        520,
+			InitialPosition:  application.WindowCentered,
+			BackgroundColour: application.NewRGB(9, 9, 11),
+			URL:              url,
+		})
+		w.OnWindowEvent(events.Common.WindowClosing, func(*application.WindowEvent) { onClosed() })
+		go showFramelessWindow(w)
+	}
+
+	// The small window says when it is done; the manager itself opens then.
+	wailsApp.Event.On(steamSetupDoneEvent, func(*application.CustomEvent) {
+		if setupWindow != nil {
+			application.InvokeSync(setupWindow.Close)
+			setupWindow = nil
+		}
 		go showFramelessWindow(window)
 	})
 
@@ -143,6 +235,10 @@ func main() {
 		log.Fatal(err)
 	}
 }
+
+// steamSetupDoneEvent is emitted by the first-run window when the user has
+// added Hermit to Steam or decided not to.
+const steamSetupDoneEvent = "steam-setup:done"
 
 // deckLayout reports whether to start with the Steam Deck sized window.
 func deckLayout(mode settings.UIMode) bool {

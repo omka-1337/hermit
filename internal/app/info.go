@@ -17,12 +17,12 @@ const (
 	ID = "hermit"
 	// The repository Hermit itself is released from.
 	RepoOwner = "omka-1337"
-	RepoName  = "Hermit-ModManager"
+	RepoName  = "hermit"
 	RepoURL   = "https://github.com/" + RepoOwner + "/" + RepoName
 )
 
 // Version is overridden at build time via -ldflags "-X hermit/internal/app.Version=...".
-var Version = "0.2.0"
+var Version = "0.3.0"
 
 type AppInfo struct {
 	Name    string `json:"name"`

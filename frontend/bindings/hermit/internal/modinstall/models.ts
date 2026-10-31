@@ -91,6 +91,14 @@ export interface LocalPackage {
     "description": string;
     "dependencies": string[] | null;
     "plugins": plugininfo$0.Plugin[] | null;
+
+    /**
+     * TargetDir, when set, is the folder of the game (a path relative to its
+     * root, like "BepInEx/plugins/models/all") that every file of the package
+     * goes into, instead of where the install rules would put it. The folders
+     * are created, so nothing has to exist in the game first.
+     */
+    "targetDir": string;
 }
 
 /**

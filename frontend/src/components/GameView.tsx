@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useState } from "react";
-import { confirmDanger, errorMessage, Game, Library, Profile } from "../api";
-import { packageLabel } from "../format";
+import { confirmDanger, deployed, Engine, errorMessage, Game, Library, Profile } from "../api";
 import CreateProfileModal from "./CreateProfileModal";
 import EditableName from "./EditableName";
 import GameIcon from "./GameIcon";
+import GameSettings from "./GameSettings";
+import ImportMO2Modal from "./ImportMO2Modal";
+import { onModpackSettled } from "../modpackInstalls";
+import ProfileList from "./ProfileList";
 import { LaunchSetup, PlayButton } from "./launch";
 import { ImportModal } from "./share";
-import { BackendBadge, Button, ErrorText, RuntimeBadge } from "./ui";
+import { BackendBadge, Button, EngineBadge, ErrorText, RuntimeBadge } from "./ui";
 
 type Props = {
   game: Game;
@@ -43,6 +46,16 @@ export default function GameView({ game, onChanged, onRemoved, onOpenProfile }: 
     loadProfiles().catch((err) => setError(errorMessage(err)));
   }, [loadProfiles]);
 
+  // A modpack keeps installing after its dialog is closed; its profile shows
+  // up here once it is done.
+  useEffect(
+    () =>
+      onModpackSettled((settled) => {
+        if (settled.gameId === game.id) loadProfiles().catch((err) => setError(errorMessage(err)));
+      }),
+    [game.id, loadProfiles],
+  );
+
   const refreshGame = async () => onChanged(await Library.GetGame(game.id));
 
   const removeGame = () =>
@@ -58,18 +71,6 @@ export default function GameView({ game, onChanged, onRemoved, onOpenProfile }: 
     });
 
 
-  const removeProfile = (p: Profile) =>
-    run(async () => {
-      const ok = await confirmDanger(
-        "Remove profile",
-        `Remove profile "${p.name}" with all its installed mods and configs?`,
-        "Remove",
-      );
-      if (!ok) return;
-      await Library.RemoveProfile(game.id, p.id);
-      await Promise.all([loadProfiles(), refreshGame()]);
-    });
-
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-6 p-8">
       <header className="flex items-start justify-between gap-4">
@@ -81,84 +82,45 @@ export default function GameView({ game, onChanged, onRemoved, onOpenProfile }: 
             onSave={(name) => run(async () => onChanged(await Library.RenameGame(game.id, name)))}
           />
           <div className="flex items-center gap-2 text-sm text-zinc-500">
+            <EngineBadge engine={game.engine} version={game.engineVersion} />
             <RuntimeBadge runtime={game.runtime} />
             <BackendBadge backend={game.backend} />
             <span className="min-w-0 truncate select-text">{game.path}</span>
           </div>
         </div>
         <div className="flex items-start gap-2">
-          <Button variant="danger" onClick={removeGame}>
-            Remove game
-          </Button>
+          {/* The gear matches the Play button's height. */}
+          <div className="flex self-stretch">
+            <GameSettings game={game} onRemove={removeGame} />
+          </div>
           <PlayButton game={game} profileId={game.activeProfile} onPlayed={refreshGame} />
         </div>
       </header>
 
       <ErrorText>{error}</ErrorText>
 
-      <section className="flex flex-col gap-3">
-        <h2 className="text-sm font-semibold tracking-wide text-zinc-400 uppercase">Launch</h2>
-        <LaunchSetup game={game} />
-      </section>
+      <LaunchSetup game={game} />
 
       <section className="flex flex-col gap-3">
         <h2 className="text-sm font-semibold tracking-wide text-zinc-400 uppercase">Profiles</h2>
-        <ul className="divide-y divide-zinc-800 rounded-lg border border-zinc-800">
-          {loadingProfiles && profiles.length === 0 && (
-            <li className="flex items-center px-4 py-2.5">
-              <span className="h-8 flex-1 animate-pulse rounded bg-zinc-800/60" />
-            </li>
-          )}
-          {profiles.map((p) => {
-            const active = p.id === game.activeProfile;
-            const modCount = p.mods?.length ?? 0;
-            return (
-              <li key={p.id} className="flex items-center gap-3 px-4 py-2.5">
-                <div className="flex min-w-0 flex-1 flex-col">
-                  <EditableName
-                    value={p.name}
-                    onSave={(name) =>
-                      run(async () => {
-                        await Library.RenameProfile(game.id, p.id, name);
-                        await loadProfiles();
-                      })
-                    }
-                  />
-                  {p.modpack && (
-                    <span className="truncate text-xs text-indigo-400">Modpack {packageLabel(p.modpack)}</span>
-                  )}
-                </div>
-                <span className="text-xs text-zinc-500">
-                  {modCount} {modCount === 1 ? "mod" : "mods"}
-                </span>
-                <Button variant="secondary" data-focus-first={active || undefined} onClick={() => onOpenProfile(p.id)}>
-                  Open
-                </Button>
-                {active ? (
-                  <span className="w-24 text-center text-xs font-medium text-indigo-400">Active</span>
-                ) : (
-                  <Button
-                    variant="ghost"
-                    className="w-24"
-                    onClick={() => run(async () => onChanged(await Library.SetActiveProfile(game.id, p.id)))}
-                  >
-                    Set active
-                  </Button>
-                )}
-                <Button variant="danger" disabled={profiles.length <= 1} onClick={() => removeProfile(p)}>
-                  Remove
-                </Button>
-              </li>
-            );
-          })}
-        </ul>
+        <ProfileList
+          game={game}
+          profiles={profiles}
+          loading={loadingProfiles}
+          onOpenProfile={onOpenProfile}
+          onGameChanged={onChanged}
+          reload={loadProfiles}
+          onError={setError}
+        />
         <div className="flex gap-2">
           <Button variant="primary" onClick={() => setCreating(true)}>
             Create a new profile
           </Button>
-          <Button variant="ghost" onClick={() => setImporting(true)}>
-            Import…
-          </Button>
+          {(game.engine === Engine.EngineCreation || !deployed(game.engine)) && (
+            <Button variant="ghost" onClick={() => setImporting(true)}>
+              {game.engine === Engine.EngineCreation ? "Import from MO2…" : "Import…"}
+            </Button>
+          )}
         </div>
       </section>
 
@@ -174,7 +136,20 @@ export default function GameView({ game, onChanged, onRemoved, onOpenProfile }: 
         />
       )}
 
-      {importing && (
+      {/* A game whose mods are deployed has no profile codes or r2modman
+          exports: a Creation Engine game's profiles come over from Mod
+          Organizer 2. */}
+      {importing && game.engine === Engine.EngineCreation && (
+        <ImportMO2Modal
+          game={game}
+          onClose={() => setImporting(false)}
+          onImported={(profile) => {
+            setImporting(false);
+            onOpenProfile(profile.id);
+          }}
+        />
+      )}
+      {importing && !deployed(game.engine) && (
         <ImportModal
           game={game}
           onClose={() => {

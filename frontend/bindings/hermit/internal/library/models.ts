@@ -25,14 +25,48 @@ export enum Backend {
  */
 export interface Detection {
     "unity": boolean;
+    "engine": Engine;
+
+    /**
+     * EngineVersion is the Unity version, e.g. "2022.3.62f2", "2" for
+     * Creation Engine 2, "4" for REDengine 4 or "3" for Unreal Engine 3;
+     * empty when it is not known.
+     */
+    "engineVersion": string;
     "runtime": Runtime;
     "backend": Backend;
 
     /**
-     * Executable is the game executable file name, e.g. "Valheim.exe".
+     * Executable is the game executable file name, e.g. "Valheim.exe", or
+     * its slash-separated path for a game that keeps it in a folder, as
+     * "bin/x64/Cyberpunk2077.exe".
      */
     "executable": string;
 }
+
+/**
+ * Engine is what a game is built on; it decides how the game is modded.
+ */
+export enum Engine {
+    /**
+     * The Go zero value for the underlying type of the enum.
+     */
+    $zero = "",
+
+    EngineUnknown = "unknown",
+    EngineUnity = "unity",
+
+    /**
+     * the Creation Engine
+     */
+    EngineCreation = "creation",
+
+    /**
+     * CD Projekt Red's REDengine
+     */
+    EngineRED = "redengine",
+    EngineUnreal = "unreal",
+};
 
 /**
  * Game is stored in games/<id>/game.json. It holds everything machine-specific
@@ -44,9 +78,31 @@ export interface Game {
     "path": string;
     "runtime": Runtime;
     "backend": Backend;
+    "engine": Engine;
+
+    /**
+     * EngineVersion is as in Detection; it changes when a game update moves
+     * the game to a newer Unity.
+     */
+    "engineVersion": string;
     "executable": string;
     "steamAppId"?: string;
     "activeProfile": string;
+
+    /**
+     * LaunchExecutable is the file Hermit starts the game from when it
+     * starts it itself, relative to Path; empty means Executable. It is kept
+     * apart from Executable, which identifies the game (Thunderstore finds
+     * its community by that name), because some mods ship their own launcher.
+     */
+    "launchExecutable"?: string;
+
+    /**
+     * ProfileDirs maps the ids of profiles kept outside the library to their
+     * folders, so a profile with large mods can live on another disk, next to
+     * the game. Profiles not listed are in games/<id>/profiles/<profile-id>.
+     */
+    "profileDirs"?: { [_ in string]?: string } | null;
 }
 
 /**
@@ -103,6 +159,18 @@ export interface Mod {
      * until they have been scanned.
      */
     "plugins": plugininfo$0.Plugin[] | null;
+
+    /**
+     * Notes are the user's own words about the mod, such as the options
+     * picked in its installer.
+     */
+    "notes"?: string;
+
+    /**
+     * Separator marks an entry that is not a mod but a heading over the mods
+     * after it, as Mod Organizer 2 groups its list; it has no files.
+     */
+    "separator"?: boolean;
 }
 
 /**
@@ -112,14 +180,15 @@ export interface ModSource {
     "type": ModSourceType;
 
     /**
-     * URL is the Thunderstore download URL, the GitHub repository URL, or the
-     * file name of a local file.
+     * URL is the Thunderstore download URL, the GitHub repository URL, the
+     * mod's page on Nexus Mods, or the file name of a local file.
      */
     "url"?: string;
     "sha256"?: string;
 
     /**
-     * Release and Asset identify the GitHub release file the mod came from.
+     * Release and Asset identify the GitHub release file the mod came from;
+     * for a mod from Nexus Mods, Asset is the file it was installed from.
      */
     "release"?: string;
     "asset"?: string;
@@ -134,6 +203,7 @@ export enum ModSourceType {
     SourceLocal = "local",
     SourceThunderstore = "thunderstore",
     SourceGitHub = "github",
+    SourceNexus = "nexus",
 };
 
 /**

@@ -22,6 +22,23 @@ export interface AppInfo {
     "repository": string;
 }
 
+/**
+ * BepInExBuild is the release file a game needs.
+ */
+export interface BepInExBuild {
+    "tag": string;
+    "version": string;
+    "asset": string;
+    "size": number;
+
+    /**
+     * Prerelease is true for BepInEx 6: IL2CPP support has no stable release
+     * yet, so IL2CPP games get a pre-release build.
+     */
+    "prerelease": boolean;
+    "url": string;
+}
+
 export interface ConfigContent {
     "path": string;
     "text": string;
@@ -31,6 +48,53 @@ export interface ConfigContent {
      */
     "document": configs$0.Document | null;
 }
+
+/**
+ * Download is a file from Nexus Mods, queued, on its way or there.
+ */
+export interface Download {
+    "id": string;
+    "gameId": string;
+    "gameName": string;
+
+    /**
+     * ProfileID is the profile the mod goes into: the game's active one
+     * when the link came. Its archive is kept in the profile's downloads.
+     */
+    "profileId": string;
+    "modId": number;
+    "fileId": number;
+    "name": string;
+    "fileName": string;
+    "version": string;
+    "size": number;
+    "done": number;
+
+    /**
+     * Speed is in bytes a second, while downloading.
+     */
+    "speed": number;
+    "status": DownloadStatus;
+    "error": string;
+
+    /**
+     * Path is where the file is once it is there.
+     */
+    "path": string;
+}
+
+export enum DownloadStatus {
+    /**
+     * The Go zero value for the underlying type of the enum.
+     */
+    $zero = "",
+
+    DownloadQueued = "queued",
+    DownloadRunning = "downloading",
+    DownloadDone = "done",
+    DownloadFailed = "failed",
+    DownloadCancelled = "cancelled",
+};
 
 export interface GitHubRepo {
     "owner": string;
@@ -52,6 +116,26 @@ export interface LaunchInfo {
     "launchOptions": string;
 
     /**
+     * External is true for games Steam does not start: Hermit can neither
+     * start them itself nor read their launcher's settings, so the user
+     * puts LaunchPrefix into whatever launcher runs the game.
+     */
+    "external": boolean;
+
+    /**
+     * LaunchPrefix is the wrapper to put in front of the game command in
+     * launchers that take a command prefix, such as Lutris or Heroic.
+     */
+    "launchPrefix": string;
+
+    /**
+     * PortProton is true when an external Windows game can be started through
+     * the PortProton Flatpak, which has nowhere to put a prefix, so Hermit
+     * starts it itself.
+     */
+    "portProton": boolean;
+
+    /**
      * Configured reports whether Steam's saved config has these launch options.
      * Steam writes its config lazily, so false may just mean "not saved yet".
      */
@@ -62,6 +146,127 @@ export interface LaunchInfo {
      * RunningProfile is the profile of the running session, if any.
      */
     "runningProfile": string;
+
+    /**
+     * RunningTool names the modding tool running instead of the game, if one is.
+     */
+    "runningTool": string;
+}
+
+/**
+ * LoaderStatus describes the mod loader of a profile, if it has one.
+ */
+export interface LoaderStatus {
+    "installed": boolean;
+    "modId"?: string;
+    "name"?: string;
+    "version"?: string;
+
+    /**
+     * Enabled is the user's choice; a disabled loader leaves the game vanilla.
+     */
+    "enabled": boolean;
+}
+
+/**
+ * LogFile is a log the script extender or one of its plugins wrote.
+ */
+export interface LogFile {
+    "name": string;
+    "size": number;
+    "modified": string;
+}
+
+export interface NXMHandler {
+    "hermit": boolean;
+    "entry": string;
+}
+
+/**
+ * NexusAccount is the Nexus Mods account downloads are made with.
+ */
+export interface NexusAccount {
+    "hasKey": boolean;
+    "name": string;
+    "premium": boolean;
+}
+
+/**
+ * PreparedMod is an archive unpacked for installing.
+ */
+export interface PreparedMod {
+    "session": string;
+    "name": string;
+    "version": string;
+    "author": string;
+
+    /**
+     * Fomod is set when the archive has an installer with options to pick.
+     */
+    "fomod": boolean;
+    "image": string;
+
+    /**
+     * Unsure is set when nothing in a plain archive looked like the game's
+     * files.
+     */
+    "unsure": boolean;
+
+    /**
+     * Existing is the name of the mod of the profile the archive has the
+     * name of, if one does: ChooseTarget says what to do about it.
+     */
+    "existing": string;
+}
+
+/**
+ * SteamSetup is what the interface needs to know to offer the shortcut.
+ */
+export interface SteamSetup {
+    /**
+     * Supported is false when there is no Steam to add anything to.
+     */
+    "supported": boolean;
+
+    /**
+     * Reason says why it is not supported.
+     */
+    "reason": string;
+
+    /**
+     * Added is true once Steam lists a shortcut to this very build.
+     */
+    "added": boolean;
+
+    /**
+     * Running reports whether Steam is running: adding the shortcut has to
+     * restart it, because Steam rewrites its shortcuts when it exits.
+     */
+    "running": boolean;
+
+    /**
+     * Exe is the path Steam would start.
+     */
+    "exe": string;
+}
+
+/**
+ * Tool is a modding tool a mod of the profile brings, such as Pandora or
+ * BodySlide: a program run with the profile's mods deployed.
+ */
+export interface Tool {
+    /**
+     * Path is where the tool is while the profile is deployed,
+     * slash-separated from the folder the game's mods are laid out as, Data
+     * for the Creation Engine.
+     */
+    "path": string;
+    "name": string;
+
+    /**
+     * Mod is the name of the mod the tool comes with.
+     */
+    "mod": string;
 }
 
 /**

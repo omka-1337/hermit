@@ -10,6 +10,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"syscall"
 	"time"
@@ -31,11 +32,12 @@ type Wrapper struct {
 
 var appIDArg = regexp.MustCompile(`^AppId=(\d+)$`)
 
-// Run parses "[--game <id>] -- <command...>", runs the command and returns
-// its exit code. Mod setup problems never prevent the game from starting: the
-// game is then launched without mods.
+// Run parses "[--game <id>] [--tool] -- <command...>", runs the command and
+// returns its exit code. Mod setup problems never prevent the game from
+// starting: the game is then launched without mods. --tool runs a modding
+// tool rather than the game, with the profile in place all the same.
 func (w *Wrapper) Run(args []string) int {
-	gameID, command, err := parseArgs(args)
+	gameID, tool, command, err := parseArgs(args)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 2
@@ -44,8 +46,7 @@ func (w *Wrapper) Run(args []string) int {
 	logOut := io.Writer(os.Stderr)
 	// Inside the AppImage, give the game the environment Steam provided, not
 	// the one AppRun prepared for Hermit's bundled GTK and WebKit.
-	plan := launchPlan{command: command, env: platform.OriginalEnv()}
-	setupErr := w.setup(gameID, &plan, &logOut)
+	plan, setupErr := w.Prepare(gameID, command, platform.OriginalEnv(), os.Getpid(), &logOut, tool)
 	logger := log.New(logOut, "[hermit] ", log.LstdFlags)
 	switch {
 	case setupErr != nil:
@@ -53,52 +54,62 @@ func (w *Wrapper) Run(args []string) int {
 		if w.Notify != nil {
 			w.Notify("Mods were not loaded", setupErr.Error())
 		}
-	case !plan.modded:
+	case !plan.Modded:
 		logger.Printf("profile has no active BepInEx, launching without mods")
 	default:
-		logger.Printf("launching with profile %s: %q", plan.profileID, plan.command)
+		logger.Printf("launching with profile %s: %q", plan.ProfileID, plan.Command)
 	}
 
-	code := runCommand(plan.command, plan.env, logger)
-	if plan.cleanup != nil {
-		if err := plan.cleanup(); err != nil {
+	dir := platform.OriginalWorkingDir()
+	if tool {
+		// Tools look for their own files next to themselves.
+		dir = filepath.Dir(command[len(command)-1])
+	}
+	code := runCommand(plan.Command, plan.Env, dir, logger)
+	if plan.GameID != "" {
+		if err := w.Cleanup(plan.GameID); err != nil {
 			logger.Printf("cleanup: %v", err)
 		}
 	}
 	return code
 }
 
-func parseArgs(args []string) (gameID string, command []string, err error) {
+func parseArgs(args []string) (gameID string, tool bool, command []string, err error) {
 	for i := 0; i < len(args); i++ {
 		switch args[i] {
 		case "--game":
 			if i+1 >= len(args) {
-				return "", nil, errors.New("--game needs a value")
+				return "", false, nil, errors.New("--game needs a value")
 			}
 			gameID = args[i+1]
 			i++
+		case "--tool":
+			tool = true
 		case "--":
 			command = args[i+1:]
 			if len(command) == 0 {
-				return "", nil, errors.New("no command after --")
+				return "", false, nil, errors.New("no command after --")
 			}
-			return gameID, command, nil
+			return gameID, tool, command, nil
 		default:
-			return "", nil, fmt.Errorf("unexpected argument %q", args[i])
+			return "", false, nil, fmt.Errorf("unexpected argument %q", args[i])
 		}
 	}
-	return "", nil, errors.New(`usage: run [--game <id>] -- <command...> (in Steam: run -- %command%)`)
+	return "", false, nil, errors.New(`usage: run [--game <id>] [--tool] -- <command...> (in Steam: run -- %command%)`)
 }
 
-// launchPlan is what the wrapper runs. setup fills it in only when mods can be
-// loaded; on error the original command runs unchanged.
-type launchPlan struct {
-	command   []string
-	env       []string
-	modded    bool
-	profileID string
-	// cleanup runs after the game exits.
-	cleanup func() error
+// Plan is how a game should be started. Prepare fills it in fully only when
+// mods can be loaded; on error the original command and environment are
+// returned unchanged, so the game still starts.
+type Plan struct {
+	Command []string
+	Env     []string
+	// Modded is false when the profile has no active BepInEx.
+	Modded bool
+	// GameID and ProfileID are empty when the game could not be resolved;
+	// GameID is what Cleanup needs to finish the session.
+	GameID    string
+	ProfileID string
 }
 
 // nativeLaunchers are scripts that BepInEx packs for native Linux games ship in
@@ -107,12 +118,131 @@ type launchPlan struct {
 // directory, so nothing needs to be linked into the game folder.
 var nativeLaunchers = []string{"run_bepinex.sh", "start_game_bepinex.sh"}
 
-// setup prepares the active profile of the game for launching.
-func (w *Wrapper) setup(gameID string, plan *launchPlan, logOut *io.Writer) error {
+// Prepare links the active profile of a game and returns how to launch it.
+// The session is owned by pid: it is the process expected to run the game, so
+// that a leftover session can be told from a running one. Whoever calls
+// Prepare must call Cleanup once the game has exited. A tool, a program
+// modding the game rather than the game, is run as it is given, never
+// replaced by the file the game starts from.
+func (w *Wrapper) Prepare(gameID string, command, env []string, pid int, logOut *io.Writer, tool bool) (Plan, error) {
+	plan := Plan{Command: command, Env: env}
 	if w.Lib == nil || w.Installer == nil {
+		return plan, errors.New("mod manager data could not be opened")
+	}
+	game, err := w.findGame(gameID, plan.Command)
+	if err != nil {
+		return plan, err
+	}
+	plan.GameID = game.ID
+	dataDir, err := w.Lib.GameDataDir(game.ID)
+	if err != nil {
+		return plan, err
+	}
+	if logOut != nil {
+		if f, err := os.Create(filepath.Join(dataDir, "launch.log")); err == nil {
+			*logOut = io.MultiWriter(os.Stderr, f)
+		}
+	}
+	if game.Runtime != library.RuntimeProton && game.Runtime != library.RuntimeNative {
+		return plan, fmt.Errorf("%s: could not tell whether the game runs natively or through Proton", game.Name)
+	}
+
+	prev, err := ReadSession(dataDir)
+	if err != nil {
+		return plan, err
+	}
+	if prev.Running() {
+		return plan, fmt.Errorf("%s is already running (pid %d)", game.Name, prev.PID)
+	}
+	if prev != nil {
+		// Left over from a session that did not exit cleanly.
+		Unlink(game.Path, prev.Links, prev.linkRoot(w.Lib.Root()))
+	}
+
+	profile, err := w.Installer.Refresh(game.ID, game.ActiveProfile)
+	if err != nil {
+		return plan, err
+	}
+	profileDir, err := w.Lib.ProfileDir(game.ID, profile.ID)
+	if err != nil {
+		return plan, err
+	}
+
+	session := Session{ProfileID: profile.ID, PID: pid, StartedAt: time.Now(), Links: []string{}, ProfileDir: profileDir}
+	if tool {
+		session.Tool = strings.TrimSuffix(filepath.Base(command[len(command)-1]), filepath.Ext(command[len(command)-1]))
+	}
+	modded := false
+	switch {
+	case game.Engine.Deployed():
+		if command, env, err = deployMods(game, profile, profileDir, dataDir, command, env, tool); err != nil {
+			return plan, err
+		}
+		session.Deployed, modded = true, true
+	case game.Runtime == library.RuntimeNative:
+		launcher, err := nativeLauncher(profileDir)
+		if err != nil {
+			return plan, err
+		}
+		if launcher != "" {
+			command = append([]string{launcher}, command...)
+			modded = true
+		}
+	default:
+		session.Links, err = LinkProfile(game.Path, profileDir, profileDir)
+		if err != nil {
+			return plan, err
+		}
+		if len(session.Links) > 0 {
+			env = withDLLOverride(env, "winhttp", "n,b")
+			modded = true
+			// PortProton ignores the environment for this and reads its own
+			// settings file instead.
+			if exe, ok := portProtonExe(command); ok {
+				settings := PortProtonSettings(exe)
+				if added, err := addPPDBOverride(settings, "winhttp", "n,b"); err != nil {
+					Unlink(game.Path, session.Links, profileDir)
+					return plan, fmt.Errorf("adding the winhttp override to PortProton's settings: %w", err)
+				} else if added {
+					session.PPDB = settings
+				}
+			}
+		}
+	}
+	if game.Runtime == library.RuntimeProton && game.LaunchExecutable != "" && !tool {
+		exe := filepath.Join(game.Path, filepath.FromSlash(game.LaunchExecutable))
+		// Steam may start the game from a launcher of its own, as
+		// Cyberpunk 2077's REDprelauncher.
+		names := []string{filepath.Base(game.Executable)}
+		if modding, ok := game.Modding(); ok {
+			names = append(names, modding.Launchers...)
+		}
+		command = withExecutable(command, game.Path, exe, names...)
+	}
+	session.Modded = modded
+	if err := writeSession(dataDir, session); err != nil {
+		Unlink(game.Path, session.Links, profileDir)
+		if session.Deployed {
+			undeployMods(game, dataDir)
+		}
+		if session.PPDB != "" {
+			removePPDBOverride(session.PPDB, "winhttp", "n,b")
+		}
+		return plan, err
+	}
+
+	plan.Command, plan.Env, plan.Modded, plan.ProfileID = command, env, modded, profile.ID
+	return plan, nil
+}
+
+// Cleanup finishes the session Prepare started: it writes the report of the
+// game session and removes the links from the game folder. It is safe to call
+// when there is no session, and from a different process than Prepare.
+func (w *Wrapper) Cleanup(gameID string) error {
+	if w.Lib == nil {
 		return errors.New("mod manager data could not be opened")
 	}
-	game, err := w.findGame(gameID, plan.command)
+	game, err := w.Lib.GetGame(gameID)
 	if err != nil {
 		return err
 	}
@@ -120,75 +250,34 @@ func (w *Wrapper) setup(gameID string, plan *launchPlan, logOut *io.Writer) erro
 	if err != nil {
 		return err
 	}
-	if f, err := os.Create(filepath.Join(dataDir, "launch.log")); err == nil {
-		*logOut = io.MultiWriter(os.Stderr, f)
-	}
-	if game.Runtime != library.RuntimeProton && game.Runtime != library.RuntimeNative {
-		return fmt.Errorf("%s: could not tell whether the game runs natively or through Proton", game.Name)
-	}
-
-	prev, err := ReadSession(dataDir)
-	if err != nil {
-		return err
-	}
-	if prev.Running() {
-		return fmt.Errorf("%s is already running (pid %d)", game.Name, prev.PID)
-	}
-	if prev != nil {
-		// Left over from a session that did not exit cleanly.
-		Unlink(game.Path, prev.Links, w.Lib.Root())
-	}
-
-	profile, err := w.Installer.Refresh(game.ID, game.ActiveProfile)
-	if err != nil {
-		return err
-	}
-	profileDir, err := w.Lib.ProfileDir(game.ID, profile.ID)
-	if err != nil {
+	session, err := ReadSession(dataDir)
+	if err != nil || session == nil {
 		return err
 	}
 
-	session := Session{ProfileID: profile.ID, PID: os.Getpid(), StartedAt: time.Now(), Links: []string{}}
-	command, env := plan.command, plan.env
-	modded := false
-	if game.Runtime == library.RuntimeNative {
-		launcher, err := nativeLauncher(profileDir)
+	var reportErr error
+	if session.Deployed {
+		// The session stays while the mods are not out of the game folder,
+		// so they are not forgotten there.
+		if err := undeployMods(game, dataDir); err != nil {
+			return fmt.Errorf("removing the mods from the game folder: %w", err)
+		}
+	} else if session.Modded {
+		profileDir, err := w.Lib.ProfileDir(game.ID, session.ProfileID)
 		if err != nil {
 			return err
 		}
-		if launcher != "" {
-			command = append([]string{launcher}, command...)
-			modded = true
-		}
-	} else {
-		session.Links, err = LinkProfile(game.Path, profileDir, w.Lib.Root())
+		profile, err := w.Lib.GetProfile(game.ID, session.ProfileID)
 		if err != nil {
 			return err
 		}
-		if len(session.Links) > 0 {
-			env = withDLLOverride(env, "winhttp", "n,b")
-			modded = true
-		}
+		reportErr = SaveReport(dataDir, BuildReport(profileDir, *session, profile.Mods))
 	}
-	if err := writeSession(dataDir, session); err != nil {
-		Unlink(game.Path, session.Links, w.Lib.Root())
-		return err
+	var ppdbErr error
+	if session.PPDB != "" {
+		ppdbErr = removePPDBOverride(session.PPDB, "winhttp", "n,b")
 	}
-
-	*plan = launchPlan{
-		command:   command,
-		env:       env,
-		modded:    modded,
-		profileID: profile.ID,
-		cleanup: func() error {
-			var reportErr error
-			if modded {
-				reportErr = SaveReport(dataDir, BuildReport(profileDir, session, profile.Mods))
-			}
-			return errors.Join(reportErr, Unlink(game.Path, session.Links, w.Lib.Root()), os.Remove(sessionPath(dataDir)))
-		},
-	}
-	return nil
+	return errors.Join(reportErr, ppdbErr, Unlink(game.Path, session.Links, session.linkRoot(w.Lib.Root())), os.Remove(sessionPath(dataDir)))
 }
 
 // nativeLauncher returns the BepInEx launcher script of a profile, made
@@ -235,6 +324,24 @@ func (w *Wrapper) findGame(gameID string, command []string) (library.Game, error
 	return w.Lib.FindGameBySteamAppID(appID)
 }
 
+// withExecutable starts exe in place of the game file in command, the file
+// Steam or PortProton runs: the first argument that is an .exe in the game
+// folder, or one of names wherever it is, for a game folder Steam reaches by
+// another path.
+func withExecutable(command []string, gamePath, exe string, names ...string) []string {
+	inGame := filepath.Clean(gamePath) + string(filepath.Separator)
+	for i, arg := range command {
+		base := filepath.Base(arg)
+		named := slices.ContainsFunc(names, func(n string) bool { return strings.EqualFold(n, base) })
+		if named || (strings.HasPrefix(arg, inGame) && strings.EqualFold(filepath.Ext(arg), ".exe")) {
+			out := append([]string(nil), command...)
+			out[i] = exe
+			return out
+		}
+	}
+	return command
+}
+
 // withDLLOverride adds a Wine DLL override unless the DLL is already configured.
 func withDLLOverride(env []string, dll, mode string) []string {
 	const key = "WINEDLLOVERRIDES="
@@ -261,10 +368,10 @@ func withDLLOverride(env []string, dll, mode string) []string {
 	return append(env, key+dll+"="+mode)
 }
 
-func runCommand(command, env []string, logger *log.Logger) int {
+func runCommand(command, env []string, dir string, logger *log.Logger) int {
 	cmd := exec.Command(command[0], command[1:]...)
 	cmd.Env = env
-	cmd.Dir = platform.OriginalWorkingDir()
+	cmd.Dir = dir
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, os.Stdout, os.Stderr
 	if err := cmd.Start(); err != nil {
 		logger.Printf("start %s: %v", command[0], err)

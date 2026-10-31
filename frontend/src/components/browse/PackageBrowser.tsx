@@ -205,7 +205,7 @@ export default function PackageBrowser({ game, modpacksOnly, isInstalled, render
                       data-focus-first={i === 0 || undefined}
                       onClick={() => setSelected({ namespace: p.namespace, name: p.name })}
                       className={`flex h-full w-full flex-col overflow-hidden rounded-lg border text-left transition ${
-                        active ? "border-indigo-500 bg-zinc-800" : "border-zinc-800 bg-zinc-900/60 hover:border-zinc-700"
+                        active ? "border-accent-500 bg-zinc-800" : "border-zinc-800 bg-zinc-900/60 hover:border-zinc-700"
                       }`}
                     >
                       <PackageCover url={p.icon_url} />
@@ -216,12 +216,12 @@ export default function PackageBrowser({ game, modpacksOnly, isInstalled, render
                         <div className="mt-1 flex flex-wrap items-center gap-1.5">
                           {p.is_nsfw && <NsfwBadge />}
                           {!modpacksOnly && isModpack(p) && (
-                            <span className="rounded bg-indigo-500/15 px-1.5 py-0.5 text-[10px] font-semibold whitespace-nowrap text-indigo-300">
+                            <span className="rounded bg-accent-500/15 px-1.5 py-0.5 text-[10px] font-semibold whitespace-nowrap text-accent-300">
                               MODPACK
                             </span>
                           )}
                           {isInstalled?.(`${p.namespace}-${p.name}`) && (
-                            <span className="text-xs text-indigo-400">Installed</span>
+                            <span className="text-xs text-accent-400">Installed</span>
                           )}
                         </div>
                         <div className="mt-auto flex gap-3 pt-2 text-xs text-zinc-500">
@@ -254,12 +254,12 @@ export default function PackageBrowser({ game, modpacksOnly, isInstalled, render
                           <span className="truncate text-xs text-zinc-500">by {p.namespace}</span>
                           {p.is_nsfw && <NsfwBadge />}
                           {!modpacksOnly && isModpack(p) && (
-                            <span className="shrink-0 rounded bg-indigo-500/15 px-1.5 py-0.5 text-[10px] font-semibold whitespace-nowrap text-indigo-300">
+                            <span className="shrink-0 rounded bg-accent-500/15 px-1.5 py-0.5 text-[10px] font-semibold whitespace-nowrap text-accent-300">
                               MODPACK
                             </span>
                           )}
                           {isInstalled?.(`${p.namespace}-${p.name}`) && (
-                            <span className="ml-auto shrink-0 text-xs text-indigo-400">Installed</span>
+                            <span className="ml-auto shrink-0 text-xs text-accent-400">Installed</span>
                           )}
                         </div>
                         <p className="line-clamp-2 text-xs text-zinc-400">{p.description}</p>

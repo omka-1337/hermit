@@ -23,14 +23,27 @@ const (
 // Game is stored in games/<id>/game.json. It holds everything machine-specific
 // (paths, runtime); profiles must stay portable.
 type Game struct {
-	ID            string  `json:"id"`
-	Name          string  `json:"name"`
-	Path          string  `json:"path"`
-	Runtime       Runtime `json:"runtime"`
-	Backend       Backend `json:"backend"`
-	Executable    string  `json:"executable"`
-	SteamAppID    string  `json:"steamAppId,omitempty"`
-	ActiveProfile string  `json:"activeProfile"`
+	ID      string  `json:"id"`
+	Name    string  `json:"name"`
+	Path    string  `json:"path"`
+	Runtime Runtime `json:"runtime"`
+	Backend Backend `json:"backend"`
+	Engine  Engine  `json:"engine"`
+	// EngineVersion is as in Detection; it changes when a game update moves
+	// the game to a newer Unity.
+	EngineVersion string `json:"engineVersion"`
+	Executable    string `json:"executable"`
+	SteamAppID    string `json:"steamAppId,omitempty"`
+	ActiveProfile string `json:"activeProfile"`
+	// LaunchExecutable is the file Hermit starts the game from when it
+	// starts it itself, relative to Path; empty means Executable. It is kept
+	// apart from Executable, which identifies the game (Thunderstore finds
+	// its community by that name), because some mods ship their own launcher.
+	LaunchExecutable string `json:"launchExecutable,omitempty"`
+	// ProfileDirs maps the ids of profiles kept outside the library to their
+	// folders, so a profile with large mods can live on another disk, next to
+	// the game. Profiles not listed are in games/<id>/profiles/<profile-id>.
+	ProfileDirs map[string]string `json:"profileDirs,omitempty"`
 }
 
 // GameCandidate is a game that can be added: found in Steam or picked manually.
@@ -83,6 +96,12 @@ type Mod struct {
 	// Plugins are the BepInEx plugins found in the mod's assemblies; nil
 	// until they have been scanned.
 	Plugins []plugininfo.Plugin `json:"plugins"`
+	// Notes are the user's own words about the mod, such as the options
+	// picked in its installer.
+	Notes string `json:"notes,omitempty"`
+	// Separator marks an entry that is not a mod but a heading over the mods
+	// after it, as Mod Organizer 2 groups its list; it has no files.
+	Separator bool `json:"separator,omitempty"`
 }
 
 type ModSourceType string
@@ -91,16 +110,18 @@ const (
 	SourceLocal        ModSourceType = "local"
 	SourceThunderstore ModSourceType = "thunderstore"
 	SourceGitHub       ModSourceType = "github"
+	SourceNexus        ModSourceType = "nexus"
 )
 
 // ModSource describes where a mod came from and how to fetch it again.
 type ModSource struct {
 	Type ModSourceType `json:"type"`
-	// URL is the Thunderstore download URL, the GitHub repository URL, or the
-	// file name of a local file.
+	// URL is the Thunderstore download URL, the GitHub repository URL, the
+	// mod's page on Nexus Mods, or the file name of a local file.
 	URL    string `json:"url,omitempty"`
 	SHA256 string `json:"sha256,omitempty"`
-	// Release and Asset identify the GitHub release file the mod came from.
+	// Release and Asset identify the GitHub release file the mod came from;
+	// for a mod from Nexus Mods, Asset is the file it was installed from.
 	Release string `json:"release,omitempty"`
 	Asset   string `json:"asset,omitempty"`
 }

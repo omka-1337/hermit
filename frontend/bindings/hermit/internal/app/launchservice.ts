@@ -26,9 +26,29 @@ export function GetLaunchReport(gameID: string, profileID: string): $Cancellable
 }
 
 /**
+ * ListExecutables returns the .exe files a game could be started from,
+ * relative to its folder: the game's own executable first, then any other
+ * found a few levels deep, such as a launcher a mod asks to start the game
+ * with.
+ */
+export function ListExecutables(gameID: string): $CancellablePromise<string[] | null> {
+    return $Call.ByID(3136976965, gameID);
+}
+
+/**
  * Play makes the profile active and starts the game through Steam. Mods load
  * only if the game's launch options run it through the wrapper.
  */
 export function Play(gameID: string, profileID: string): $CancellablePromise<void> {
     return $Call.ByID(3396312206, gameID, profileID);
+}
+
+/**
+ * PlayViaPortProton makes the profile active and starts the game through
+ * PortProton, wrapped in "run" so the profile is linked in for the session.
+ * The wrapper is a process of its own: the game outlives Hermit's window, and
+ * the links are still removed when it exits.
+ */
+export function PlayViaPortProton(gameID: string, profileID: string): $CancellablePromise<void> {
+    return $Call.ByID(3429716921, gameID, profileID);
 }

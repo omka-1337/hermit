@@ -1,5 +1,5 @@
 import { useEffect, useRef, type ButtonHTMLAttributes, type ReactNode } from "react";
-import { Backend, Runtime } from "../api";
+import { Backend, Engine, Runtime } from "../api";
 import { clickFocused, focusFirst, moveFocus } from "../focus";
 import { useGamepad } from "../gamepad";
 import { useModalLayer, useModalOpen } from "../modals";
@@ -10,7 +10,7 @@ export { useModalOpen };
 type Variant = "primary" | "secondary" | "ghost" | "danger";
 
 const variants: Record<Variant, string> = {
-  primary: "bg-indigo-600 text-white hover:bg-indigo-500",
+  primary: "bg-accent-500 text-zinc-950 hover:bg-accent-400",
   secondary: "bg-zinc-800 text-zinc-100 hover:bg-zinc-700",
   ghost: "text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100",
   danger: "text-red-400 hover:bg-red-500/10",
@@ -40,7 +40,7 @@ export function Spinner({ className = "" }: { className?: string }) {
 }
 
 export const inputClass =
-  "w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-sm outline-none focus:border-indigo-500 select-text";
+  "w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-sm outline-none focus:border-accent-500 select-text";
 
 const runtimeLabels: Partial<Record<Runtime, string>> = {
   [Runtime.RuntimeNative]: "Linux native",
@@ -50,6 +50,38 @@ const runtimeLabels: Partial<Record<Runtime, string>> = {
 
 export function RuntimeBadge({ runtime }: { runtime: Runtime }) {
   return <span className="shrink-0 rounded bg-zinc-800 px-2 py-0.5 text-xs whitespace-nowrap text-zinc-300">{runtimeLabels[runtime] ?? runtimeLabels[Runtime.RuntimeUnknown]}</span>;
+}
+
+// engineLabel names an engine the way players do: Unity 6 rather than
+// 6000.0, and the release line, like 2022.3, for older Unity.
+function engineLabel(engine: Engine, version: string): string | null {
+  switch (engine) {
+    case Engine.EngineUnity: {
+      const [major, minor] = version.split(".").map(Number);
+      if (!major) return "Unity";
+      if (major >= 6000) return minor ? `Unity 6.${minor}` : "Unity 6";
+      return `Unity ${major}.${minor}`;
+    }
+    case Engine.EngineCreation:
+      return version ? `Creation Engine ${version}` : "Creation Engine";
+    case Engine.EngineRED:
+      return version ? `REDengine ${version}` : "REDengine";
+    case Engine.EngineUnreal:
+      return version ? `Unreal Engine ${version}` : "Unreal Engine";
+  }
+  return null;
+}
+
+export function EngineBadge({ engine, version }: { engine: Engine; version: string }) {
+  const label = engineLabel(engine, version);
+  return label ? (
+    <span
+      title={engine === Engine.EngineUnity && version ? `Unity ${version}` : undefined}
+      className="shrink-0 rounded bg-zinc-800 px-2 py-0.5 text-xs whitespace-nowrap text-zinc-300"
+    >
+      {label}
+    </span>
+  ) : null;
 }
 
 const backendLabels: Partial<Record<Backend, string>> = {
@@ -85,7 +117,7 @@ export function Toggle({ checked, disabled, title, first, onChange }: ToggleProp
       onClick={() => onChange(!checked)}
       className={`relative shrink-0 rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
         deck ? "h-7 w-12" : "h-5 w-9"
-      } ${checked ? "bg-indigo-600" : "bg-zinc-700"}`}
+      } ${checked ? "bg-accent-500" : "bg-zinc-700"}`}
     >
       <span
         className={`absolute rounded-full bg-white transition-transform ${

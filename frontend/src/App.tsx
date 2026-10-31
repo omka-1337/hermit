@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { errorMessage, Game, InfoService, Library, Settings, SettingsStore } from "./api";
 import ConfirmHost from "./confirm";
+import SteamSetupWindow from "./screens/SteamSetupWindow";
+import FomodWindow from "./screens/FomodWindow";
 import { UIModeProvider } from "./uimode";
 import WindowFrame from "./components/WindowFrame";
 import Main from "./screens/Main";
@@ -11,7 +13,24 @@ type State =
   | { status: "error"; message: string }
   | { status: "ready"; setup: boolean; settings: Settings; steamDeck: boolean };
 
+// The first-run window is a window of its own, opened by the Go side at
+// /#steam-setup; it shares this bundle but none of the manager's chrome.
+const isSteamSetupWindow = window.location.hash === "#steam-setup";
+
+// A FOMOD installer opens in a window of its own at
+// /#fomod/<session>/<position>/<total>, its place among the installers of a
+// queue of installs.
+const fomodRoute = window.location.hash.startsWith("#fomod/") ? window.location.hash.slice("#fomod/".length).split("/") : null;
+
 function App() {
+  if (isSteamSetupWindow) {
+    return <SteamSetupWindow />;
+  }
+  if (fomodRoute) {
+    const [session, position, total] = fomodRoute;
+    return <FomodWindow session={session} position={Number(position) || 1} total={Number(total) || 1} />;
+  }
+
   const [state, setState] = useState<State>({ status: "loading" });
   const [games, setGames] = useState<Game[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -27,12 +46,18 @@ function App() {
   };
 
   useEffect(() => {
-    Promise.all([SettingsStore.Get(), InfoService.GetInfo(), reloadGames()])
+    // The game open last time comes back, with its active profile.
+    SettingsStore.Get()
+      .then((settings) => Promise.all([settings, InfoService.GetInfo(), reloadGames(settings.lastGame || undefined)]))
       .then(([settings, info]) =>
         setState({ status: "ready", setup: !settings.setupCompleted, settings, steamDeck: info.steamDeck }),
       )
       .catch((err) => setState({ status: "error", message: errorMessage(err) }));
   }, []);
+
+  useEffect(() => {
+    if (selectedId) SettingsStore.SetLastGame(selectedId).catch(console.error);
+  }, [selectedId]);
 
   const finishSetup = async (game?: Game) => {
     try {
@@ -66,7 +91,7 @@ function App() {
   }
   return (
     <UIModeProvider settings={state.settings} steamDeck={state.steamDeck}>
-      <WindowFrame>{screen}</WindowFrame>
+      <WindowFrame menus={!state.setup}>{screen}</WindowFrame>
       <ConfirmHost />
     </UIModeProvider>
   );

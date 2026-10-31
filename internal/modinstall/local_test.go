@@ -1,10 +1,12 @@
 package modinstall
 
 import (
+	"archive/zip"
 	"context"
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	"hermit/internal/github"
@@ -180,5 +182,100 @@ func TestPickAsset(t *testing.T) {
 	one := github.Release{Assets: []github.Asset{{Name: "Mod.zip"}, {Name: "readme.md"}}}
 	if a, err := PickAsset(one, ""); err != nil || a.Name != "Mod.zip" {
 		t.Errorf("single: %v %v", a, err)
+	}
+}
+
+func TestInstallIntoFolder(t *testing.T) {
+	into := DefaultRules()
+	into.Into = "BepInEx/plugins/models/all"
+
+	tests := []struct {
+		name  string
+		files map[string]string
+		want  []string
+	}{
+		{
+			name:  "loose files, like model packs",
+			files: map[string]string{"bfufu": "x", "wfufu": "x"},
+			want:  []string{"BepInEx/plugins/models/all/bfufu", "BepInEx/plugins/models/all/wfufu"},
+		},
+		{
+			name:  "one wrapping folder is only how it was zipped",
+			files: map[string]string{"Furina/bfufu": "x", "Furina/sub/wfufu": "x"},
+			want:  []string{"BepInEx/plugins/models/all/bfufu", "BepInEx/plugins/models/all/sub/wfufu"},
+		},
+		{
+			name:  "layout inside the archive is kept",
+			files: map[string]string{"a/one": "x", "b/two": "x", "manifest.json": "{}", "icon.png": "x"},
+			want:  []string{"BepInEx/plugins/models/all/a/one", "BepInEx/plugins/models/all/b/two"},
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			zip := makeZip(t, t.TempDir(), tc.files)
+			got, err := PlanFiles(zip, "Someone-Pack", into)
+			if err != nil {
+				t.Fatal(err)
+			}
+			slices.Sort(got)
+			if !slices.Equal(got, tc.want) {
+				t.Errorf("planned %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestCleanTargetDir(t *testing.T) {
+	good := map[string]string{
+		"BepInEx/plugins/models/all":  "BepInEx/plugins/models/all",
+		" BepInEx/plugins/models/ ":   "BepInEx/plugins/models",
+		`BepInEx\plugins\models`:      "BepInEx/plugins/models",
+		"BepInEx/plugins/../config/x": "BepInEx/config/x",
+	}
+	for in, want := range good {
+		if got, err := CleanTargetDir(in); err != nil || got != want {
+			t.Errorf("CleanTargetDir(%q) = %q, %v; want %q", in, got, err, want)
+		}
+	}
+	for _, bad := range []string{"", ".", "/etc", "../outside", "a/../../outside", "disabled/x", "Profile.json"} {
+		if got, err := CleanTargetDir(bad); err == nil {
+			t.Errorf("CleanTargetDir(%q) = %q, want an error", bad, got)
+		}
+	}
+}
+
+// Archives made on Windows may list folders as "plugins\Translations\", with
+// backslashes and no folder flag. They must be skipped, not rejected.
+func TestPlanFilesWindowsFolderEntries(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "capes.zip")
+	f, err := os.Create(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	zw := zip.NewWriter(f)
+	for _, name := range []string{`plugins\Translations\`, `plugins\Translations\English\English.json`, `plugins\DragoonCapes.dll`} {
+		w, err := zw.CreateRaw(&zip.FileHeader{Name: name, Method: zip.Store})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.HasSuffix(name, `\`) {
+			w.Write([]byte("x"))
+		}
+	}
+	zw.Close()
+	f.Close()
+
+	got, err := PlanFiles(path, "HappyDragoon-DragoonCapes", DefaultRules())
+	if err != nil {
+		t.Fatalf("PlanFiles: %v", err)
+	}
+	slices.Sort(got)
+	want := []string{
+		"BepInEx/plugins/HappyDragoon-DragoonCapes/DragoonCapes.dll",
+		"BepInEx/plugins/HappyDragoon-DragoonCapes/Translations/English/English.json",
+	}
+	if !slices.Equal(got, want) {
+		t.Errorf("planned %q, want %q", got, want)
 	}
 }

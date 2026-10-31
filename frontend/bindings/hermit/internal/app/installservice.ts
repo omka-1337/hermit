@@ -20,6 +20,13 @@ import * as modinstall$0 from "../modinstall/models.js";
 import * as $models from "./models.js";
 
 /**
+ * BepInExBuild reports which BepInEx release a game would get from GitHub.
+ */
+export function BepInExBuild(gameID: string): $CancellablePromise<$models.BepInExBuild> {
+    return $Call.ByID(4051463839, gameID);
+}
+
+/**
  * CheckUpdates lists installed Thunderstore mods with a newer version.
  */
 export function CheckUpdates(gameID: string, profileID: string): $CancellablePromise<modinstall$0.Update[] | null> {
@@ -46,6 +53,14 @@ export function GitHubReleases(input: string): $CancellablePromise<$models.GitHu
  */
 export function InspectFile(path: string): $CancellablePromise<modinstall$0.LocalPackage> {
     return $Call.ByID(2133734766, path);
+}
+
+/**
+ * InstallBepInEx installs that release into a profile as a mod, so it is
+ * listed, disabled and updated like the Thunderstore packs are.
+ */
+export function InstallBepInEx(gameID: string, profileID: string): $CancellablePromise<library$0.Profile> {
+    return $Call.ByID(1848044912, gameID, profileID);
 }
 
 /**
@@ -76,6 +91,15 @@ export function InstallModpack(gameID: string, $namespace: string, name: string,
  */
 export function InstallPackage(gameID: string, profileID: string, $namespace: string, name: string, version: string, opts: modinstall$0.Options): $CancellablePromise<library$0.Profile> {
     return $Call.ByID(1680772357, gameID, profileID, $namespace, name, version, opts);
+}
+
+/**
+ * LoaderStatus reports whether a profile has a mod loader, whichever way it
+ * got there: a Thunderstore pack, a GitHub release or a local archive. Without
+ * one Hermit links nothing into the game and it starts vanilla.
+ */
+export function LoaderStatus(gameID: string, profileID: string): $CancellablePromise<$models.LoaderStatus> {
+    return $Call.ByID(3651530457, gameID, profileID);
 }
 
 /**

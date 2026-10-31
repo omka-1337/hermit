@@ -39,9 +39,11 @@ type ProfileState = {
   checked: boolean;
   checkUpdates: () => Promise<void>;
   // updating is the mod being updated right now, updated the ones already
-  // brought up to date in this session.
+  // brought up to date in this session, and queued the ones an "Update all"
+  // has still to reach.
   updating: string | null;
   updated: Set<string>;
+  queued: Set<string>;
   update: (modId: string) => Promise<void>;
   updateAll: () => Promise<UpdateResult | null>;
 };
@@ -73,6 +75,7 @@ export function ProfileProvider({ game, profile, onProfileChange, onOpenProfile,
   const [checked, setChecked] = useState(false);
   const [updatingOne, setUpdatingOne] = useState<string | null>(null);
   const [updated, setUpdated] = useState<Set<string>>(new Set());
+  const [queued, setQueued] = useState<Set<string>>(new Set());
 
   const markUpdated = useCallback((ids: string[]) => {
     if (ids.length === 0) return;
@@ -204,6 +207,7 @@ export function ProfileProvider({ game, profile, onProfileChange, onOpenProfile,
       checkUpdates,
       updating: busy === "update-all" ? (progress?.target ?? null) : updatingOne,
       updated,
+      queued,
       update: async (modId) => {
         setUpdatingOne(modId);
         try {
@@ -216,13 +220,24 @@ export function ProfileProvider({ game, profile, onProfileChange, onOpenProfile,
       updateAll: async () => {
         let result: UpdateResult | null = null;
         let done: string[] = [];
-        await run("update-all", async () => {
-          const outcome = await InstallService.UpdateAll(game.id, profile.id);
-          result = outcome;
-          done = outcome.updated ?? [];
-          return outcome.profile;
-        });
+        setQueued(new Set(updates.keys()));
+        try {
+          await run("update-all", async () => {
+            const outcome = await InstallService.UpdateAll(game.id, profile.id);
+            result = outcome;
+            done = outcome.updated ?? [];
+            return outcome.profile;
+          });
+        } finally {
+          setQueued(new Set());
+        }
         markUpdated(done);
+        // A mod is marked as done when the next one starts, which also marks
+        // the ones that failed; the result says which those were.
+        const failed = Object.keys((result as UpdateResult | null)?.failed ?? {});
+        if (failed.length) {
+          setUpdated((ids) => new Set([...ids].filter((id) => !failed.includes(id))));
+        }
         return result;
       },
     }),
@@ -240,6 +255,7 @@ export function ProfileProvider({ game, profile, onProfileChange, onOpenProfile,
       checkUpdates,
       updatingOne,
       updated,
+      queued,
       markUpdated,
       onOpenProfile,
       onProfileChange,

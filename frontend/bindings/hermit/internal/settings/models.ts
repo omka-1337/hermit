@@ -36,6 +36,12 @@ export interface Settings {
      * BrowseView is the mod browser layout; empty means auto.
      */
     "browseView": BrowseView;
+
+    /**
+     * LastGame is the game that was open last, opened again on the next
+     * start; its active profile comes with it.
+     */
+    "lastGame"?: string;
 }
 
 /**

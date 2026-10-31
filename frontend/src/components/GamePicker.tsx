@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { errorMessage, Game, GameCandidate, Library } from "../api";
 import AddGameForm from "./AddGameForm";
 import GameIcon from "./GameIcon";
-import { BackendBadge, Button, ErrorText, RuntimeBadge } from "./ui";
+import { BackendBadge, Button, EngineBadge, ErrorText, RuntimeBadge } from "./ui";
 
 type Props = {
   onAdded: (game: Game) => void;
@@ -10,7 +10,8 @@ type Props = {
   actions?: React.ReactNode;
 };
 
-// GamePicker lists Unity games found in Steam libraries, with a manual fallback.
+// GamePicker lists the games found in Steam libraries that Hermit can mod,
+// with a manual fallback.
 export default function GamePicker({ onAdded, actions }: Props) {
   const [games, setGames] = useState<GameCandidate[] | null>(null);
   const [manual, setManual] = useState(false);
@@ -65,7 +66,7 @@ export default function GamePicker({ onAdded, actions }: Props) {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
-        <span className="text-sm text-zinc-400">Unity games found in Steam</span>
+        <span className="text-sm text-zinc-400">Games found in Steam</span>
         <Button variant="ghost" onClick={() => discover()} disabled={games === null}>
           Refresh
         </Button>
@@ -84,6 +85,7 @@ export default function GamePicker({ onAdded, actions }: Props) {
                 <div className="flex min-w-0 flex-1 flex-col gap-1">
                   <span className="truncate text-sm font-medium">{c.name}</span>
                   <div className="flex items-center gap-1.5">
+                    <EngineBadge engine={c.detection.engine} version={c.detection.engineVersion} />
                     <RuntimeBadge runtime={c.detection.runtime} />
                     <BackendBadge backend={c.detection.backend} />
                     <span className="min-w-0 truncate text-xs text-zinc-500" title={c.path}>

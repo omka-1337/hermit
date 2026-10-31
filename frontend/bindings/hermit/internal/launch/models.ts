@@ -53,4 +53,26 @@ export interface Report {
     "bepinexVersion": string;
     "loaded": string[] | null;
     "issues": Issue[] | null;
+
+    /**
+     * Complete is set once BepInEx says it finished loading plugins. A log
+     * that stops before that means the game hung or crashed while a plugin
+     * was starting: the last one in Loaded.
+     */
+    "complete": boolean;
+
+    /**
+     * Errors counts error lines from any source, BepInEx or the mods and the
+     * game logging through it. Thousands of them usually mean mods written
+     * for another version of the game.
+     */
+    "errors": number;
+
+    /**
+     * PluginMods is how many active mods of the profile carry BepInEx
+     * plugins, and NotStarted lists those of them BepInEx never began to
+     * load: the numbers to compare when a game starts to a black screen.
+     */
+    "pluginMods": number;
+    "notStarted": string[] | null;
 }

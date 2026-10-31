@@ -1,0 +1,42 @@
+#!/bin/sh
+# hermit-launch — start a Steam game with the active Hermit profile.
+#
+# In Steam: Properties → General → Launch Options:
+#     /path/to/hermit-launch -- %command%
+#
+# "hermit run -- %command%" does the same thing in one process and is what a
+# plain installation uses. This script exists for installations where Hermit
+# cannot start the game itself — a Flatpak, whose sandbox the game must not be
+# started in. The work is then split: Hermit links the profile and prints what
+# to change, this script applies it and runs the game on the host, and Hermit
+# is told afterwards to write the report and remove the links.
+#
+# Set HERMIT_COMMAND if Hermit is not simply "hermit" on PATH, for example:
+#     HERMIT_COMMAND="flatpak run --command=hermit io.github.omka_1337.hermit"
+# A Flatpak also has to pass the variables the game already carries, since the
+# sandbox does not inherit them:
+#     HERMIT_COMMAND="flatpak run --env=WINEDLLOVERRIDES=$WINEDLLOVERRIDES ..."
+
+HERMIT=${HERMIT_COMMAND:-hermit}
+
+[ "${1-}" = "--" ] && shift
+if [ "$#" -eq 0 ]; then
+	echo "usage: hermit-launch -- <command...>" >&2
+	exit 2
+fi
+
+# Setting up mods must never keep a game from starting: if prepare fails it
+# says so on stderr and prints nothing, and the game runs unmodded.
+HERMIT_GAME=
+# Splitting HERMIT is deliberate — it may be a command with arguments.
+# shellcheck disable=SC2086
+eval "$($HERMIT prepare --pid $$ --appid "${SteamAppId-}" -- "$@")"
+
+"$@"
+status=$?
+
+if [ -n "$HERMIT_GAME" ]; then
+	# shellcheck disable=SC2086
+	$HERMIT cleanup --game "$HERMIT_GAME"
+fi
+exit $status

@@ -1,24 +1,36 @@
 import { CancelError } from "@wailsio/runtime";
 import { ask } from "./confirmhost";
 
-export { Backend, Library, Runtime } from "../bindings/hermit/internal/library";
+import { Engine } from "../bindings/hermit/internal/library";
+export { Backend, Engine, Library, Runtime } from "../bindings/hermit/internal/library";
 export type { Game, GameCandidate, Mod, Profile } from "../bindings/hermit/internal/library";
 export { Store as SettingsStore } from "../bindings/hermit/internal/settings";
 export { UIMode, BrowseView } from "../bindings/hermit/internal/settings";
 export type { Settings } from "../bindings/hermit/internal/settings";
 export {
+  CreationService,
+  ModListService,
   BrowseService,
+  DownloadService,
+  CacheService,
   ConfigService,
+  FolderService,
   IconService,
   InfoService,
   InstallService,
   LaunchService,
   ShareService,
+  SteamService,
 } from "../bindings/hermit/internal/app";
 export type { ImportProgress, ImportResult, Preview } from "../bindings/hermit/internal/profileshare";
+export type { MO2Instance } from "../bindings/hermit/internal/creation";
+export type { Download, NexusAccount, NXMHandler, PreparedMod, Tool } from "../bindings/hermit/internal/app";
+// UnpackProgress travels only in events, so it has no binding of its own.
+export type UnpackProgress = { file: string; done: number; total: number };
+export type { View as FomodView } from "../bindings/hermit/internal/fomod";
 export type { ConfigContent } from "../bindings/hermit/internal/app";
 export type { Change, Entry, FileInfo as ConfigFileInfo } from "../bindings/hermit/internal/configs";
-export type { LaunchInfo } from "../bindings/hermit/internal/app";
+export type { LaunchInfo, LogFile } from "../bindings/hermit/internal/app";
 export { ConflictReason, Stage } from "../bindings/hermit/internal/modinstall";
 export type {
   Conflict,
@@ -39,9 +51,16 @@ export type {
   PackageList,
   PackageSummary,
 } from "../bindings/hermit/internal/thunderstore";
-export type { AppInfo, Update } from "../bindings/hermit/internal/app";
+export type { AppInfo, BepInExBuild, LoaderStatus, SteamSetup, Update } from "../bindings/hermit/internal/app";
 
 // isCancelled reports whether err comes from cancelling a CancellablePromise.
+// deployed tells the engines whose mods are files laid out as the game's,
+// linked into it for each session: their profiles are an ordered list of
+// mods, as in Mod Organizer 2, rather than BepInEx plugins.
+export function deployed(engine: Engine): boolean {
+  return engine === Engine.EngineCreation || engine === Engine.EngineRED || engine === Engine.EngineUnreal;
+}
+
 export function isCancelled(err: unknown): boolean {
   return err instanceof CancelError;
 }

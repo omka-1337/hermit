@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Dialogs } from "@wailsio/runtime";
-import { errorMessage, Game, GameCandidate, Library } from "../api";
-import { BackendBadge, Button, ErrorText, inputClass, RuntimeBadge } from "./ui";
+import { Engine, errorMessage, Game, GameCandidate, Library } from "../api";
+import { BackendBadge, Button, EngineBadge, ErrorText, inputClass, RuntimeBadge } from "./ui";
 
 type Props = {
   onAdded: (game: Game) => void;
@@ -67,15 +67,17 @@ export default function AddGameForm({ onAdded, extraActions }: Props) {
             <span className="text-sm text-zinc-400">Name</span>
             <input className={inputClass} value={name} onChange={(e) => setName(e.target.value)} autoFocus />
           </label>
-          {candidate.detection.unity ? (
+          {candidate.detection.engine !== Engine.EngineUnknown ? (
             <div className="flex items-center gap-2 text-sm text-zinc-400">
-              Detected: <RuntimeBadge runtime={candidate.detection.runtime} />
+              Detected: <EngineBadge engine={candidate.detection.engine} version={candidate.detection.engineVersion} />
+              <RuntimeBadge runtime={candidate.detection.runtime} />
               <BackendBadge backend={candidate.detection.backend} />
             </div>
           ) : (
             <p className="text-sm text-amber-400">
-              No Unity game found in this folder. BepInEx works only with Unity games — make sure you picked the folder
-              containing the game executable.
+              No game Hermit can mod was found in this folder: it mods Unity games through BepInEx, Creation
+              Engine games such as Skyrim, Cyberpunk 2077 on REDengine and Batman: Arkham Knight on Unreal
+              Engine 3. Make sure you picked the folder containing the game executable.
             </p>
           )}
           {candidate.alreadyAdded && <p className="text-sm text-amber-400">This game is already added.</p>}

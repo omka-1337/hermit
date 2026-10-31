@@ -1,6 +1,7 @@
 import { CSSProperties, ReactNode, useEffect, useState } from "react";
 import { Window } from "@wailsio/runtime";
 import { useLayout } from "../uimode";
+import TitleMenus from "./TitleMenus";
 
 // Wails starts a window drag from elements with this CSS variable (frameless windows).
 const drag = { "--wails-draggable": "drag" } as CSSProperties;
@@ -21,7 +22,21 @@ function useMaximised(): boolean {
 // controls and a thin border so the window edge stays visible on dark desktops.
 // The deck layout runs full screen like a console, so it has no title bar at
 // all; quitting lives in its bar of games.
-export default function WindowFrame({ children }: { children: ReactNode }) {
+//
+// The main window has the Hermit and File menus in its title bar; another
+// window, an installer's, has a title instead, and onClose runs before it
+// closes.
+export default function WindowFrame({
+  children,
+  menus = false,
+  title = "Hermit",
+  onClose,
+}: {
+  children: ReactNode;
+  menus?: boolean;
+  title?: string;
+  onClose?: () => void;
+}) {
   const maximised = useMaximised();
   const deck = useLayout() === "deck";
 
@@ -34,7 +49,7 @@ export default function WindowFrame({ children }: { children: ReactNode }) {
         onDoubleClick={() => Window.ToggleMaximise()}
         className="flex h-9 shrink-0 items-center border-b border-zinc-800 bg-zinc-900 select-none"
       >
-        <span className="px-4 text-xs font-medium text-zinc-400">Hermit</span>
+        {menus ? <TitleMenus /> : <span className="truncate px-4 text-xs font-medium text-zinc-400">{title}</span>}
         <div className="flex-1" />
         <div style={noDrag} className="flex h-full" onDoubleClick={(e) => e.stopPropagation()}>
           <WindowButton label="Minimise" onClick={() => Window.Minimise()}>
@@ -50,7 +65,14 @@ export default function WindowFrame({ children }: { children: ReactNode }) {
               <rect x="5" y="5" width="14" height="14" rx="1" />
             )}
           </WindowButton>
-          <WindowButton label="Close" danger onClick={() => Window.Close()}>
+          <WindowButton
+            label="Close"
+            danger
+            onClick={() => {
+              onClose?.();
+              Window.Close();
+            }}
+          >
             <path d="M6 6l12 12M18 6 6 18" />
           </WindowButton>
         </div>

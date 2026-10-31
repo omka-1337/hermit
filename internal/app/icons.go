@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"hermit/internal/launch"
 	"hermit/internal/steam"
 )
 
@@ -21,7 +22,43 @@ func NewIconService(steamRoots []string) *IconService {
 	return &IconService{steamRoots: steamRoots}
 }
 
-var iconTypes = map[string]string{".ico": "image/x-icon", ".jpg": "image/jpeg", ".png": "image/png"}
+var iconTypes = map[string]string{".ico": "image/x-icon", ".jpg": "image/jpeg", ".png": "image/png", ".svg": "image/svg+xml"}
+
+// flatpakIconDirs are where Flatpak exports the icons of installed apps.
+var flatpakIconDirs = []string{
+	"/var/lib/flatpak/exports/share/icons/hicolor",
+	"~/.local/share/flatpak/exports/share/icons/hicolor",
+}
+
+// GetPortProtonIcon returns PortProton's own icon as a data URL, or "" when it
+// is not installed; the launch button shows it next to its name.
+func (s *IconService) GetPortProtonIcon() string {
+	home, _ := os.UserHomeDir()
+	for _, dir := range flatpakIconDirs {
+		if strings.HasPrefix(dir, "~/") {
+			if home == "" {
+				continue
+			}
+			dir = filepath.Join(home, dir[2:])
+		}
+		// Scalable first, then the largest bitmap there is.
+		for _, size := range []string{"scalable", "512x512", "256x256", "128x128", "64x64"} {
+			matches, _ := filepath.Glob(filepath.Join(dir, size, "apps", launch.PortProtonApp+".*"))
+			for _, path := range matches {
+				mime := iconTypes[strings.ToLower(filepath.Ext(path))]
+				if mime == "" {
+					continue
+				}
+				data, err := os.ReadFile(path)
+				if err != nil || len(data) > 2<<20 {
+					continue
+				}
+				return "data:" + mime + ";base64," + base64.StdEncoding.EncodeToString(data)
+			}
+		}
+	}
+	return ""
+}
 
 // GetSteamIcon returns the icon of a Steam app as a data URL, or "" if none is cached.
 func (s *IconService) GetSteamIcon(appID string) string {

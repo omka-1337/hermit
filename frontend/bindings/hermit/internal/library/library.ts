@@ -17,12 +17,23 @@ export function AddGame(name: string, path: string): $CancellablePromise<$models
     return $Call.ByID(878809748, name, path);
 }
 
+/**
+ * CopyProfile duplicates a profile under a new name: the same mods, the same
+ * configs, its own folder. What it is not is the modpack link — a copy is a
+ * profile assembled by hand from that moment on, free to be changed without
+ * the copy and the original drifting apart silently.
+ */
+export function CopyProfile(gameID: string, profileID: string, name: string): $CancellablePromise<$models.Profile> {
+    return $Call.ByID(2983507407, gameID, profileID, name);
+}
+
 export function CreateProfile(gameID: string, name: string): $CancellablePromise<$models.Profile> {
     return $Call.ByID(2983081572, gameID, name);
 }
 
 /**
- * DiscoverGames lists BepInEx-compatible (Unity) games installed via Steam.
+ * DiscoverGames lists the games installed via Steam that Hermit can mod:
+ * Unity games, through BepInEx, and Creation Engine games.
  */
 export function DiscoverGames(): $CancellablePromise<$models.GameCandidate[] | null> {
     return $Call.ByID(4035536283);
@@ -72,10 +83,30 @@ export function ListProfiles(gameID: string): $CancellablePromise<$models.Profil
 }
 
 /**
+ * MoveProfile moves a profile with all its mods into a folder of its own
+ * inside location, named after the game and the profile, and returns that
+ * folder. An empty location moves it back into the library. Moving to
+ * another disk copies everything, which takes a while for large profiles.
+ */
+export function MoveProfile(gameID: string, profileID: string, location: string): $CancellablePromise<string> {
+    return $Call.ByID(2350190191, gameID, profileID, location);
+}
+
+/**
  * ProfileDir returns the directory of an existing profile.
  */
 export function ProfileDir(gameID: string, profileID: string): $CancellablePromise<string> {
     return $Call.ByID(2314582283, gameID, profileID);
+}
+
+/**
+ * ProfileRootFiles lists the files the enabled mods of a game whose mods
+ * are deployed put into the game folder while it runs, such as a Creation
+ * Engine game's script extender's loader, as paths relative to the game
+ * folder.
+ */
+export function ProfileRootFiles(gameID: string): $CancellablePromise<string[] | null> {
+    return $Call.ByID(2202402963, gameID);
 }
 
 /**
@@ -110,6 +141,16 @@ export function Root(): $CancellablePromise<string> {
 
 export function SetActiveProfile(gameID: string, profileID: string): $CancellablePromise<$models.Game> {
     return $Call.ByID(2469530084, gameID, profileID);
+}
+
+/**
+ * SetLaunchExecutable chooses the file a game is started from; "" goes back to
+ * the game's own executable, or for a Creation Engine game to its script
+ * extender when it has one. The path is relative to the game folder and must
+ * name a file inside it, or one a mod of the active profile puts there.
+ */
+export function SetLaunchExecutable(id: string, exe: string): $CancellablePromise<$models.Game> {
+    return $Call.ByID(1002379714, id, exe);
 }
 
 /**

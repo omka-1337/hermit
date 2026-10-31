@@ -1,0 +1,21 @@
+name: Feature request
+description: Suggest something Hermit should do
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do?
+      description: The situation you run into, rather than the solution you have in mind.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: How could Hermit help?
+      description: If you already have an idea of how it should work, describe it here.
+  - type: input
+    id: elsewhere
+    attributes:
+      label: Does another mod manager do this?
+      description: r2modman, Gale, Thunderstore's own app — knowing how they solved it helps.

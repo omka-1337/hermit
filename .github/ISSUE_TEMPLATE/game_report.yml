@@ -1,0 +1,49 @@
+name: Game report
+description: Tell whether a game works with Hermit, so the compatibility table can grow
+labels: ["game report"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Only a handful of games have been tried so far. Reports of games that work are as useful as reports of games
+        that do not.
+  - type: input
+    id: game
+    attributes:
+      label: Game
+      placeholder: "Risk of Rain 2"
+    validations:
+      required: true
+  - type: dropdown
+    id: runtime
+    attributes:
+      label: How does it run?
+      options:
+        - Proton
+        - Native Linux build
+        - Not sure
+    validations:
+      required: true
+  - type: dropdown
+    id: result
+    attributes:
+      label: Result
+      options:
+        - Mods install and load
+        - Mods install but do not load
+        - Hermit cannot add or detect the game
+        - Something else
+    validations:
+      required: true
+  - type: input
+    id: system
+    attributes:
+      label: System
+      placeholder: "Steam Deck, SteamOS 3.7.13"
+    validations:
+      required: true
+  - type: textarea
+    id: details
+    attributes:
+      label: Details
+      description: Which mods you tried, and anything Hermit or BepInEx said if it went wrong.

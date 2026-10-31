@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 import { AppInfo, errorMessage, InfoService, Settings, SettingsStore, UIMode, Update } from "../api";
 import { Browser } from "@wailsio/runtime";
+import AddToSteam from "../components/AddToSteam";
+import CacheSettings from "../components/CacheSettings";
+import NexusSettings from "../components/NexusSettings";
 import { Button, ErrorText, Spinner } from "../components/ui";
 import { useUIMode } from "../uimode";
 
@@ -68,13 +71,16 @@ export default function SettingsView() {
           <span className="text-xs text-zinc-500">Now using the {layout === "deck" ? "Steam Deck" : "desktop"} layout.</span>
         </div>
       </section>
+
+      {/* Downloads from Nexus Mods are for the games whose mods are deployed, in the desktop layout. */}
+      {layout === "desktop" && <NexusSettings />}
       {settings && (
         <section className="flex flex-col gap-3">
           <h2 className="text-sm font-semibold tracking-wide text-zinc-400 uppercase">Mod browser</h2>
           <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-zinc-800 px-4 py-3">
             <input
               type="checkbox"
-              className="mt-1 accent-indigo-500"
+              className="mt-1 accent-accent-500"
               checked={settings.allowNsfw}
               onChange={(e) => update({ allowNsfw: e.target.checked })}
             />
@@ -85,6 +91,16 @@ export default function SettingsView() {
           </label>
         </section>
       )}
+      <section className="flex flex-col gap-3">
+        <h2 className="text-sm font-semibold tracking-wide text-zinc-400 uppercase">Storage</h2>
+        <CacheSettings />
+      </section>
+      <section className="flex flex-col gap-3">
+        <h2 className="text-sm font-semibold tracking-wide text-zinc-400 uppercase">Steam</h2>
+        <div className="rounded-lg border border-zinc-800 px-4 py-3">
+          <AddToSteam />
+        </div>
+      </section>
       {info && (
         <section className="flex flex-col gap-1 text-sm">
           <h2 className="text-sm font-semibold tracking-wide text-zinc-400 uppercase">About</h2>
@@ -111,13 +127,13 @@ export default function SettingsView() {
           <p className="text-xs text-zinc-500">
             Copyright (C) 2026 Omka. Free software under the{" "}
             <button
-              className="text-indigo-400 hover:underline"
+              className="text-accent-400 hover:underline"
               onClick={() => Browser.OpenURL("https://www.gnu.org/licenses/gpl-3.0.html")}
             >
               GNU GPL v3
             </button>{" "}
             or later, with no warranty. Source:{" "}
-            <button className="text-indigo-400 hover:underline" onClick={() => Browser.OpenURL(info.repository)}>
+            <button className="text-accent-400 hover:underline" onClick={() => Browser.OpenURL(info.repository)}>
               {info.repository.replace("https://", "")}
             </button>
           </p>

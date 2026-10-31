@@ -42,7 +42,7 @@ func planEntries(zr *zip.Reader, modID string, rules Rules) ([]entry, error) {
 	files := map[string]*zip.File{}
 	var names []string
 	for _, f := range zr.File {
-		if f.FileInfo().IsDir() {
+		if isDirEntry(f) {
 			continue
 		}
 		name, err := cleanEntryName(f.Name)
@@ -53,6 +53,10 @@ func planEntries(zr *zip.Reader, modID string, rules Rules) ([]entry, error) {
 			names = append(names, name)
 		}
 		files[name] = f
+	}
+
+	if rules.Into != "" {
+		return placeInto(files, names, rules.Into), nil
 	}
 	slices.Sort(names)
 
@@ -283,6 +287,13 @@ func Extract(zipPath, profileDir, modID string, rules Rules, overwriteConfigs bo
 	return installed, nil
 }
 
+// isDirEntry reports whether an archive entry is a folder. Archives zipped on
+// Windows can name folders with backslashes ("plugins\Translations\") and
+// leave out the folder flag, so the trailing separator is what tells.
+func isDirEntry(f *zip.File) bool {
+	return f.FileInfo().IsDir() || strings.HasSuffix(f.Name, "/") || strings.HasSuffix(f.Name, `\`)
+}
+
 func cleanEntryName(name string) (string, error) {
 	name = strings.ReplaceAll(name, `\`, "/")
 	clean := path.Clean("/" + name)[1:]
@@ -336,4 +347,41 @@ func Remove(profileDir string, files []string) error {
 	}
 	pruneDirs(profileDir, removed)
 	return errors.Join(errs...)
+}
+
+// intoSkipped are package metadata, not files the mod reads.
+var intoSkipped = []string{"manifest.json", "icon.png"}
+
+// placeInto puts every file of a package under one folder, keeping the paths
+// inside the archive. An archive that holds a single folder with everything in
+// it is unwrapped first: that folder is only how the files were zipped.
+func placeInto(files map[string]*zip.File, names []string, into string) []entry {
+	prefix := commonTopFolder(names)
+	var entries []entry
+	for _, name := range names {
+		rel := strings.TrimPrefix(name, prefix)
+		if !strings.Contains(rel, "/") && slices.Contains(intoSkipped, strings.ToLower(rel)) {
+			continue
+		}
+		entries = append(entries, entry{file: files[name], dest: path.Join(into, rel)})
+	}
+	return entries
+}
+
+// commonTopFolder returns "dir/" when every name lies in that one folder.
+func commonTopFolder(names []string) string {
+	if len(names) == 0 {
+		return ""
+	}
+	top, _, nested := strings.Cut(names[0], "/")
+	if !nested {
+		return ""
+	}
+	for _, name := range names[1:] {
+		dir, _, nested := strings.Cut(name, "/")
+		if !nested || dir != top {
+			return ""
+		}
+	}
+	return top + "/"
 }

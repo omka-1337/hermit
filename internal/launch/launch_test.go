@@ -268,3 +268,310 @@ func TestWrapperRunNative(t *testing.T) {
 		t.Error("launcher must not run without BepInEx")
 	}
 }
+
+func TestParseLogCompleteAndErrors(t *testing.T) {
+	rep := ParseLog(strings.NewReader(sampleLog))
+	if !rep.Complete {
+		t.Error("a log that reaches the end of loading is not marked complete")
+	}
+	// Four error lines from BepInEx itself; the warning does not count.
+	if rep.Errors != 4 {
+		t.Errorf("errors = %d, want 4", rep.Errors)
+	}
+}
+
+// Modpacks often turn on timestamps; every line then starts with the time.
+func TestParseLogWithTimestamps(t *testing.T) {
+	const log = "[Message:   BepInEx] BepInEx 5.4.21.0 - REPO (9/21/2026 9:53:20 PM)\n" +
+		"[21:53:31.6107579] [Info   :   BepInEx] Loading [REPOLib 2.1.0]\n" +
+		"[21:53:31.6547580] [Info   :   BepInEx] Loading [Valuables 1.0.0]\n" +
+		"[21:55:13.4688472] [Error  : Unity Log] MissingMethodException: Method not found: void .PlayerAvatar.ChatMessageSend(string,bool)\n" +
+		"[21:55:13.4778472] [Error  :   BepInEx] Error loading [Valuables 1.0.0] : System.TypeLoadException\n"
+	rep := ParseLog(strings.NewReader(log))
+	if rep.BepInExVersion != "5.4.21.0" {
+		t.Errorf("version = %q", rep.BepInExVersion)
+	}
+	if !slices.Equal(rep.Loaded, []string{"REPOLib 2.1.0", "Valuables 1.0.0"}) {
+		t.Errorf("loaded = %q", rep.Loaded)
+	}
+	if len(rep.Issues) != 1 || rep.Issues[0].Kind != IssueLoadError {
+		t.Errorf("issues = %+v", rep.Issues)
+	}
+	if rep.Errors != 2 {
+		t.Errorf("errors = %d, want 2 (the game's own and BepInEx's)", rep.Errors)
+	}
+	// It never reached "Chainloader startup complete": the game stopped there.
+	if rep.Complete {
+		t.Error("an unfinished log is marked complete")
+	}
+}
+
+func TestNotStarted(t *testing.T) {
+	mods := []library.Mod{
+		{ID: "A-Loaded", Active: true, Plugins: []plugininfo.Plugin{{Name: "Loaded One", Version: "1.0.0"}}},
+		{ID: "B-Stuck", Active: true, Plugins: []plugininfo.Plugin{{Name: "Stuck", Version: "2.0.0"}}},
+		{ID: "C-Disabled", Active: false, Plugins: []plugininfo.Plugin{{Name: "Off", Version: "1.0.0"}}},
+		{ID: "D-Library", Active: true}, // no plugins read: not counted
+	}
+	count, missing := notStarted(mods, []string{"Loaded One 1.0.0"})
+	if count != 2 {
+		t.Errorf("plugin mods = %d, want 2 (the disabled one and the one without plugins do not count)", count)
+	}
+	if !slices.Equal(missing, []string{"B-Stuck"}) {
+		t.Errorf("not started = %q", missing)
+	}
+}
+
+func TestRunCreationEngineGame(t *testing.T) {
+	tmp := t.TempDir()
+	lib, err := library.New(filepath.Join(tmp, "lib"), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gamePath := filepath.Join(tmp, "Skyrim Special Edition")
+	mkfile(t, filepath.Join(gamePath, "SkyrimSE.exe"))
+	mkfile(t, filepath.Join(gamePath, "SkyrimSELauncher.exe"))
+	mkfile(t, filepath.Join(gamePath, "Data", "Skyrim.esm"))
+	game, err := lib.AddGame("Skyrim", gamePath)
+	if err != nil || game.Engine != library.EngineCreation {
+		t.Fatalf("add game: %+v %v", game, err)
+	}
+	profileDir, _ := lib.ProfileDir(game.ID, game.ActiveProfile)
+	mkfile(t, filepath.Join(profileDir, "mods", "skse", "Root", "skse64_loader.exe"))
+	mkfile(t, filepath.Join(profileDir, "mods", "ui", "SkyUI_SE.esp"))
+	mkfile(t, filepath.Join(profileDir, "mods", "off", "Off.esp"))
+	if _, err := lib.UpdateProfile(game.ID, game.ActiveProfile, func(p *library.Profile) error {
+		p.Mods = []library.Mod{
+			{ID: "skse", Name: "SKSE", Enabled: true, Active: true},
+			{ID: "ui", Name: "SkyUI", Enabled: true, Active: true},
+			{ID: "off", Name: "Off", Enabled: false},
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	compatData := filepath.Join(tmp, "compatdata", "489830")
+	t.Setenv("STEAM_COMPAT_DATA_PATH", compatData)
+	plugins := filepath.Join(compatData, "pfx/drive_c/users/steamuser/AppData/Local/Skyrim Special Edition/Plugins.txt")
+
+	// The "game" records what it sees: which file it was started as, the
+	// mods in Data and the plugin list.
+	report := filepath.Join(tmp, "report")
+	script := `basename "$1" >> ` + report + `; test -L Data/SkyUI_SE.esp && echo linked >> ` + report +
+		`; test -e Data/Off.esp && echo disabled mod deployed >> ` + report +
+		`; grep -c SkyUI_SE '` + plugins + `' >> ` + report +
+		`; mkdir -p Data/SKSE && echo log > Data/SKSE/written.log`
+	w := &Wrapper{Lib: lib, Installer: modinstall.NewInstaller(lib, nil, nil)}
+	var notified string
+	w.Notify = func(s, b string) { notified = s + ": " + b }
+
+	t.Chdir(gamePath)
+	if code := w.Run([]string{"--game", game.ID, "--", "sh", "-c", script, "sh", filepath.Join(gamePath, "SkyrimSELauncher.exe")}); code != 0 {
+		t.Errorf("exit code %d", code)
+	}
+	if data, _ := os.ReadFile(report); string(data) != "skse64_loader.exe\nlinked\n1\n" || notified != "" {
+		t.Errorf("game saw %q, notified %q", data, notified)
+	}
+	for _, rel := range []string{"Data/SkyUI_SE.esp", "skse64_loader.exe", "Data/SKSE"} {
+		if _, err := os.Lstat(filepath.Join(gamePath, rel)); err == nil {
+			t.Errorf("%s is still in the game folder", rel)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(profileDir, "overwrite", "SKSE", "written.log")); err != nil {
+		t.Errorf("the file written during the session is not in overwrite: %v", err)
+	}
+	if _, err := os.Stat(plugins); err == nil {
+		t.Error("plugins.txt the session made is still in the prefix")
+	}
+	dataDir, _ := lib.GameDataDir(game.ID)
+	for _, name := range []string{library.SessionFile, deployFile} {
+		if _, err := os.Stat(filepath.Join(dataDir, name)); err == nil {
+			t.Errorf("%s not removed", name)
+		}
+	}
+}
+
+func TestRunREDengineGame(t *testing.T) {
+	tmp := t.TempDir()
+	lib, err := library.New(filepath.Join(tmp, "lib"), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gamePath := filepath.Join(tmp, "Cyberpunk 2077")
+	mkfile(t, filepath.Join(gamePath, "bin", "x64", "Cyberpunk2077.exe"))
+	mkfile(t, filepath.Join(gamePath, "REDprelauncher.exe"))
+	game, err := lib.AddGame("Cyberpunk 2077", gamePath)
+	if err != nil || game.Engine != library.EngineRED {
+		t.Fatalf("add game: %+v %v", game, err)
+	}
+	profileDir, _ := lib.ProfileDir(game.ID, game.ActiveProfile)
+	mkfile(t, filepath.Join(profileDir, "mods", "cet", "bin", "x64", "version.dll"))
+	mkfile(t, filepath.Join(profileDir, "mods", "cet", "bin", "x64", "plugins", "cyber_engine_tweaks.asi"))
+	mkfile(t, filepath.Join(profileDir, "mods", "outfit", "archive", "pc", "mod", "outfit.archive"))
+	if _, err := lib.UpdateProfile(game.ID, game.ActiveProfile, func(p *library.Profile) error {
+		p.Mods = []library.Mod{
+			{ID: "cet", Name: "Cyber Engine Tweaks", Enabled: true, Active: true},
+			{ID: "outfit", Name: "Outfit", Enabled: true, Active: true},
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("WINEDLLOVERRIDES", "")
+
+	report := filepath.Join(tmp, "report")
+	script := `test -L archive/pc/mod/outfit.archive && echo linked >> ` + report + `; echo "$WINEDLLOVERRIDES" >> ` + report +
+		`; echo log > bin/x64/plugins/cyber_engine_tweaks.log`
+	w := &Wrapper{Lib: lib, Installer: modinstall.NewInstaller(lib, nil, nil)}
+	t.Chdir(gamePath)
+	if code := w.Run([]string{"--game", game.ID, "--", "sh", "-c", script, "sh", filepath.Join(gamePath, "REDprelauncher.exe")}); code != 0 {
+		t.Errorf("exit code %d", code)
+	}
+	if data, _ := os.ReadFile(report); string(data) != "linked\nversion=n,b\n" {
+		t.Errorf("game saw %q", data)
+	}
+	for _, rel := range []string{"archive/pc/mod", "bin/x64/version.dll", "bin/x64/plugins"} {
+		if _, err := os.Lstat(filepath.Join(gamePath, rel)); err == nil {
+			t.Errorf("%s is still in the game folder", rel)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(profileDir, "overwrite", "bin", "x64", "plugins", "cyber_engine_tweaks.log")); err != nil {
+		t.Errorf("the log written during the session is not in overwrite: %v", err)
+	}
+}
+
+func TestWithExecutable(t *testing.T) {
+	game := "/games/Skyrim Special Edition"
+	steam := []string{"/steam/reaper", "SteamLaunch", "AppId=489830", "--", "/steam/proton", "waitforexitandrun", game + "/SkyrimSELauncher.exe"}
+	got := withExecutable(steam, game, game+"/Tools/Launcher.exe")
+	if got[len(got)-1] != game+"/Tools/Launcher.exe" || steam[len(steam)-1] != game+"/SkyrimSELauncher.exe" {
+		t.Errorf("Steam command: %v (original %v)", got, steam)
+	}
+	// Steam reaching the game folder through a symlink: found by name.
+	linked := []string{"/steam/proton", "run", "/home/u/.steam/steam/steamapps/common/Game/Game.exe"}
+	if got := withExecutable(linked, "/home/u/.local/share/Steam/steamapps/common/Game", "/x/Launcher.exe", "Game.exe"); got[2] != "/x/Launcher.exe" {
+		t.Errorf("by name: %v", got)
+	}
+	if got := withExecutable([]string{"sh", "-c", "true"}, game, "/x.exe"); !slices.Equal(got, []string{"sh", "-c", "true"}) {
+		t.Errorf("nothing to replace: %v", got)
+	}
+}
+
+func TestChosenExecutableOverridesSKSE(t *testing.T) {
+	tmp := t.TempDir()
+	lib, err := library.New(filepath.Join(tmp, "lib"), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gamePath := filepath.Join(tmp, "Skyrim Special Edition")
+	for _, f := range []string{"SkyrimSE.exe", "SkyrimSELauncher.exe", "skse64_loader.exe", "Data/Skyrim.esm"} {
+		mkfile(t, filepath.Join(gamePath, f))
+	}
+	game, err := lib.AddGame("Skyrim", gamePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := &Wrapper{Lib: lib, Installer: modinstall.NewInstaller(lib, nil, nil)}
+	run := func() string {
+		t.Helper()
+		plan, err := w.Prepare(game.ID, []string{"proton", "waitforexitandrun", filepath.Join(gamePath, "SkyrimSELauncher.exe")}, nil, os.Getpid(), nil, false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := w.Cleanup(game.ID); err != nil {
+			t.Fatal(err)
+		}
+		return filepath.Base(plan.Command[len(plan.Command)-1])
+	}
+	if got := run(); got != "skse64_loader.exe" {
+		t.Errorf("automatic: started %s", got)
+	}
+	if _, err := lib.SetLaunchExecutable(game.ID, "SkyrimSE.exe"); err != nil {
+		t.Fatal(err)
+	}
+	if got := run(); got != "SkyrimSE.exe" {
+		t.Errorf("chosen: started %s", got)
+	}
+}
+
+func TestSteamProtonCommand(t *testing.T) {
+	root := t.TempDir()
+	steamRoot := filepath.Join(root, "Steam")
+	proton := filepath.Join(steamRoot, "steamapps/common/Proton - Experimental")
+	runtime := filepath.Join(steamRoot, "steamapps/common/SteamLinuxRuntime_4")
+	compatData := filepath.Join(root, "Library/steamapps/compatdata/489830")
+	for path, content := range map[string]string{
+		filepath.Join(proton, "proton"):                               "",
+		filepath.Join(proton, "toolmanifest.vdf"):                     `"manifest" { "commandline" "/proton %verb%" "require_tool_appid" "4183110" }`,
+		filepath.Join(runtime, "_v2-entry-point"):                     "",
+		filepath.Join(steamRoot, "steamapps/appmanifest_4183110.acf"): `"AppState" { "appid" "4183110" "name" "Steam Linux Runtime 4.0" "installdir" "SteamLinuxRuntime_4" }`,
+		filepath.Join(compatData, "config_info"):                      "11.0-100\n" + proton + "/files/share/fonts/\n" + proton + "/files/lib/\n",
+	} {
+		os.MkdirAll(filepath.Dir(path), 0o755)
+		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	got, err := SteamProtonCommand([]string{steamRoot}, compatData, "489830", `/games/Skyrim/Data/Tool.exe`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{
+		"env", "STEAM_COMPAT_DATA_PATH=" + compatData, "STEAM_COMPAT_CLIENT_INSTALL_PATH=" + steamRoot,
+		"SteamAppId=489830", "SteamGameId=489830",
+		filepath.Join(runtime, "_v2-entry-point"), "--verb=waitforexitandrun", "--",
+		filepath.Join(proton, "proton"), "waitforexitandrun", "/games/Skyrim/Data/Tool.exe",
+	}
+	if !slices.Equal(got, want) {
+		t.Errorf("command:\n got  %q\n want %q", got, want)
+	}
+
+	if _, err := SteamProtonCommand([]string{steamRoot}, t.TempDir(), "489830", "x.exe"); err == nil {
+		t.Error("ran in a prefix Steam never set up")
+	}
+}
+
+func TestRunTool(t *testing.T) {
+	tmp := t.TempDir()
+	lib, err := library.New(filepath.Join(tmp, "lib"), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gamePath := filepath.Join(tmp, "Skyrim Special Edition")
+	for _, f := range []string{"SkyrimSE.exe", "SkyrimSELauncher.exe", "Data/Skyrim.esm"} {
+		mkfile(t, filepath.Join(gamePath, f))
+	}
+	game, err := lib.AddGame("Skyrim", gamePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := lib.SetLaunchExecutable(game.ID, "SkyrimSE.exe"); err != nil {
+		t.Fatal(err)
+	}
+	profileDir, _ := lib.ProfileDir(game.ID, game.ActiveProfile)
+	mkfile(t, filepath.Join(profileDir, "mods", "tool", "Tools", "Thing", "Thing.exe"))
+	if _, err := lib.UpdateProfile(game.ID, game.ActiveProfile, func(p *library.Profile) error {
+		p.Mods = []library.Mod{{ID: "tool", Name: "Thing", Enabled: true}}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	// The "tool" notes how it was started and writes its output into Data.
+	report := filepath.Join(tmp, "report")
+	exe := filepath.Join(gamePath, "Data", "Tools", "Thing", "Thing.exe")
+	script := `basename "$1" >> ` + report + `; basename "$PWD" >> ` + report + `; mkdir -p ../../meshes && echo out > ../../meshes/made.nif`
+	w := &Wrapper{Lib: lib, Installer: modinstall.NewInstaller(lib, nil, nil)}
+	if code := w.Run([]string{"--game", game.ID, "--tool", "--", "sh", "-c", script, "sh", exe}); code != 0 {
+		t.Fatalf("exit code %d", code)
+	}
+	if data, _ := os.ReadFile(report); string(data) != "Thing.exe\nThing\n" {
+		t.Errorf("tool saw %q", data)
+	}
+	if _, err := os.Stat(filepath.Join(profileDir, "overwrite", "meshes", "made.nif")); err != nil {
+		t.Errorf("the tool's output is not in overwrite: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(gamePath, "Data", "Tools")); !os.IsNotExist(err) {
+		t.Error("the tool's folder is still in Data")
+	}
+}

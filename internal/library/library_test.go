@@ -190,34 +190,76 @@ func TestDetectGame(t *testing.T) {
 	}{
 		{
 			[]string{"Game_Data/Managed/", "Game.exe", "UnityPlayer.dll", "UnityCrashHandler64.exe"},
-			Detection{Unity: true, Runtime: RuntimeProton, Backend: BackendMono, Executable: "Game.exe"},
+			Detection{Unity: true, Engine: EngineUnity, Runtime: RuntimeProton, Backend: BackendMono, Executable: "Game.exe"},
 		},
 		{
 			[]string{"Game_Data/il2cpp_data/", "Game.exe", "GameAssembly.dll", "UnityPlayer.dll"},
-			Detection{Unity: true, Runtime: RuntimeProton, Backend: BackendIL2CPP, Executable: "Game.exe"},
+			Detection{Unity: true, Engine: EngineUnity, Runtime: RuntimeProton, Backend: BackendIL2CPP, Executable: "Game.exe"},
 		},
 		{
 			[]string{"Game_Data/Managed/", "Game.x86_64", "UnityPlayer.so"},
-			Detection{Unity: true, Runtime: RuntimeNative, Backend: BackendMono, Executable: "Game.x86_64"},
+			Detection{Unity: true, Engine: EngineUnity, Runtime: RuntimeNative, Backend: BackendMono, Executable: "Game.x86_64"},
 		},
 		{
 			// Old Unity without UnityPlayer.dll.
 			[]string{"Old_Data/Managed/", "Old.exe"},
-			Detection{Unity: true, Runtime: RuntimeProton, Backend: BackendMono, Executable: "Old.exe"},
+			Detection{Unity: true, Engine: EngineUnity, Runtime: RuntimeProton, Backend: BackendMono, Executable: "Old.exe"},
 		},
 		{
 			// A _Data folder alone is not enough.
 			[]string{"Other_Data/", "Other.exe"},
-			Detection{Runtime: RuntimeUnknown, Backend: BackendUnknown},
+			Detection{Engine: EngineUnknown, Runtime: RuntimeUnknown, Backend: BackendUnknown},
 		},
 		{
 			[]string{"readme.txt"},
-			Detection{Runtime: RuntimeUnknown, Backend: BackendUnknown},
+			Detection{Engine: EngineUnknown, Runtime: RuntimeUnknown, Backend: BackendUnknown},
+		},
+		{
+			[]string{"data/", "data/skyrim.ESM", "SkyrimSE.exe", "SkyrimSELauncher.exe"},
+			Detection{Engine: EngineCreation, Runtime: RuntimeProton, Backend: BackendUnknown, Executable: "SkyrimSE.exe"},
+		},
+		{
+			// The executable alone is not Skyrim.
+			[]string{"Data/", "SkyrimSE.exe"},
+			Detection{Engine: EngineUnknown, Runtime: RuntimeUnknown, Backend: BackendUnknown},
+		},
+		{
+			[]string{"bin/", "bin/x64/", "bin/x64/Cyberpunk2077.exe", "archive/", "REDprelauncher.exe"},
+			Detection{Engine: EngineRED, EngineVersion: "4", Runtime: RuntimeProton, Backend: BackendUnknown, Executable: "bin/x64/Cyberpunk2077.exe"},
+		},
+		{
+			// In whatever letter case.
+			[]string{"binaries/", "binaries/WIN64/", "binaries/WIN64/batmanak.exe", "BmGame/"},
+			Detection{Engine: EngineUnreal, EngineVersion: "3", Runtime: RuntimeProton, Backend: BackendUnknown, Executable: "Binaries/Win64/BatmanAK.exe"},
 		},
 	}
 	for _, tc := range cases {
 		if got := DetectGame(fakeGame(t, tc.files...)); got != tc.want {
 			t.Errorf("%v:\n got  %+v\n want %+v", tc.files, got, tc.want)
+		}
+	}
+}
+
+func TestDetectUnityVersion(t *testing.T) {
+	// The start of Lethal Company's globalgamemanagers.
+	serialized := append(make([]byte, 0x30), "2022.3.62f2\x00\x13\x00\x00\x00"...)
+	// A build packed into data.unity3d starts with a bundle header instead.
+	bundle := []byte("UnityFS\x00\x00\x00\x00\x085.x.x\x006000.0.67f1\x00")
+	for _, tc := range []struct {
+		file string
+		head []byte
+		want string
+	}{
+		{"globalgamemanagers", serialized, "2022.3.62f2"},
+		{"data.unity3d", bundle, "6000.0.67f1"},
+		{"globalgamemanagers", []byte("no version here"), ""},
+	} {
+		dir := fakeGame(t, "Game_Data/Managed/", "Game.exe", "UnityPlayer.dll")
+		if err := os.WriteFile(filepath.Join(dir, "Game_Data", tc.file), tc.head, 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if got := DetectGame(dir).EngineVersion; got != tc.want {
+			t.Errorf("%s: got %q, want %q", tc.file, got, tc.want)
 		}
 	}
 }
@@ -281,5 +323,242 @@ func TestProfileSchemaMigration(t *testing.T) {
 	}
 	if p.SchemaVersion != ProfileSchemaVersion || !p.Mods[0].Active || p.Mods[1].Active {
 		t.Fatalf("migrated: %+v", p)
+	}
+}
+
+func TestSetLaunchExecutable(t *testing.T) {
+	lib := newTestLibrary(t)
+	path := fakeGame(t, "Game.exe", "Game_Data/", "UnityPlayer.dll", "Tools/", "Tools/Launcher.exe")
+	g, err := lib.AddGame("Game", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	g, err = lib.SetLaunchExecutable(g.ID, "Tools/Launcher.exe")
+	if err != nil {
+		t.Fatalf("SetLaunchExecutable: %v", err)
+	}
+	if g.LaunchExecutable != "Tools/Launcher.exe" {
+		t.Errorf("LaunchExecutable = %q", g.LaunchExecutable)
+	}
+	// Stored, not only returned.
+	if saved, _ := lib.GetGame(g.ID); saved.LaunchExecutable != "Tools/Launcher.exe" {
+		t.Errorf("saved LaunchExecutable = %q", saved.LaunchExecutable)
+	}
+
+	// Choosing the game's own executable goes back to the default.
+	g, err = lib.SetLaunchExecutable(g.ID, g.Executable)
+	if err != nil || g.LaunchExecutable != "" {
+		t.Errorf("back to default: %q, %v", g.LaunchExecutable, err)
+	}
+}
+
+func TestSetLaunchExecutableOfCreationEngineGame(t *testing.T) {
+	lib := newTestLibrary(t)
+	g, err := lib.AddGame("Skyrim", fakeGame(t, "SkyrimSE.exe", "skse64_loader.exe", "Data/", "Data/Skyrim.esm"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The game's own executable means starting it without SKSE, which is not
+	// what the default does.
+	if g, err = lib.SetLaunchExecutable(g.ID, "SkyrimSE.exe"); err != nil || g.LaunchExecutable != "SkyrimSE.exe" {
+		t.Errorf("own executable: %q, %v", g.LaunchExecutable, err)
+	}
+	if g, err = lib.SetLaunchExecutable(g.ID, ""); err != nil || g.LaunchExecutable != "" {
+		t.Errorf("back to automatic: %q, %v", g.LaunchExecutable, err)
+	}
+}
+
+func TestSetLaunchExecutableStaysInsideTheGame(t *testing.T) {
+	lib := newTestLibrary(t)
+	path := fakeGame(t, "Game.exe", "Game_Data/", "UnityPlayer.dll")
+	g, err := lib.AddGame("Game", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, exe := range []string{"../outside.exe", "/usr/bin/true", "Missing.exe", "Game_Data"} {
+		if _, err := lib.SetLaunchExecutable(g.ID, exe); err == nil {
+			t.Errorf("SetLaunchExecutable(%q) was accepted", exe)
+		}
+	}
+}
+
+func TestCopyProfile(t *testing.T) {
+	lib := newTestLibrary(t)
+	g, _ := lib.AddGame("Game", fakeGame(t))
+	source, err := lib.UpdateProfile(g.ID, g.ActiveProfile, func(p *Profile) error {
+		p.Mods = []Mod{{ID: "A-Mod", Name: "Mod", Author: "A", Version: "1.0.0", Enabled: true, Active: true}}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir, err := lib.ProfileDir(g.ID, source.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "BepInEx", "config", "Mod.cfg"), []byte("Volume = 3"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	copied, err := lib.CopyProfile(g.ID, source.ID, "Experiment")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if copied.ID == source.ID || copied.Name != "Experiment" {
+		t.Fatalf("copy has id %q name %q", copied.ID, copied.Name)
+	}
+	if len(copied.Mods) != 1 || copied.Mods[0].ID != "A-Mod" {
+		t.Fatalf("mods not copied: %+v", copied.Mods)
+	}
+	copyDir, err := lib.ProfileDir(g.ID, copied.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := os.ReadFile(filepath.Join(copyDir, "BepInEx", "config", "Mod.cfg"))
+	if err != nil || string(cfg) != "Volume = 3" {
+		t.Fatalf("config not copied: %q %v", cfg, err)
+	}
+
+	// The original keeps its own files: changing the copy leaves it alone.
+	if _, err := lib.RenameProfile(g.ID, copied.ID, "Renamed"); err != nil {
+		t.Fatal(err)
+	}
+	if again, _ := lib.GetProfile(g.ID, source.ID); again.Name != source.Name {
+		t.Fatalf("source renamed to %q", again.Name)
+	}
+}
+
+func TestMoveProfileOutOfLibraryAndBack(t *testing.T) {
+	lib := newTestLibrary(t)
+	g, err := lib.AddGame("Valheim", fakeGame(t, "Valheim_Data/", "Valheim.exe", "UnityPlayer.dll"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	inside := lib.profileDir(g.ID, g.ActiveProfile)
+	if err := os.WriteFile(filepath.Join(inside, "BepInEx", "plugins", "mod.dll"), []byte("mod"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	location := t.TempDir()
+	dir, err := lib.MoveProfile(g.ID, g.ActiveProfile, location)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := filepath.Join(location, "valheim-default"); dir != want {
+		t.Fatalf("moved to %s, want %s", dir, want)
+	}
+	if got, _ := lib.ProfileDir(g.ID, g.ActiveProfile); got != dir {
+		t.Fatalf("ProfileDir = %s, want %s", got, dir)
+	}
+	if data, err := os.ReadFile(filepath.Join(dir, "BepInEx", "plugins", "mod.dll")); err != nil || string(data) != "mod" {
+		t.Fatalf("mod file after the move: %q, %v", data, err)
+	}
+	if _, err := os.Stat(inside); !os.IsNotExist(err) {
+		t.Fatalf("old folder is still there: %v", err)
+	}
+	if profiles, err := lib.ListProfiles(g.ID); err != nil || len(profiles) != 1 {
+		t.Fatalf("profiles after the move: %+v, %v", profiles, err)
+	}
+
+	back, err := lib.MoveProfile(g.ID, g.ActiveProfile, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if back != inside {
+		t.Fatalf("moved back to %s, want %s", back, inside)
+	}
+	if g, _ := lib.GetGame(g.ID); len(g.ProfileDirs) != 0 {
+		t.Fatalf("game still lists folders: %v", g.ProfileDirs)
+	}
+}
+
+func TestMoveProfileRefusesGameFolderAndRunningGame(t *testing.T) {
+	lib := newTestLibrary(t)
+	g, err := lib.AddGame("Valheim", fakeGame(t, "Valheim_Data/", "Valheim.exe", "UnityPlayer.dll"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := lib.MoveProfile(g.ID, g.ActiveProfile, filepath.Join(g.Path, "Valheim_Data")); err == nil {
+		t.Fatal("moved a profile into the game folder")
+	}
+	if err := os.WriteFile(filepath.Join(lib.gameDir(g.ID), SessionFile), []byte("{}"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := lib.MoveProfile(g.ID, g.ActiveProfile, t.TempDir()); !errors.Is(err, ErrGameRunning) {
+		t.Fatalf("got %v, want ErrGameRunning", err)
+	}
+}
+
+func TestCopyAndRemoveProfileOutsideLibrary(t *testing.T) {
+	lib := newTestLibrary(t)
+	g, err := lib.AddGame("Valheim", fakeGame(t, "Valheim_Data/", "Valheim.exe", "UnityPlayer.dll"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	location := t.TempDir()
+	dir, err := lib.MoveProfile(g.ID, g.ActiveProfile, location)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := lib.MoveProfile(g.ID, g.ActiveProfile, filepath.Join(dir, "BepInEx")); err == nil {
+		t.Fatal("moved a profile into its own folder")
+	}
+
+	copied, err := lib.CopyProfile(g.ID, g.ActiveProfile, "Copy")
+	if err != nil {
+		t.Fatal(err)
+	}
+	copyDir, _ := lib.ProfileDir(g.ID, copied.ID)
+	if want := filepath.Join(location, "valheim-copy"); copyDir != want {
+		t.Fatalf("copy is in %s, want %s next to the original", copyDir, want)
+	}
+
+	if err := lib.RemoveProfile(g.ID, copied.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(copyDir); !os.IsNotExist(err) {
+		t.Fatalf("removed profile's folder is still there: %v", err)
+	}
+	if g, _ := lib.GetGame(g.ID); len(g.ProfileDirs) != 1 {
+		t.Fatalf("folders after removing the copy: %v", g.ProfileDirs)
+	}
+
+	if err := lib.RemoveGame(g.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(dir); !os.IsNotExist(err) {
+		t.Fatalf("profile folder outside the library survived removing the game: %v", err)
+	}
+}
+
+func TestLaunchExecutableFromProfileMod(t *testing.T) {
+	lib := newTestLibrary(t)
+	g, err := lib.AddGame("Skyrim", fakeGame(t, "SkyrimSE.exe", "Data/", "Data/Skyrim.esm"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := lib.SetLaunchExecutable(g.ID, "skse64_loader.exe"); err == nil {
+		t.Fatal("picked a loader nothing provides")
+	}
+	dir, _ := lib.ProfileDir(g.ID, g.ActiveProfile)
+	loader := filepath.Join(dir, "mods", "skse64", "Root", "skse64_loader.exe")
+	if err := os.MkdirAll(filepath.Dir(loader), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(loader, nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := lib.UpdateProfile(g.ID, g.ActiveProfile, func(p *Profile) error {
+		p.Mods = []Mod{{ID: "skse64", Name: "SKSE64", Enabled: true}}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if files, _ := lib.ProfileRootFiles(g.ID); len(files) != 1 || files[0] != "skse64_loader.exe" {
+		t.Fatalf("root files %v", files)
+	}
+	if g, err = lib.SetLaunchExecutable(g.ID, "skse64_loader.exe"); err != nil || g.LaunchExecutable != "skse64_loader.exe" {
+		t.Fatalf("loader from a mod: %q %v", g.LaunchExecutable, err)
 	}
 }

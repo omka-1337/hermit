@@ -3,6 +3,8 @@ package bethesda
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"slices"
@@ -75,16 +77,17 @@ func (s *Staged) Remove() error { return os.RemoveAll(s.Dir) }
 
 // Install puts the mod's files into modDir: those a FOMOD installer picked
 // with the options in files, or a plain archive's, its game folder files
-// under Root.
+// under Root. Files modDir has already are replaced and the rest kept, so
+// installing into a mod's folder merges the two.
 func (s *Staged) Install(modDir string, files []fomod.File) error {
 	if s.Fomod != nil {
 		return fomod.Install(s.FomodRoot, files, modDir)
 	}
-	if err := moveContents(s.DataRoot, modDir); err != nil {
+	if err := mergeTree(s.DataRoot, modDir); err != nil {
 		return err
 	}
 	for _, name := range s.GameRoot {
-		if err := moveFile(filepath.Join(filepath.Dir(s.DataRoot), name), filepath.Join(modDir, "Root", name)); err != nil {
+		if err := mergeTree(filepath.Join(filepath.Dir(s.DataRoot), name), filepath.Join(modDir, "Root", name)); err != nil {
 			return err
 		}
 	}
@@ -188,21 +191,40 @@ func onlyFolder(dir string) string {
 	return only
 }
 
-// moveContents moves what is in from into to.
-func moveContents(from, to string) error {
-	if err := os.MkdirAll(to, 0o755); err != nil {
-		return err
-	}
-	entries, err := os.ReadDir(from)
-	if err != nil {
-		return err
-	}
-	for _, e := range entries {
-		if err := moveFile(filepath.Join(from, e.Name()), filepath.Join(to, e.Name())); err != nil {
+// mergeTree moves the files of from, a folder or a file, to the same places
+// in to, into the folders already there in whatever letter case they have,
+// replacing the files that are there.
+func mergeTree(from, to string) error {
+	return filepath.WalkDir(from, func(p string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
 			return err
 		}
+		rel, _ := filepath.Rel(from, p)
+		target := to
+		if rel != "." {
+			target = foldJoin(to, filepath.ToSlash(rel))
+		}
+		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+			return err
+		}
+		if err := os.Remove(target); err != nil && !errors.Is(err, fs.ErrNotExist) {
+			return err
+		}
+		return moveFile(p, target)
+	})
+}
+
+// foldJoin is the path of rel under base, spelled as the folders and files
+// already there are.
+func foldJoin(base, rel string) string {
+	target := base
+	for _, part := range strings.Split(rel, "/") {
+		if name, _ := findFold(target, part); name != "" {
+			part = name
+		}
+		target = filepath.Join(target, part)
 	}
-	return nil
+	return target
 }
 
 // NameFromFile is a mod's name as the name of the archive it came in gives

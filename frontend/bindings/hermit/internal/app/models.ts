@@ -149,6 +149,12 @@ export interface PreparedMod {
      * Unsure is set when nothing in a plain archive looked like Data.
      */
     "unsure": boolean;
+
+    /**
+     * Existing is the name of the mod of the profile the archive has the
+     * name of, if one does: ChooseTarget says what to do about it.
+     */
+    "existing": string;
 }
 
 /**

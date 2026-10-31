@@ -44,12 +44,31 @@ type PreparedMod struct {
 	Image string `json:"image"`
 	// Unsure is set when nothing in a plain archive looked like Data.
 	Unsure bool `json:"unsure"`
+	// Existing is the name of the mod of the profile the archive has the
+	// name of, if one does: ChooseTarget says what to do about it.
+	Existing string `json:"existing"`
 }
+
+// What an archive does to a mod of the profile with its name, as MO2 asks.
+const (
+	// TargetReplace installs it in place of the mod: what the mod had goes.
+	TargetReplace = "replace"
+	// TargetMerge installs it over the mod: its files replace the mod's,
+	// the mod's other files stay.
+	TargetMerge = "merge"
+	// TargetRename installs it as a mod of its own under another name.
+	TargetRename = "rename"
+)
 
 type installSession struct {
 	gameID, profileID string
 	staged            *bethesda.Staged
 	env               fomod.Environment
+	// existing is the id of the mod with the archive's name, target what to
+	// do about it, and name the name the mod is installed under.
+	existing string
+	target   string
+	name     string
 }
 
 func emit(name string, data any) {
@@ -91,19 +110,68 @@ func (s *BethesdaService) PrepareInstall(gameID, profileID, file string) (Prepar
 	if s.sessions == nil {
 		s.sessions = map[string]*installSession{}
 	}
-	s.sessions[session] = &installSession{
-		gameID: gameID, profileID: profileID, staged: staged,
+	is := &installSession{
+		gameID: gameID, profileID: profileID, staged: staged, name: staged.Name,
 		env: pluginStates(game.Path, profileDir, profile),
 	}
+	if m, ok := modNamed(profile, staged.Name); ok {
+		is.existing = m.ID
+	}
+	s.sessions[session] = is
 	s.mu.Unlock()
 	p := PreparedMod{
 		Session: session, Name: staged.Name, Version: staged.Version, Author: staged.Author,
 		Fomod: staged.Fomod != nil, Unsure: staged.Unsure,
 	}
+	if is.existing != "" {
+		p.Existing = staged.Name
+	}
 	if staged.Fomod != nil {
 		p.Image = staged.Fomod.Image
 	}
 	return p, nil
+}
+
+// ChooseTarget says what installing a prepared archive does to the mod with
+// its name: TargetReplace, TargetMerge, or TargetRename with name the name
+// to install it under, which no mod of the profile may have.
+func (s *BethesdaService) ChooseTarget(session, target, name string) error {
+	is, err := s.session(session)
+	if err != nil {
+		return err
+	}
+	switch target {
+	case TargetReplace, TargetMerge:
+		if is.existing == "" {
+			return errors.New("no mod of the profile has this name")
+		}
+		is.target, is.name = target, is.staged.Name
+	case TargetRename:
+		name = strings.TrimSpace(name)
+		if name == "" {
+			return library.ErrEmptyName
+		}
+		profile, err := s.lib.GetProfile(is.gameID, is.profileID)
+		if err != nil {
+			return err
+		}
+		if m, ok := modNamed(profile, name); ok {
+			return fmt.Errorf("the profile has a mod named %s already", m.Name)
+		}
+		is.target, is.name = target, name
+	default:
+		return fmt.Errorf("%q is not replace, merge or rename", target)
+	}
+	return nil
+}
+
+// modNamed finds the mod of a profile with a name, in any letter case.
+func modNamed(p library.Profile, name string) (library.Mod, bool) {
+	i := slices.IndexFunc(p.Mods, func(m library.Mod) bool { return !m.Separator && strings.EqualFold(m.Name, name) })
+	if i < 0 {
+		return library.Mod{}, false
+	}
+	return p.Mods[i], true
 }
 
 // OpenFomod shows the installer of a prepared archive in a window of its own.
@@ -178,11 +246,22 @@ func (s *BethesdaService) FomodImage(session, path string) (string, error) {
 
 // FinishInstall installs a prepared archive as a new mod at the end of the
 // profile's order, where it wins over the mods before it; a FOMOD with the
-// options picked in choices.
+// options picked in choices. An archive with the name of a mod of the
+// profile replaces or merges with that mod, keeping its place and whether it
+// is on, or becomes a mod of its own, as ChooseTarget said.
 func (s *BethesdaService) FinishInstall(session string, choices fomod.Choices) (library.Profile, error) {
 	is, err := s.session(session)
 	if err != nil {
 		return library.Profile{}, err
+	}
+	if is.existing != "" && is.target == "" {
+		return library.Profile{}, fmt.Errorf("a mod named %s is installed already; replace it, merge with it or install under another name", is.staged.Name)
+	}
+	if is.target == TargetReplace || is.target == TargetMerge {
+		// The mod's files are linked into the game while it runs.
+		if err := s.notRunning(is.gameID); err != nil {
+			return library.Profile{}, err
+		}
 	}
 	profileDir, err := s.lib.ProfileDir(is.gameID, is.profileID)
 	if err != nil {
@@ -209,6 +288,30 @@ func (s *BethesdaService) FinishInstall(session string, choices fomod.Choices) (
 		}
 	}
 	p, err := s.lib.UpdateProfile(is.gameID, is.profileID, func(p *library.Profile) error {
+		if is.target == TargetReplace || is.target == TargetMerge {
+			i := slices.IndexFunc(p.Mods, func(m library.Mod) bool { return m.ID == is.existing })
+			if i < 0 {
+				return fmt.Errorf("mod %q: %w", is.existing, library.ErrNotFound)
+			}
+			modDir := filepath.Join(profileDir, bethesda.ModsDir, is.existing)
+			if is.target == TargetReplace {
+				if err := os.RemoveAll(modDir); err != nil {
+					return err
+				}
+			}
+			if err := is.staged.Install(modDir, files); err != nil {
+				return err
+			}
+			m := &p.Mods[i]
+			m.Version, m.Source = is.staged.Version, source
+			if is.staged.Author != "" {
+				m.Author = is.staged.Author
+			}
+			if notes != "" || is.target == TargetReplace {
+				m.Notes = notes
+			}
+			return nil
+		}
 		taken := make([]string, 0, len(p.Mods))
 		for _, m := range p.Mods {
 			taken = append(taken, m.ID)
@@ -218,7 +321,7 @@ func (s *BethesdaService) FinishInstall(session string, choices fomod.Choices) (
 		for _, e := range entries {
 			taken = append(taken, e.Name())
 		}
-		id := uniqueModID(is.staged.Name, taken)
+		id := uniqueModID(is.name, taken)
 		modDir := filepath.Join(profileDir, bethesda.ModsDir, id)
 		if err := is.staged.Install(modDir, files); err != nil {
 			os.RemoveAll(modDir)
@@ -226,7 +329,7 @@ func (s *BethesdaService) FinishInstall(session string, choices fomod.Choices) (
 		}
 		p.Mods = append(p.Mods, library.Mod{
 			ID:                id,
-			Name:              is.staged.Name,
+			Name:              is.name,
 			Author:            is.staged.Author,
 			Version:           is.staged.Version,
 			Enabled:           true,

@@ -283,3 +283,92 @@ func TestInstallArchives(t *testing.T) {
 		t.Error("a finished install is still there")
 	}
 }
+
+func TestInstallOverAModOfTheSameName(t *testing.T) {
+	tmp := t.TempDir()
+	lib, err := library.New(filepath.Join(tmp, "lib"), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gamePath := filepath.Join(tmp, "Skyrim Special Edition")
+	writeFiles(t, gamePath, map[string]string{"SkyrimSE.exe": "", "Data/Skyrim.esm": ""})
+	game, err := lib.AddGame("Skyrim", gamePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := NewBethesdaService(lib, nil)
+	profileDir, _ := lib.ProfileDir(game.ID, game.ActiveProfile)
+	install := func(file string, target, name string) (library.Profile, error) {
+		t.Helper()
+		prepared, err := s.PrepareInstall(game.ID, game.ActiveProfile, file)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer s.CancelInstall(prepared.Session)
+		if target != "" {
+			if err := s.ChooseTarget(prepared.Session, target, name); err != nil {
+				return library.Profile{}, err
+			}
+		}
+		return s.FinishInstall(prepared.Session, nil)
+	}
+	v1 := zipFile(t, "Lux-43158-1-0-1700000000.zip", map[string]string{"Lux/Lux.esp": "1", "Lux/meshes/old.nif": "old"})
+	v2 := zipFile(t, "Lux-43158-2-0-1700000001.zip", map[string]string{"Lux/Lux.esp": "2", "Lux/Meshes/new.nif": "new"})
+	if _, err := install(v1, "", ""); err != nil {
+		t.Fatal(err)
+	}
+	// The mod goes first and off, to see both stay that way.
+	if _, err := s.AddSeparator(game.ID, game.ActiveProfile, "Last", 1); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := lib.UpdateProfile(game.ID, game.ActiveProfile, func(p *library.Profile) error {
+		p.Mods[0].Enabled = false
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	prepared, err := s.PrepareInstall(game.ID, game.ActiveProfile, v2)
+	if err != nil || prepared.Existing != "Lux" {
+		t.Fatalf("prepared %+v, %v", prepared, err)
+	}
+	if _, err := s.FinishInstall(prepared.Session, nil); err == nil {
+		t.Error("installed over a mod without asking")
+	}
+	s.CancelInstall(prepared.Session)
+
+	if _, err := install(v2, TargetRename, "lux"); err == nil {
+		t.Error("renamed to a name the profile has")
+	}
+	p, err := install(v2, TargetRename, "Lux 2")
+	if err != nil || p.Mods[len(p.Mods)-1].Name != "Lux 2" || p.Mods[len(p.Mods)-1].ID != "lux-2" {
+		t.Fatalf("renamed: %+v %v", p.Mods, err)
+	}
+
+	read := func(rel string) string {
+		data, err := os.ReadFile(filepath.Join(profileDir, "mods", "lux", rel))
+		if err != nil {
+			return "missing"
+		}
+		return string(data)
+	}
+	if p, err = install(v2, TargetMerge, ""); err != nil {
+		t.Fatal(err)
+	}
+	if read("Lux.esp") != "2" || read("meshes/old.nif") != "old" || read("meshes/new.nif") != "new" {
+		t.Errorf("merged: %s %s %s", read("Lux.esp"), read("meshes/old.nif"), read("meshes/new.nif"))
+	}
+	if p.Mods[0].ID != "lux" || p.Mods[0].Enabled || p.Mods[0].Version != "2.0" {
+		t.Errorf("merged mod %+v", p.Mods[0])
+	}
+
+	if p, err = install(v1, TargetReplace, ""); err != nil {
+		t.Fatal(err)
+	}
+	if read("Lux.esp") != "1" || read("meshes/new.nif") != "missing" {
+		t.Errorf("replaced: %s %s", read("Lux.esp"), read("meshes/new.nif"))
+	}
+	if p.Mods[0].ID != "lux" || p.Mods[0].Enabled || p.Mods[0].Version != "1.0" {
+		t.Errorf("replaced mod %+v", p.Mods[0])
+	}
+}

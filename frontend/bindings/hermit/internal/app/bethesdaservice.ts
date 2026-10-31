@@ -41,6 +41,15 @@ export function CancelInstall(session: string): $CancellablePromise<void> {
 }
 
 /**
+ * ChooseTarget says what installing a prepared archive does to the mod with
+ * its name: TargetReplace, TargetMerge, or TargetRename with name the name
+ * to install it under, which no mod of the profile may have.
+ */
+export function ChooseTarget(session: string, target: string, name: string): $CancellablePromise<void> {
+    return $Call.ByID(1170364397, session, target, name);
+}
+
+/**
  * Conflicts tells, for each mod of the profile, which other mods have files
  * in common with it and how many; the order decides which of them wins.
  */
@@ -51,7 +60,9 @@ export function Conflicts(gameID: string, profileID: string): $CancellablePromis
 /**
  * FinishInstall installs a prepared archive as a new mod at the end of the
  * profile's order, where it wins over the mods before it; a FOMOD with the
- * options picked in choices.
+ * options picked in choices. An archive with the name of a mod of the
+ * profile replaces or merges with that mod, keeping its place and whether it
+ * is on, or becomes a mod of its own, as ChooseTarget said.
  */
 export function FinishInstall(session: string, choices: fomod$0.Choices): $CancellablePromise<library$0.Profile> {
     return $Call.ByID(3102955077, session, choices);

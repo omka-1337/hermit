@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Dialogs } from "@wailsio/runtime";
-import { errorMessage, Game, GameCandidate, Library } from "../api";
+import { Engine, errorMessage, Game, GameCandidate, Library } from "../api";
 import { BackendBadge, Button, EngineBadge, ErrorText, inputClass, RuntimeBadge } from "./ui";
 
 type Props = {
@@ -67,7 +67,7 @@ export default function AddGameForm({ onAdded, extraActions }: Props) {
             <span className="text-sm text-zinc-400">Name</span>
             <input className={inputClass} value={name} onChange={(e) => setName(e.target.value)} autoFocus />
           </label>
-          {candidate.detection.unity ? (
+          {candidate.detection.engine !== Engine.EngineUnknown ? (
             <div className="flex items-center gap-2 text-sm text-zinc-400">
               Detected: <EngineBadge engine={candidate.detection.engine} version={candidate.detection.engineVersion} />
               <RuntimeBadge runtime={candidate.detection.runtime} />
@@ -75,7 +75,8 @@ export default function AddGameForm({ onAdded, extraActions }: Props) {
             </div>
           ) : (
             <p className="text-sm text-amber-400">
-              No Unity game found in this folder. BepInEx works only with Unity games — make sure you picked the folder
+              No game Hermit can mod was found in this folder: it mods Unity games through BepInEx, and Bethesda's
+              Creation Engine games such as Skyrim. Make sure you picked the folder
               containing the game executable.
             </p>
           )}

@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"hermit/internal/bethesda"
 )
 
 // Engine is what a game is built on; it decides how the game is modded.
@@ -84,11 +86,11 @@ func DetectGame(dir string) Detection {
 		return d
 	}
 	if data, ok := folders["data"]; ok {
-		for _, g := range creationGames {
-			exe := strings.ToLower(g.exe)
-			if files[exe] && hasFileFold(filepath.Join(dir, data), g.master) {
+		for _, g := range bethesda.Games {
+			exe := strings.ToLower(g.Exe)
+			if files[exe] && hasFileFold(filepath.Join(dir, data), g.Master) {
 				d.Engine = EngineCreation
-				d.EngineVersion = g.version
+				d.EngineVersion = g.EngineVersion
 				d.Executable = names[exe]
 				// Bethesda ships these games for Windows only.
 				d.Runtime = RuntimeProton
@@ -97,17 +99,6 @@ func DetectGame(dir string) Detection {
 		}
 	}
 	return d
-}
-
-// creationGames are the Creation Engine games, by their executable and the
-// master file every install of them has in Data.
-var creationGames = []struct{ exe, master, version string }{
-	{"SkyrimSE.exe", "Skyrim.esm", ""},
-	{"SkyrimVR.exe", "Skyrim.esm", ""},
-	{"TESV.exe", "Skyrim.esm", ""},
-	{"Fallout4.exe", "Fallout4.esm", ""},
-	{"Fallout4VR.exe", "Fallout4.esm", ""},
-	{"Starfield.exe", "Starfield.esm", "2"},
 }
 
 // unityVersionPattern matches a Unity version such as "2022.3.62f2" or

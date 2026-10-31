@@ -25,6 +25,7 @@ import (
 	"sync"
 	"syscall"
 
+	"hermit/internal/bethesda"
 	"hermit/internal/steam"
 )
 
@@ -163,7 +164,8 @@ func (l *Library) GetGame(id string) (Game, error) {
 	return l.loadGame(id)
 }
 
-// DiscoverGames lists BepInEx-compatible (Unity) games installed via Steam.
+// DiscoverGames lists the games installed via Steam that Hermit can mod:
+// Unity games, through BepInEx, and Creation Engine games.
 func (l *Library) DiscoverGames() ([]GameCandidate, error) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -171,7 +173,7 @@ func (l *Library) DiscoverGames() ([]GameCandidate, error) {
 	var result []GameCandidate
 	for _, app := range steam.InstalledApps(l.steamRoots) {
 		d := DetectGame(app.InstallPath)
-		if !d.Unity {
+		if d.Engine == EngineUnknown {
 			continue
 		}
 		c := GameCandidate{Path: app.InstallPath, Name: app.Name, SteamAppID: app.AppID, Detection: d}
@@ -241,7 +243,7 @@ func (l *Library) AddGame(name, path string) (Game, error) {
 		Executable:    c.Detection.Executable,
 		SteamAppID:    c.SteamAppID,
 	}
-	p, err := l.createProfile(g.ID, DefaultProfileName)
+	p, err := l.createProfile(g.ID, g.Engine, DefaultProfileName)
 	if err != nil {
 		_ = os.RemoveAll(l.gameDir(g.ID))
 		return Game{}, err
@@ -381,10 +383,11 @@ func (l *Library) CreateProfile(gameID, name string) (Profile, error) {
 	if name == "" {
 		return Profile{}, ErrEmptyName
 	}
-	if _, err := l.loadGame(gameID); err != nil {
+	g, err := l.loadGame(gameID)
+	if err != nil {
 		return Profile{}, err
 	}
-	return l.createProfile(gameID, name)
+	return l.createProfile(gameID, g.Engine, name)
 }
 
 func (l *Library) RenameProfile(gameID, profileID, name string) (Profile, error) {
@@ -620,7 +623,9 @@ func within(path, dir string) bool {
 	return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
 }
 
-func (l *Library) createProfile(gameID, name string) (Profile, error) {
+// createProfile makes an empty profile laid out for the game's engine: the
+// BepInEx folders for Unity games, a folder for mods for Creation Engine ones.
+func (l *Library) createProfile(gameID string, engine Engine, name string) (Profile, error) {
 	ids, err := l.profileIDs(gameID)
 	if err != nil {
 		return Profile{}, err
@@ -632,8 +637,12 @@ func (l *Library) createProfile(gameID, name string) (Profile, error) {
 		Mods:          []Mod{},
 	}
 	dir := l.profileDir(gameID, p.ID)
-	for _, sub := range []string{"plugins", "patchers", "config"} {
-		if err := os.MkdirAll(filepath.Join(dir, "BepInEx", sub), 0o755); err != nil {
+	subs := []string{"BepInEx/plugins", "BepInEx/patchers", "BepInEx/config"}
+	if engine == EngineCreation {
+		subs = []string{bethesda.ModsDir}
+	}
+	for _, sub := range subs {
+		if err := os.MkdirAll(filepath.Join(dir, filepath.FromSlash(sub)), 0o755); err != nil {
 			return Profile{}, err
 		}
 	}

@@ -32,7 +32,8 @@ export function CreateProfile(gameID: string, name: string): $CancellablePromise
 }
 
 /**
- * DiscoverGames lists BepInEx-compatible (Unity) games installed via Steam.
+ * DiscoverGames lists the games installed via Steam that Hermit can mod:
+ * Unity games, through BepInEx, and Creation Engine games.
  */
 export function DiscoverGames(): $CancellablePromise<$models.GameCandidate[] | null> {
     return $Call.ByID(4035536283);

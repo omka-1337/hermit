@@ -9,11 +9,11 @@ import (
 	"path/filepath"
 	"strings"
 
-	"hermit/internal/bethesda"
+	"hermit/internal/creation"
 	"hermit/internal/library"
 )
 
-// deployFile keeps the bethesda.State of a Creation Engine game's session in
+// deployFile keeps the creation.State of a Creation Engine game's session in
 // its data directory: a deployed profile can have tens of thousands of links,
 // more than launch.json should carry.
 const deployFile = "deploy.json"
@@ -25,7 +25,7 @@ const deployFile = "deploy.json"
 // the game's launcher once the game folder has one, unless the user picked
 // the file the game starts from or a tool runs instead of the game.
 func deployCreation(game library.Game, profile library.Profile, profileDir, dataDir string, command, env []string, tool bool) ([]string, error) {
-	g, ok := bethesda.Find(game.Executable)
+	g, ok := creation.Find(game.Executable)
 	if !ok {
 		return nil, fmt.Errorf("%s is not a Creation Engine game Hermit knows", game.Executable)
 	}
@@ -39,16 +39,16 @@ func deployCreation(game library.Game, profile library.Profile, profileDir, data
 	if err := undeployCreation(game, dataDir); err != nil {
 		return nil, fmt.Errorf("removing the mods of the last session: %w", err)
 	}
-	var prefix bethesda.Prefix
+	var prefix creation.Prefix
 	if compatData := compatDataDir(game, command, env); compatData != "" {
-		prefix = bethesda.PrefixFor(compatData, g)
+		prefix = creation.PrefixFor(compatData, g)
 	}
-	state, err := bethesda.Deploy(game.Path, profileDir, mods, prefix)
+	state, err := creation.Deploy(game.Path, profileDir, mods, prefix)
 	if err != nil {
 		return nil, err
 	}
 	if err := writeDeployState(dataDir, state); err != nil {
-		bethesda.Undeploy(game.Path, state)
+		creation.Undeploy(game.Path, state)
 		return nil, err
 	}
 	if game.LaunchExecutable != "" || tool {
@@ -67,18 +67,18 @@ func undeployCreation(game library.Game, dataDir string) error {
 	if err != nil {
 		return err
 	}
-	var state bethesda.State
+	var state creation.State
 	if err := json.Unmarshal(data, &state); err != nil {
 		return err
 	}
-	_, err = bethesda.Undeploy(game.Path, state)
+	_, err = creation.Undeploy(game.Path, state)
 	if err != nil {
 		return err
 	}
 	return os.Remove(filepath.Join(dataDir, deployFile))
 }
 
-func writeDeployState(dataDir string, s bethesda.State) error {
+func writeDeployState(dataDir string, s creation.State) error {
 	data, err := json.Marshal(s)
 	if err != nil {
 		return err
@@ -99,13 +99,13 @@ func compatDataDir(game library.Game, command, env []string) string {
 	if _, ok := portProtonExe(command); ok {
 		return ""
 	}
-	return bethesda.SteamCompatData(game.Path, game.SteamAppID)
+	return creation.SteamCompatData(game.Path, game.SteamAppID)
 }
 
 // withLoader replaces the game's launcher in command with its script
 // extender's loader when the game folder has one, from a mod or put there by
 // hand.
-func withLoader(command []string, gamePath string, g bethesda.Game) []string {
+func withLoader(command []string, gamePath string, g creation.Game) []string {
 	entries, err := os.ReadDir(gamePath)
 	if err != nil {
 		return command

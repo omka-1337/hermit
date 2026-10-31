@@ -14,7 +14,7 @@ import (
 // "prepare" and "cleanup" do the same work in two steps, for a caller that has
 // to start the game on its own — a Flatpak build cannot start it from inside
 // the sandbox, so a small script on the host does that part. "install" puts
-// mod archives into a Bethesda game's profile.
+// mod archives into a Creation Engine game's profile.
 const cliUsage = `usage:
   hermit run     [--game <id>] -- <command...>   start a game with its active profile
   hermit prepare [--game <id>] [--appid <n>] [--pid <n>] -- <command...>

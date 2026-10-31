@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Dialogs } from "@wailsio/runtime";
-import { BethesdaService, errorMessage, Game, MO2Instance, Profile } from "../api";
+import { CreationService, errorMessage, Game, MO2Instance, Profile } from "../api";
 import { Button, ErrorText, inputClass, Modal, Spinner } from "./ui";
 
 type Props = {
@@ -33,7 +33,7 @@ export default function ImportMO2Modal({ game, profileId, onClose, onImported }:
         CanChooseFiles: false,
       });
       if (!dir) return;
-      const found = await BethesdaService.InspectMO2(dir);
+      const found = await CreationService.InspectMO2(dir);
       const profile = found.profiles?.includes(found.selected) ? found.selected : (found.profiles?.[0] ?? "");
       setInstance(found);
       setChosen(profile);
@@ -62,8 +62,8 @@ export default function ImportMO2Modal({ game, profileId, onClose, onImported }:
     try {
       onImported(
         profileId
-          ? await BethesdaService.ImportMO2(game.id, profileId, instance.dir, chosen)
-          : await BethesdaService.ImportMO2AsProfile(game.id, instance.dir, chosen, name.trim(), location),
+          ? await CreationService.ImportMO2(game.id, profileId, instance.dir, chosen)
+          : await CreationService.ImportMO2AsProfile(game.id, instance.dir, chosen, name.trim(), location),
       );
     } catch (err) {
       setError(errorMessage(err));

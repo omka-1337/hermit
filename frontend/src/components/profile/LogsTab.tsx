@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { BethesdaService, errorMessage, LogFile } from "../../api";
+import { CreationService, errorMessage, LogFile } from "../../api";
 import { formatAgo, formatBytes } from "../../format";
 import { Button, ErrorText } from "../ui";
 import { useRefresh } from "../../refresh";
@@ -22,7 +22,7 @@ export default function LogsTab() {
   const load = useCallback(async () => {
     setError("");
     try {
-      const list = (await BethesdaService.Logs(game.id)) ?? [];
+      const list = (await CreationService.Logs(game.id)) ?? [];
       setLogs(list);
       setChosen((c) => (c && list.some((l) => l.name === c) ? c : (list[0]?.name ?? null)));
     } catch (err) {
@@ -34,7 +34,7 @@ export default function LogsTab() {
   const read = useCallback(async () => {
     if (!chosen) return setText("");
     try {
-      setText(await BethesdaService.ReadLog(game.id, chosen));
+      setText(await CreationService.ReadLog(game.id, chosen));
     } catch (err) {
       setText("");
       setError(errorMessage(err));
@@ -83,7 +83,7 @@ export default function LogsTab() {
           <Button variant="ghost" onClick={refresh}>
             Refresh
           </Button>
-          <Button variant="ghost" onClick={() => BethesdaService.OpenLogs(game.id).catch((err) => setError(errorMessage(err)))}>
+          <Button variant="ghost" onClick={() => CreationService.OpenLogs(game.id).catch((err) => setError(errorMessage(err)))}>
             Open folder
           </Button>
         </div>

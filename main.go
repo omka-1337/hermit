@@ -95,7 +95,7 @@ func main() {
 		log.Printf("settings: %v", err)
 	}
 
-	bethesda := app.NewBethesdaService(b.lib, b.steamRoots)
+	creation := app.NewCreationService(b.lib, b.steamRoots)
 	downloads := app.NewDownloadService(b.lib, b.root, app.ID+"/"+app.Version)
 	// window is the main window; a link from Nexus Mods brings it up.
 	var window *application.WebviewWindow
@@ -132,7 +132,7 @@ func main() {
 			application.NewService(app.NewFolderService(b.lib)),
 			application.NewService(app.NewCacheService(filepath.Join(b.root, "cache"))),
 			application.NewService(app.NewConfigService(b.lib)),
-			application.NewService(bethesda),
+			application.NewService(creation),
 			application.NewService(downloads),
 			application.NewService(app.NewShareService(
 				profileshare.NewSharer(b.lib, b.installer, b.ts, filepath.Join(b.root, "cache", "imports")),
@@ -199,7 +199,7 @@ func main() {
 	})
 
 	// A FOMOD installer gets a window of its own beside the manager's.
-	bethesda.OpenWindow = func(url, title string, onClosed func()) {
+	creation.OpenWindow = func(url, title string, onClosed func()) {
 		w := wailsApp.Window.NewWithOptions(application.WebviewWindowOptions{
 			Title:            title,
 			Frameless:        true,

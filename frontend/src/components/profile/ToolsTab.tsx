@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { BethesdaService, errorMessage, Tool } from "../../api";
+import { CreationService, errorMessage, Tool } from "../../api";
 import { useLaunchInfo } from "../launch";
 import { Button, ErrorText, Spinner } from "../ui";
 import { useRefresh } from "../../refresh";
@@ -23,7 +23,7 @@ export default function ToolsTab() {
   const [rescans, setRescans] = useState(0);
   useRefresh(() => setRescans((n) => n + 1));
   useEffect(() => {
-    BethesdaService.Tools(game.id)
+    CreationService.Tools(game.id)
       .then((list) => setTools(list ?? []))
       .catch((err) => setError(errorMessage(err)));
   }, [game.id, enabled, rescans]);
@@ -32,7 +32,7 @@ export default function ToolsTab() {
     setError("");
     setStarting(tool.path);
     try {
-      await BethesdaService.RunTool(game.id, tool.path);
+      await CreationService.RunTool(game.id, tool.path);
       // Proton takes a moment; the session shows up once the tool runs.
       setTimeout(() => {
         setStarting(null);

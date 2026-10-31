@@ -1,8 +1,8 @@
-// Package bethesda mods games on Bethesda's Creation Engine: it links the
+// Package creation mods games on the Creation Engine: it links the
 // enabled mods of a profile into the game's Data folder for the length of a
 // session, in the order the profile gives them, and puts the profile's
 // plugin list where the game reads it.
-package bethesda
+package creation
 
 import "strings"
 

@@ -1,4 +1,4 @@
-package bethesda
+package creation
 
 import (
 	"bufio"

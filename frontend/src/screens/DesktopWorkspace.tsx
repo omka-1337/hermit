@@ -82,7 +82,7 @@ export default function DesktopWorkspace({ games, selectedId, onSelect, onGamesC
 
   const changed = (g: Game) => onGamesChanged(g.id);
 
-  // File → Install from file: a Bethesda game's archives, as many as are
+  // File → Install from file: a Creation Engine game's archives, as many as are
   // picked, join the queue of installs; other games add the file in the
   // dialog the Installed page has for it.
   useEffect(() => {
@@ -125,7 +125,7 @@ export default function DesktopWorkspace({ games, selectedId, onSelect, onGamesC
   // A mod installed from a FOMOD installer's window changes the profile's count.
   useEffect(
     () =>
-      Events.On("bethesda:installed", (ev) => {
+      Events.On("creation:installed", (ev) => {
         if (ev.data?.gameId === gameId) loadProfiles().catch(console.error);
       }),
     [gameId, loadProfiles],

@@ -54,7 +54,7 @@ export enum Engine {
     EngineUnity = "unity",
 
     /**
-     * Bethesda's Creation Engine
+     * the Creation Engine
      */
     EngineCreation = "creation",
 };

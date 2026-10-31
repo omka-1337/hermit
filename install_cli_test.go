@@ -28,7 +28,7 @@ const cliFomod = `<config><moduleName>Bodies</moduleName><installSteps order="Ex
     </plugins></group></optionalFileGroups></installStep>
 </installSteps></config>`
 
-func prepareCLI(t *testing.T) (*app.BethesdaService, app.PreparedMod) {
+func prepareCLI(t *testing.T) (*app.CreationService, app.PreparedMod) {
 	t.Helper()
 	tmp := t.TempDir()
 	lib, err := library.New(filepath.Join(tmp, "lib"), nil)
@@ -52,7 +52,7 @@ func prepareCLI(t *testing.T) (*app.BethesdaService, app.PreparedMod) {
 	}
 	w.Close()
 	f.Close()
-	svc := app.NewBethesdaService(lib, nil)
+	svc := app.NewCreationService(lib, nil)
 	prepared, err := svc.PrepareInstall(g.ID, g.ActiveProfile, file)
 	if err != nil {
 		t.Fatal(err)
@@ -61,7 +61,7 @@ func prepareCLI(t *testing.T) (*app.BethesdaService, app.PreparedMod) {
 	return svc, prepared
 }
 
-func picked(t *testing.T, svc *app.BethesdaService, prepared app.PreparedMod, choose []string, input string) string {
+func picked(t *testing.T, svc *app.CreationService, prepared app.PreparedMod, choose []string, input string) string {
 	t.Helper()
 	var out strings.Builder
 	choices, err := pickOptions(svc, prepared, choose, input != "", strings.NewReader(input), &out)

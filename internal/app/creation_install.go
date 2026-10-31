@@ -12,7 +12,7 @@ import (
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 
-	"hermit/internal/bethesda"
+	"hermit/internal/creation"
 	"hermit/internal/fomod"
 	"hermit/internal/library"
 	"hermit/internal/plugininfo"
@@ -20,13 +20,13 @@ import (
 
 const (
 	// UnpackProgressEvent carries how far unpacking an archive got.
-	UnpackProgressEvent = "bethesda:unpack"
+	UnpackProgressEvent = "creation:unpack"
 	// ModInstalledEvent says a mod was installed into a profile, so that the
 	// main window shows it whichever window installed it.
-	ModInstalledEvent = "bethesda:installed"
+	ModInstalledEvent = "creation:installed"
 	// InstallClosedEvent says an install was cancelled, so that the queue of
 	// installs goes on to the next.
-	InstallClosedEvent = "bethesda:install-closed"
+	InstallClosedEvent = "creation:install-closed"
 )
 
 // UnpackProgress is the payload of UnpackProgressEvent.
@@ -65,7 +65,7 @@ const (
 
 type installSession struct {
 	gameID, profileID string
-	staged            *bethesda.Staged
+	staged            *creation.Staged
 	env               fomod.Environment
 	// existing is the id of the mod with the archive's name, target what to
 	// do about it, and name the name the mod is installed under.
@@ -82,7 +82,7 @@ func emit(name string, data any) {
 
 // PrepareInstall unpacks a mod archive for a profile and looks at it. What
 // it unpacked stays until the mod is installed or the install is cancelled.
-func (s *BethesdaService) PrepareInstall(gameID, profileID, file string) (PreparedMod, error) {
+func (s *CreationService) PrepareInstall(gameID, profileID, file string) (PreparedMod, error) {
 	game, _, err := s.creationGame(gameID)
 	if err != nil {
 		return PreparedMod{}, err
@@ -96,9 +96,9 @@ func (s *BethesdaService) PrepareInstall(gameID, profileID, file string) (Prepar
 		return PreparedMod{}, err
 	}
 	name := filepath.Base(file)
-	staging := filepath.Join(profileDir, bethesda.StagingDir)
+	staging := filepath.Join(profileDir, creation.StagingDir)
 	s.removeStale(staging)
-	staged, err := bethesda.Stage(file, staging, func(done, total int64) {
+	staged, err := creation.Stage(file, staging, func(done, total int64) {
 		progress := UnpackProgress{File: name, Done: done, Total: total}
 		emit(UnpackProgressEvent, progress)
 		if s.OnUnpack != nil {
@@ -138,7 +138,7 @@ func (s *BethesdaService) PrepareInstall(gameID, profileID, file string) (Prepar
 // ChooseTarget says what installing a prepared archive does to the mod with
 // its name: TargetReplace, TargetMerge, or TargetRename with name the name
 // to install it under, which no mod of the profile may have.
-func (s *BethesdaService) ChooseTarget(session, target, name string) error {
+func (s *CreationService) ChooseTarget(session, target, name string) error {
 	is, err := s.session(session)
 	if err != nil {
 		return err
@@ -180,10 +180,10 @@ func modNamed(p library.Profile, name string) (library.Mod, bool) {
 // CheckFomods tells which archives come with a FOMOD installer, before any
 // of them is unpacked: a queue of installs counts the installers ahead. An
 // archive that cannot be read counts as having none; unpacking it says why.
-func (s *BethesdaService) CheckFomods(files []string) []bool {
+func (s *CreationService) CheckFomods(files []string) []bool {
 	has := make([]bool, len(files))
 	for i, f := range files {
-		has[i], _ = bethesda.HasFomod(f)
+		has[i], _ = creation.HasFomod(f)
 	}
 	return has
 }
@@ -191,7 +191,7 @@ func (s *BethesdaService) CheckFomods(files []string) []bool {
 // OpenFomod shows the installer of a prepared archive in a window of its own;
 // position and total, when total is above one, say which of the installers
 // of a queue of installs it is. Closing the window cancels the install.
-func (s *BethesdaService) OpenFomod(session string, position, total int) error {
+func (s *CreationService) OpenFomod(session string, position, total int) error {
 	is, err := s.session(session)
 	if err != nil {
 		return err
@@ -213,7 +213,7 @@ func (s *BethesdaService) OpenFomod(session string, position, total int) error {
 }
 
 // PreparedInfo describes a prepared archive to the installer's window.
-func (s *BethesdaService) PreparedInfo(session string) (PreparedMod, error) {
+func (s *CreationService) PreparedInfo(session string) (PreparedMod, error) {
 	is, err := s.session(session)
 	if err != nil {
 		return PreparedMod{}, err
@@ -227,7 +227,7 @@ func (s *BethesdaService) PreparedInfo(session string) (PreparedMod, error) {
 
 // FomodView is the installer of a prepared archive with the options picked
 // so far.
-func (s *BethesdaService) FomodView(session string, choices fomod.Choices) (fomod.View, error) {
+func (s *CreationService) FomodView(session string, choices fomod.Choices) (fomod.View, error) {
 	is, err := s.session(session)
 	if err != nil {
 		return fomod.View{}, err
@@ -239,7 +239,7 @@ func (s *BethesdaService) FomodView(session string, choices fomod.Choices) (fomo
 }
 
 // FomodImage returns a picture of the installer as a data URL.
-func (s *BethesdaService) FomodImage(session, path string) (string, error) {
+func (s *CreationService) FomodImage(session, path string) (string, error) {
 	is, err := s.session(session)
 	if err != nil {
 		return "", err
@@ -271,7 +271,7 @@ func (s *BethesdaService) FomodImage(session, path string) (string, error) {
 // options picked in choices. An archive with the name of a mod of the
 // profile replaces or merges with that mod, keeping its place and whether it
 // is on, or becomes a mod of its own, as ChooseTarget said.
-func (s *BethesdaService) FinishInstall(session string, choices fomod.Choices) (library.Profile, error) {
+func (s *CreationService) FinishInstall(session string, choices fomod.Choices) (library.Profile, error) {
 	is, err := s.session(session)
 	if err != nil {
 		return library.Profile{}, err
@@ -315,7 +315,7 @@ func (s *BethesdaService) FinishInstall(session string, choices fomod.Choices) (
 			if i < 0 {
 				return fmt.Errorf("mod %q: %w", is.existing, library.ErrNotFound)
 			}
-			modDir := filepath.Join(profileDir, bethesda.ModsDir, is.existing)
+			modDir := filepath.Join(profileDir, creation.ModsDir, is.existing)
 			if is.target == TargetReplace {
 				if err := os.RemoveAll(modDir); err != nil {
 					return err
@@ -339,12 +339,12 @@ func (s *BethesdaService) FinishInstall(session string, choices fomod.Choices) (
 			taken = append(taken, m.ID)
 		}
 		// Folders left by mods removed outside Hermit are taken too.
-		entries, _ := os.ReadDir(filepath.Join(profileDir, bethesda.ModsDir))
+		entries, _ := os.ReadDir(filepath.Join(profileDir, creation.ModsDir))
 		for _, e := range entries {
 			taken = append(taken, e.Name())
 		}
 		id := uniqueModID(is.name, taken)
-		modDir := filepath.Join(profileDir, bethesda.ModsDir, id)
+		modDir := filepath.Join(profileDir, creation.ModsDir, id)
 		if err := is.staged.Install(modDir, files); err != nil {
 			os.RemoveAll(modDir)
 			return err
@@ -374,14 +374,14 @@ func (s *BethesdaService) FinishInstall(session string, choices fomod.Choices) (
 }
 
 // CancelInstall throws away what PrepareInstall unpacked.
-func (s *BethesdaService) CancelInstall(session string) error {
+func (s *CreationService) CancelInstall(session string) error {
 	err := s.drop(session)
 	emit(InstallClosedEvent, map[string]string{"session": session})
 	return err
 }
 
 // drop forgets an install and removes what it unpacked.
-func (s *BethesdaService) drop(session string) error {
+func (s *CreationService) drop(session string) error {
 	s.mu.Lock()
 	is := s.sessions[session]
 	delete(s.sessions, session)
@@ -394,7 +394,7 @@ func (s *BethesdaService) drop(session string) error {
 
 // removeStale deletes what installs that never finished, cut short by a
 // closed window or Hermit quitting, left in a profile's staging folder.
-func (s *BethesdaService) removeStale(staging string) {
+func (s *CreationService) removeStale(staging string) {
 	entries, _ := os.ReadDir(staging)
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -405,7 +405,7 @@ func (s *BethesdaService) removeStale(staging string) {
 	}
 }
 
-func (s *BethesdaService) session(id string) (*installSession, error) {
+func (s *CreationService) session(id string) (*installSession, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	is := s.sessions[id]
@@ -451,12 +451,12 @@ func pluginStates(gamePath, profileDir string, profile library.Profile) fomod.En
 		if !m.Enabled || m.Separator {
 			continue
 		}
-		entries, _ := os.ReadDir(filepath.Join(profileDir, bethesda.ModsDir, m.ID))
+		entries, _ := os.ReadDir(filepath.Join(profileDir, creation.ModsDir, m.ID))
 		for _, e := range entries {
 			fromMods[strings.ToLower(e.Name())] = true
 		}
 	}
-	list, _ := bethesda.ReadPlugins(filepath.Join(profileDir, bethesda.PluginsFile))
+	list, _ := creation.ReadPlugins(filepath.Join(profileDir, creation.PluginsFile))
 	return func(file string) fomod.FileState {
 		name := strings.ToLower(strings.ReplaceAll(file, `\`, "/"))
 		switch {
@@ -465,7 +465,7 @@ func pluginStates(gamePath, profileDir string, profile library.Profile) fomod.En
 		case !fromMods[name]:
 			return fomod.Missing
 		}
-		i := slices.IndexFunc(list, func(p bethesda.Plugin) bool { return strings.EqualFold(p.Name, name) })
+		i := slices.IndexFunc(list, func(p creation.Plugin) bool { return strings.EqualFold(p.Name, name) })
 		if i >= 0 && !list[i].Active {
 			return fomod.Inactive
 		}

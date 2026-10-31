@@ -46,7 +46,7 @@ func TestImportMO2AndOrderMods(t *testing.T) {
 		"mods/Patch/Patch.esp":         "patch",
 	})
 
-	s := NewBethesdaService(lib, nil)
+	s := NewCreationService(lib, nil)
 	p, err := s.ImportMO2(game.ID, game.ActiveProfile, mo2, "Default")
 	if err != nil {
 		t.Fatal(err)
@@ -127,7 +127,7 @@ func TestImportMO2AsProfile(t *testing.T) {
 		"profiles/Default/modlist.txt": "+SkyUI\r\n",
 		"mods/SkyUI/SkyUI_SE.esp":      "ui",
 	})
-	s := NewBethesdaService(lib, nil)
+	s := NewCreationService(lib, nil)
 
 	location := filepath.Join(tmp, "Hermit")
 	if err := os.Mkdir(location, 0o755); err != nil {
@@ -183,7 +183,7 @@ func TestTools(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	tools, err := NewBethesdaService(lib, nil).Tools(game.ID)
+	tools, err := NewCreationService(lib, nil).Tools(game.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -225,7 +225,7 @@ func TestInstallArchives(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := NewBethesdaService(lib, nil)
+	s := NewCreationService(lib, nil)
 
 	plain := zipFile(t, "SkyUI-12604-6-11-1778020881.zip", map[string]string{"SkyUI/SkyUI_SE.esp": "ui"})
 	prepared, err := s.PrepareInstall(game.ID, game.ActiveProfile, plain)
@@ -297,7 +297,7 @@ func TestInstallOverAModOfTheSameName(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := NewBethesdaService(lib, nil)
+	s := NewCreationService(lib, nil)
 	profileDir, _ := lib.ProfileDir(game.ID, game.ActiveProfile)
 	install := func(file string, target, name string) (library.Profile, error) {
 		t.Helper()
@@ -398,7 +398,7 @@ func TestRescan(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	p, err := NewBethesdaService(lib, nil).Rescan(game.ID, game.ActiveProfile)
+	p, err := NewCreationService(lib, nil).Rescan(game.ID, game.ActiveProfile)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -7,7 +7,7 @@ import (
 	"regexp"
 	"strings"
 
-	"hermit/internal/bethesda"
+	"hermit/internal/creation"
 )
 
 // Engine is what a game is built on; it decides how the game is modded.
@@ -16,7 +16,7 @@ type Engine string
 const (
 	EngineUnknown  Engine = "unknown"
 	EngineUnity    Engine = "unity"
-	EngineCreation Engine = "creation" // Bethesda's Creation Engine
+	EngineCreation Engine = "creation" // the Creation Engine
 )
 
 // Detection is what can be learned about a game from its install directory.
@@ -86,7 +86,7 @@ func DetectGame(dir string) Detection {
 		return d
 	}
 	if data, ok := folders["data"]; ok {
-		for _, g := range bethesda.Games {
+		for _, g := range creation.Games {
 			exe := strings.ToLower(g.Exe)
 			if files[exe] && hasFileFold(filepath.Join(dir, data), g.Master) {
 				d.Engine = EngineCreation

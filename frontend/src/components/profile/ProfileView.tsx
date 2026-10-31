@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Events } from "@wailsio/runtime";
-import { BethesdaService, Engine, errorMessage, FolderService, Game, InstallService, Profile } from "../../api";
+import { CreationService, Engine, errorMessage, FolderService, Game, InstallService, Profile } from "../../api";
 import { useRefresh } from "../../refresh";
 import { packageLabel } from "../../format";
 import { PlayButton } from "../launch";
@@ -10,7 +10,7 @@ import { Button, ErrorText, useModalOpen } from "../ui";
 import { useGamepad } from "../../gamepad";
 import { usePageHints } from "../../screens/shell";
 import { useLayout } from "../../uimode";
-import BethesdaModsTab from "./BethesdaModsTab";
+import CreationModsTab from "./CreationModsTab";
 import BrowseTab from "./BrowseTab";
 import ConfigTab from "./ConfigTab";
 import InstalledTab from "./InstalledTab";
@@ -90,7 +90,7 @@ export default function ProfileView({
   useRefresh(() => {
     const read =
       game.engine === Engine.EngineCreation
-        ? BethesdaService.Rescan(game.id, profileId)
+        ? CreationService.Rescan(game.id, profileId)
         : InstallService.OpenProfile(game.id, profileId);
     read.then(setProfile).catch((err) => setError(errorMessage(err)));
   });
@@ -98,7 +98,7 @@ export default function ProfileView({
   // A mod installed from a FOMOD installer's window, or anywhere else.
   useEffect(
     () =>
-      Events.On("bethesda:installed", (ev) => {
+      Events.On("creation:installed", (ev) => {
         if (ev.data?.gameId === game.id && ev.data?.profileId === profileId) {
           InstallService.OpenProfile(game.id, profileId).then(setProfile).catch(console.error);
         }
@@ -195,7 +195,7 @@ export default function ProfileView({
           <ProfileProvider game={game} profile={profile} onProfileChange={setProfile} onOpenProfile={onOpenProfile}>
             {creation ? (
               <div className="min-h-0 flex-1">
-                {tab === "logs" ? <LogsTab /> : tab === "tools" ? <ToolsTab /> : <BethesdaModsTab />}
+                {tab === "logs" ? <LogsTab /> : tab === "tools" ? <ToolsTab /> : <CreationModsTab />}
               </div>
             ) : (
               <>

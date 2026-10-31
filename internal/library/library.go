@@ -26,7 +26,7 @@ import (
 	"sync"
 	"syscall"
 
-	"hermit/internal/bethesda"
+	"hermit/internal/creation"
 	"hermit/internal/steam"
 )
 
@@ -332,10 +332,10 @@ func (l *Library) profileRootFiles(g Game) []string {
 		if !m.Enabled || m.Separator {
 			continue
 		}
-		modDir := filepath.Join(dir, bethesda.ModsDir, m.ID)
+		modDir := filepath.Join(dir, creation.ModsDir, m.ID)
 		entries, _ := os.ReadDir(modDir)
 		for _, e := range entries {
-			if !e.IsDir() || !strings.EqualFold(e.Name(), bethesda.RootDir) {
+			if !e.IsDir() || !strings.EqualFold(e.Name(), creation.RootDir) {
 				continue
 			}
 			root := filepath.Join(modDir, e.Name())
@@ -693,7 +693,7 @@ func (l *Library) createProfile(gameID string, engine Engine, name string) (Prof
 	dir := l.profileDir(gameID, p.ID)
 	subs := []string{"BepInEx/plugins", "BepInEx/patchers", "BepInEx/config"}
 	if engine == EngineCreation {
-		subs = []string{bethesda.ModsDir}
+		subs = []string{creation.ModsDir}
 	}
 	for _, sub := range subs {
 		if err := os.MkdirAll(filepath.Join(dir, filepath.FromSlash(sub)), 0o755); err != nil {

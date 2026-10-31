@@ -16,7 +16,7 @@ import (
 
 	"github.com/adrg/xdg"
 
-	"hermit/internal/bethesda"
+	"hermit/internal/creation"
 	"hermit/internal/library"
 	"hermit/internal/nexus"
 	"hermit/internal/platform"
@@ -222,18 +222,18 @@ func (s *DownloadService) HandleNXM(link string) error {
 	return nil
 }
 
-// gameFor finds the Bethesda game of Hermit's a part of Nexus Mods is for.
+// gameFor finds the Creation Engine game of Hermit's a part of Nexus Mods is for.
 func (s *DownloadService) gameFor(domain string) (library.Game, error) {
 	games, err := s.lib.ListGames()
 	if err != nil {
 		return library.Game{}, err
 	}
 	for _, g := range games {
-		if bg, ok := bethesda.Find(g.Executable); ok && g.Engine == library.EngineCreation && strings.EqualFold(bg.Nexus, domain) {
+		if bg, ok := creation.Find(g.Executable); ok && g.Engine == library.EngineCreation && strings.EqualFold(bg.Nexus, domain) {
 			return g, nil
 		}
 	}
-	for _, bg := range bethesda.Games {
+	for _, bg := range creation.Games {
 		if strings.EqualFold(bg.Nexus, domain) {
 			return library.Game{}, fmt.Errorf("the mod is for %s, which is not added to Hermit; add the game first", bg.MO2Name)
 		}
@@ -349,7 +349,7 @@ func (s *DownloadService) download(ctx context.Context, d *Download) error {
 	if err != nil {
 		return err
 	}
-	dir := filepath.Join(profileDir, bethesda.DownloadsDir)
+	dir := filepath.Join(profileDir, creation.DownloadsDir)
 	target := filepath.Join(dir, d.FileName)
 	// Downloaded before: the profile keeps the archives of its mods.
 	if fi, err := os.Stat(target); err == nil && fi.Size() == file.Size {

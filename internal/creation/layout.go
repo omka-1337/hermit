@@ -1,4 +1,4 @@
-package bethesda
+package creation
 
 // Layout of a profile of a Creation Engine game:
 //

@@ -14,16 +14,16 @@ import (
 	"syscall"
 	"time"
 
-	"hermit/internal/bethesda"
+	"hermit/internal/creation"
 	"hermit/internal/launch"
 	"hermit/internal/library"
 	"hermit/internal/platform"
 	"hermit/internal/plugininfo"
 )
 
-// BethesdaService manages the profiles of Creation Engine games, whose mods
+// CreationService manages the profiles of Creation Engine games, whose mods
 // each keep a folder of their own and are deployed into Data in order.
-type BethesdaService struct {
+type CreationService struct {
 	lib        *library.Library
 	steamRoots []string
 	// OpenWindow opens a window of the app at url, calling onClosed when it
@@ -37,20 +37,20 @@ type BethesdaService struct {
 	sessions map[string]*installSession
 }
 
-func NewBethesdaService(lib *library.Library, steamRoots []string) *BethesdaService {
-	return &BethesdaService{lib: lib, steamRoots: steamRoots}
+func NewCreationService(lib *library.Library, steamRoots []string) *CreationService {
+	return &CreationService{lib: lib, steamRoots: steamRoots}
 }
 
 // InspectMO2 reads a Mod Organizer 2 instance, to show what importing it
 // would bring.
-func (s *BethesdaService) InspectMO2(dir string) (bethesda.MO2Instance, error) {
-	return bethesda.ReadMO2(dir)
+func (s *CreationService) InspectMO2(dir string) (creation.MO2Instance, error) {
+	return creation.ReadMO2(dir)
 }
 
 // ImportMO2 fills an empty profile with the mods, their order, the plugin
 // list and the INI files of a profile of an MO2 instance, together with MO2's
 // overwrite folder.
-func (s *BethesdaService) ImportMO2(gameID, profileID, dir, mo2Profile string) (library.Profile, error) {
+func (s *CreationService) ImportMO2(gameID, profileID, dir, mo2Profile string) (library.Profile, error) {
 	game, bg, err := s.creationGame(gameID)
 	if err != nil {
 		return library.Profile{}, err
@@ -65,7 +65,7 @@ func (s *BethesdaService) ImportMO2(gameID, profileID, dir, mo2Profile string) (
 	if len(profile.Mods) > 0 {
 		return library.Profile{}, errors.New("import into an empty profile: this one already has mods")
 	}
-	in, err := bethesda.ReadMO2(dir)
+	in, err := creation.ReadMO2(dir)
 	if err != nil {
 		return library.Profile{}, err
 	}
@@ -113,10 +113,10 @@ func (s *BethesdaService) ImportMO2(gameID, profileID, dir, mo2Profile string) (
 	}
 	if err := in.ImportMO2(p, ids, profileDir, data, bg.INIs); err != nil {
 		// Take back what was brought over, so the import can be tried again.
-		os.RemoveAll(filepath.Join(profileDir, bethesda.ModsDir))
-		os.RemoveAll(filepath.Join(profileDir, bethesda.OverwriteDir))
-		os.RemoveAll(filepath.Join(profileDir, bethesda.INIDir))
-		os.MkdirAll(filepath.Join(profileDir, bethesda.ModsDir), 0o755)
+		os.RemoveAll(filepath.Join(profileDir, creation.ModsDir))
+		os.RemoveAll(filepath.Join(profileDir, creation.OverwriteDir))
+		os.RemoveAll(filepath.Join(profileDir, creation.INIDir))
+		os.MkdirAll(filepath.Join(profileDir, creation.ModsDir), 0o755)
 		return library.Profile{}, err
 	}
 	return s.lib.UpdateProfile(gameID, profileID, func(p *library.Profile) error {
@@ -128,12 +128,12 @@ func (s *BethesdaService) ImportMO2(gameID, profileID, dir, mo2Profile string) (
 // ImportMO2AsProfile creates a profile called name, in a folder of its own
 // inside location unless that is empty, and imports a profile of an MO2
 // instance into it. Nothing is left behind when the import fails.
-func (s *BethesdaService) ImportMO2AsProfile(gameID, dir, mo2Profile, name, location string) (library.Profile, error) {
+func (s *CreationService) ImportMO2AsProfile(gameID, dir, mo2Profile, name, location string) (library.Profile, error) {
 	if _, _, err := s.creationGame(gameID); err != nil {
 		return library.Profile{}, err
 	}
 	// A folder that is no MO2 instance should not cost an empty profile.
-	if _, err := bethesda.ReadMO2(dir); err != nil {
+	if _, err := creation.ReadMO2(dir); err != nil {
 		return library.Profile{}, err
 	}
 	created, err := s.lib.CreateProfile(gameID, strings.TrimSpace(name))
@@ -156,7 +156,7 @@ func (s *BethesdaService) ImportMO2AsProfile(gameID, dir, mo2Profile, name, loca
 
 // AddSeparator puts a new separator, a heading over the mods after it, at
 // index in the profile's order.
-func (s *BethesdaService) AddSeparator(gameID, profileID, name string, index int) (library.Profile, error) {
+func (s *CreationService) AddSeparator(gameID, profileID, name string, index int) (library.Profile, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
 		return library.Profile{}, library.ErrEmptyName
@@ -173,7 +173,7 @@ func (s *BethesdaService) AddSeparator(gameID, profileID, name string, index int
 }
 
 // RenameSeparator changes the heading of a separator.
-func (s *BethesdaService) RenameSeparator(gameID, profileID, id, name string) (library.Profile, error) {
+func (s *CreationService) RenameSeparator(gameID, profileID, id, name string) (library.Profile, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
 		return library.Profile{}, library.ErrEmptyName
@@ -202,7 +202,7 @@ func separator(id, name string) library.Mod {
 
 // Conflicts tells, for each mod of the profile, which other mods have files
 // in common with it and how many; the order decides which of them wins.
-func (s *BethesdaService) Conflicts(gameID, profileID string) (map[string]map[string]int, error) {
+func (s *CreationService) Conflicts(gameID, profileID string) (map[string]map[string]int, error) {
 	profile, err := s.lib.GetProfile(gameID, profileID)
 	if err != nil {
 		return nil, err
@@ -217,13 +217,13 @@ func (s *BethesdaService) Conflicts(gameID, profileID string) (map[string]map[st
 			mods = append(mods, m.ID)
 		}
 	}
-	return bethesda.Conflicts(profileDir, mods)
+	return creation.Conflicts(profileDir, mods)
 }
 
 // MoveMods moves mods, in the order they have among themselves, to just
 // before the mod before, or to the end when before is empty; later mods win
 // over earlier ones. Dragging a folded separator moves the mods under it too.
-func (s *BethesdaService) MoveMods(gameID, profileID string, ids []string, before string) (library.Profile, error) {
+func (s *CreationService) MoveMods(gameID, profileID string, ids []string, before string) (library.Profile, error) {
 	return s.lib.UpdateProfile(gameID, profileID, func(p *library.Profile) error {
 		var picked, rest []library.Mod
 		for _, m := range p.Mods {
@@ -250,12 +250,12 @@ func (s *BethesdaService) MoveMods(gameID, profileID string, ids []string, befor
 // Rescan brings a profile's list of mods in line with its mods folder, as
 // MO2 does on a refresh: folders put there by hand become mods at the end of
 // the list, switched off, and mods whose folder is gone leave the list.
-func (s *BethesdaService) Rescan(gameID, profileID string) (library.Profile, error) {
+func (s *CreationService) Rescan(gameID, profileID string) (library.Profile, error) {
 	profileDir, err := s.lib.ProfileDir(gameID, profileID)
 	if err != nil {
 		return library.Profile{}, err
 	}
-	entries, err := os.ReadDir(filepath.Join(profileDir, bethesda.ModsDir))
+	entries, err := os.ReadDir(filepath.Join(profileDir, creation.ModsDir))
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return library.Profile{}, err
 	}
@@ -289,7 +289,7 @@ func (s *BethesdaService) Rescan(gameID, profileID string) (library.Profile, err
 
 // RemoveMod deletes a mod and its folder from the profile, or a separator
 // from its list.
-func (s *BethesdaService) RemoveMod(gameID, profileID, modID string) (library.Profile, error) {
+func (s *CreationService) RemoveMod(gameID, profileID, modID string) (library.Profile, error) {
 	if err := s.notRunning(gameID); err != nil {
 		return library.Profile{}, err
 	}
@@ -302,7 +302,7 @@ func (s *BethesdaService) RemoveMod(gameID, profileID, modID string) (library.Pr
 		if i < 0 {
 			return fmt.Errorf("mod %q: %w", modID, library.ErrNotFound)
 		}
-		if err := os.RemoveAll(filepath.Join(profileDir, bethesda.ModsDir, modID)); err != nil {
+		if err := os.RemoveAll(filepath.Join(profileDir, creation.ModsDir, modID)); err != nil {
 			return err
 		}
 		p.Mods = slices.Delete(p.Mods, i, i+1)
@@ -327,7 +327,7 @@ var notTools = regexp.MustCompile(`(?i)^(hkxcmd|papyrus(compiler|assembler)|wini
 
 // Tools lists the tools the enabled mods of the active profile bring, in
 // the order of the mods.
-func (s *BethesdaService) Tools(gameID string) ([]Tool, error) {
+func (s *CreationService) Tools(gameID string) ([]Tool, error) {
 	game, _, err := s.creationGame(gameID)
 	if err != nil {
 		return nil, err
@@ -345,7 +345,7 @@ func (s *BethesdaService) Tools(gameID string) ([]Tool, error) {
 		if !m.Enabled || m.Separator {
 			continue
 		}
-		modDir := filepath.Join(profileDir, bethesda.ModsDir, m.ID)
+		modDir := filepath.Join(profileDir, creation.ModsDir, m.ID)
 		filepath.WalkDir(modDir, func(p string, d fs.DirEntry, err error) error {
 			if err != nil {
 				return nil
@@ -353,7 +353,7 @@ func (s *BethesdaService) Tools(gameID string) ([]Tool, error) {
 			rel, _ := filepath.Rel(modDir, p)
 			if d.IsDir() {
 				// Root holds what starts the game, Lib a tool's own libraries.
-				if name := strings.ToLower(d.Name()); rel != "." && (name == bethesda.RootDir && filepath.Dir(rel) == "." || name == "lib") {
+				if name := strings.ToLower(d.Name()); rel != "." && (name == creation.RootDir && filepath.Dir(rel) == "." || name == "lib") {
 					return filepath.SkipDir
 				}
 				return nil
@@ -371,7 +371,7 @@ func (s *BethesdaService) Tools(gameID string) ([]Tool, error) {
 // Steam runs the game, with the profile deployed for as long as it runs;
 // what the tool writes into Data is kept in the profile's overwrite folder.
 // It returns once the tool has started.
-func (s *BethesdaService) RunTool(gameID, path string) error {
+func (s *CreationService) RunTool(gameID, path string) error {
 	game, _, err := s.creationGame(gameID)
 	if err != nil {
 		return err
@@ -386,7 +386,7 @@ func (s *BethesdaService) RunTool(gameID, path string) error {
 	if !slices.ContainsFunc(tools, func(t Tool) bool { return t.Path == path }) {
 		return fmt.Errorf("no mod of the profile brings %s", path)
 	}
-	compatData := bethesda.SteamCompatData(game.Path, game.SteamAppID)
+	compatData := creation.SteamCompatData(game.Path, game.SteamAppID)
 	if compatData == "" {
 		return errors.New("the game's Proton prefix was not found; Steam makes it the first time it starts the game")
 	}
@@ -421,7 +421,7 @@ const maxLog = 2 << 20
 
 // Logs lists the logs in the script extender's folder, SKSE for Skyrim,
 // newest first. A game not started yet has none.
-func (s *BethesdaService) Logs(gameID string) ([]LogFile, error) {
+func (s *CreationService) Logs(gameID string) ([]LogFile, error) {
 	dir, err := s.logDir(gameID)
 	if err != nil {
 		return nil, err
@@ -450,7 +450,7 @@ func (s *BethesdaService) Logs(gameID string) ([]LogFile, error) {
 
 // ReadLog returns a log from the script extender's folder, or its last
 // maxLog bytes when it is longer.
-func (s *BethesdaService) ReadLog(gameID, name string) (string, error) {
+func (s *CreationService) ReadLog(gameID, name string) (string, error) {
 	if name == "" || name != filepath.Base(name) || name == "." || name == ".." {
 		return "", fmt.Errorf("%q is not a log file", name)
 	}
@@ -482,7 +482,7 @@ func (s *BethesdaService) ReadLog(gameID, name string) (string, error) {
 }
 
 // OpenLogs shows the script extender's log folder in the file manager.
-func (s *BethesdaService) OpenLogs(gameID string) error {
+func (s *CreationService) OpenLogs(gameID string) error {
 	dir, err := s.logDir(gameID)
 	if err != nil {
 		return err
@@ -497,32 +497,32 @@ func (s *BethesdaService) OpenLogs(gameID string) error {
 
 // logDir is where the script extender of a game run by Steam's Proton
 // writes its logs, in the game's prefix.
-func (s *BethesdaService) logDir(gameID string) (string, error) {
+func (s *CreationService) logDir(gameID string) (string, error) {
 	game, bg, err := s.creationGame(gameID)
 	if err != nil {
 		return "", err
 	}
-	compatData := bethesda.SteamCompatData(game.Path, game.SteamAppID)
+	compatData := creation.SteamCompatData(game.Path, game.SteamAppID)
 	if compatData == "" {
 		return "", errors.New("the game's Proton prefix was not found; Steam makes it the first time it starts the game")
 	}
-	return bethesda.ExtenderLogs(compatData, bg), nil
+	return creation.ExtenderLogs(compatData, bg), nil
 }
 
-func (s *BethesdaService) creationGame(gameID string) (library.Game, bethesda.Game, error) {
+func (s *CreationService) creationGame(gameID string) (library.Game, creation.Game, error) {
 	game, err := s.lib.GetGame(gameID)
 	if err != nil {
-		return library.Game{}, bethesda.Game{}, err
+		return library.Game{}, creation.Game{}, err
 	}
-	bg, ok := bethesda.Find(game.Executable)
+	bg, ok := creation.Find(game.Executable)
 	if game.Engine != library.EngineCreation || !ok {
-		return library.Game{}, bethesda.Game{}, fmt.Errorf("%s is not a Creation Engine game", game.Name)
+		return library.Game{}, creation.Game{}, fmt.Errorf("%s is not a Creation Engine game", game.Name)
 	}
 	return game, bg, nil
 }
 
 // notRunning refuses changes to mod folders while the game has them linked in.
-func (s *BethesdaService) notRunning(gameID string) error {
+func (s *CreationService) notRunning(gameID string) error {
 	dataDir, err := s.lib.GameDataDir(gameID)
 	if err != nil {
 		return err

@@ -18,7 +18,7 @@ import (
 
 const installUsage = `usage: hermit install [--game <id>] [--profile <id>] [--choose "[Step/]Group=Option[,Option]"]... [--defaults]
                       [--existing replace|merge|rename|cancel] [--name <name>] <archive>...
-  Installs mod archives (zip, 7z, rar) into a profile of a Bethesda game, the active one unless --profile says
+  Installs mod archives (zip, 7z, rar) into a profile of a Creation Engine game, the active one unless --profile says
   otherwise. A FOMOD installer takes its options from --choose, or its defaults with --defaults; with neither, it
   asks for them step by step when run in a terminal. An archive with the name of a mod the profile has replaces it,
   merges with it, is installed under --name, or is skipped, as --existing says; in a terminal it asks.`
@@ -105,7 +105,7 @@ func installCommand(args []string) int {
 	if profile == "" {
 		profile = game.ActiveProfile
 	}
-	svc := app.NewBethesdaService(b.lib, b.steamRoots)
+	svc := app.NewCreationService(b.lib, b.steamRoots)
 	svc.OnUnpack = func(p app.UnpackProgress) {
 		if p.Total > 0 {
 			fmt.Fprintf(os.Stderr, "\runpacking %s: %d%%", p.File, p.Done*100/p.Total)
@@ -121,7 +121,7 @@ func installCommand(args []string) int {
 	return 0
 }
 
-func installOne(svc *app.BethesdaService, game library.Game, profile, file string, a installArgs, interactive bool) error {
+func installOne(svc *app.CreationService, game library.Game, profile, file string, a installArgs, interactive bool) error {
 	prepared, err := svc.PrepareInstall(game.ID, profile, file)
 	fmt.Fprintln(os.Stderr)
 	if err != nil {
@@ -162,7 +162,7 @@ func installOne(svc *app.BethesdaService, game library.Game, profile, file strin
 
 // pickOptions settles a FOMOD's options: from --choose, from the user when
 // interactive, or its defaults.
-func pickOptions(svc *app.BethesdaService, prepared app.PreparedMod, choose []string, interactive bool, in io.Reader, out io.Writer) (fomod.Choices, error) {
+func pickOptions(svc *app.CreationService, prepared app.PreparedMod, choose []string, interactive bool, in io.Reader, out io.Writer) (fomod.Choices, error) {
 	view, err := svc.FomodView(prepared.Session, nil)
 	if err != nil {
 		return nil, err
@@ -361,7 +361,7 @@ func groupHint(t fomod.GroupType) string {
 }
 
 // installTarget is the game to install into: the one named, the only
-// Bethesda game added, or the one open last.
+// Creation Engine game added, or the one open last.
 func installTarget(lib *library.Library, store *settings.Store, id string) (library.Game, error) {
 	if id != "" {
 		return lib.GetGame(id)
@@ -389,7 +389,7 @@ func installTarget(lib *library.Library, store *settings.Store, id string) (libr
 		ids = append(ids, g.ID)
 	}
 	if len(ids) == 0 {
-		return library.Game{}, errors.New("no Bethesda game is added to Hermit")
+		return library.Game{}, errors.New("no Creation Engine game is added to Hermit")
 	}
 	return library.Game{}, fmt.Errorf("which game? pass --game with one of: %s", strings.Join(ids, ", "))
 }

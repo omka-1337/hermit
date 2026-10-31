@@ -60,11 +60,12 @@ export function InspectMO2(dir: string): $CancellablePromise<bethesda$0.MO2Insta
 }
 
 /**
- * MoveMod puts a mod at index in the profile's order, where later mods win
- * over earlier ones.
+ * MoveMods moves mods, in the order they have among themselves, to just
+ * before the mod before, or to the end when before is empty; later mods win
+ * over earlier ones. Dragging a folded separator moves the mods under it too.
  */
-export function MoveMod(gameID: string, profileID: string, modID: string, index: number): $CancellablePromise<library$0.Profile> {
-    return $Call.ByID(2427553684, gameID, profileID, modID, index);
+export function MoveMods(gameID: string, profileID: string, ids: string[] | null, before: string): $CancellablePromise<library$0.Profile> {
+    return $Call.ByID(2927161509, gameID, profileID, ids, before);
 }
 
 /**

@@ -50,6 +50,12 @@ body {
   font-family: system-ui, sans-serif;
 }
 
+/* While a row is dragged, over whatever the pointer passes. */
+body.dragging,
+body.dragging * {
+  cursor: grabbing !important;
+}
+
 /* WebKitGTK draws <select> with the GTK theme and ignores background colors,
    so drop the native look and draw the arrow ourselves. */
 select {

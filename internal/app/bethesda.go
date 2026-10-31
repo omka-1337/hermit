@@ -202,18 +202,29 @@ func (s *BethesdaService) Conflicts(gameID, profileID string) (map[string]map[st
 	return bethesda.Conflicts(profileDir, mods)
 }
 
-// MoveMod puts a mod at index in the profile's order, where later mods win
-// over earlier ones.
-func (s *BethesdaService) MoveMod(gameID, profileID, modID string, index int) (library.Profile, error) {
+// MoveMods moves mods, in the order they have among themselves, to just
+// before the mod before, or to the end when before is empty; later mods win
+// over earlier ones. Dragging a folded separator moves the mods under it too.
+func (s *BethesdaService) MoveMods(gameID, profileID string, ids []string, before string) (library.Profile, error) {
 	return s.lib.UpdateProfile(gameID, profileID, func(p *library.Profile) error {
-		from := slices.IndexFunc(p.Mods, func(m library.Mod) bool { return m.ID == modID })
-		if from < 0 {
-			return fmt.Errorf("mod %q: %w", modID, library.ErrNotFound)
+		var picked, rest []library.Mod
+		for _, m := range p.Mods {
+			if slices.Contains(ids, m.ID) {
+				picked = append(picked, m)
+			} else {
+				rest = append(rest, m)
+			}
 		}
-		m := p.Mods[from]
-		p.Mods = slices.Delete(p.Mods, from, from+1)
-		index = max(0, min(index, len(p.Mods)))
-		p.Mods = slices.Insert(p.Mods, index, m)
+		if len(picked) != len(ids) {
+			return fmt.Errorf("mods %v: %w", ids, library.ErrNotFound)
+		}
+		at := len(rest)
+		if before != "" {
+			if at = slices.IndexFunc(rest, func(m library.Mod) bool { return m.ID == before }); at < 0 {
+				return fmt.Errorf("mod %q to move before: %w", before, library.ErrNotFound)
+			}
+		}
+		p.Mods = slices.Concat(rest[:at], picked, rest[at:])
 		return nil
 	})
 }

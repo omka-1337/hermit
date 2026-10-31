@@ -86,8 +86,17 @@ func TestImportMO2AndOrderMods(t *testing.T) {
 		t.Error("imported into a profile that has mods")
 	}
 
-	if p, err = s.MoveMod(game.ID, game.ActiveProfile, "patch", 0); err != nil || !slices.Equal(ids(p), []string{"patch", "sky-ui"}) {
+	if p, err = s.MoveMods(game.ID, game.ActiveProfile, []string{"patch"}, "sky-ui"); err != nil || !slices.Equal(ids(p), []string{"patch", "sky-ui"}) {
 		t.Fatalf("after moving: %v %v", ids(p), err)
+	}
+	if p, err = s.MoveMods(game.ID, game.ActiveProfile, []string{"patch"}, ""); err != nil || !slices.Equal(ids(p), []string{"sky-ui", "patch"}) {
+		t.Fatalf("after moving to the end: %v %v", ids(p), err)
+	}
+	if p, err = s.MoveMods(game.ID, game.ActiveProfile, []string{"patch"}, "sky-ui"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.MoveMods(game.ID, game.ActiveProfile, []string{"patch"}, "patch"); err == nil {
+		t.Error("moved a mod before itself")
 	}
 	profileDir, _ := lib.ProfileDir(game.ID, game.ActiveProfile)
 	if p, err = s.RemoveMod(game.ID, game.ActiveProfile, "patch"); err != nil || !slices.Equal(ids(p), []string{"sky-ui"}) {

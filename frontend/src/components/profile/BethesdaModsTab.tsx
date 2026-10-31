@@ -12,7 +12,8 @@ import { useDragReorder } from "./useDragReorder";
 // they are deployed into Data: where two mods have the same file, the one
 // further down wins, as in Mod Organizer 2. Rows are dragged to change it; a
 // folded separator takes its mods along. Separators head groups of the mods
-// after them and fold them away; a right click on a row adds one next to it.
+// after them and fold them away. A right click on a row adds a separator next
+// to it or removes the row.
 // Clicking a mod shows its conflicts: in green the mods whose files it
 // replaces, in red the ones replacing its files.
 export default function BethesdaModsTab() {
@@ -23,8 +24,9 @@ export default function BethesdaModsTab() {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   // naming is the separator being added: where it goes and its name so far.
   const [naming, setNaming] = useState<{ at: number; name: string } | null>(null);
-  // above and below are where a separator added from the menu goes.
-  const [menu, setMenu] = useState<{ above: number; below: number; at: MenuAnchor } | null>(null);
+  // mod is the row the menu is for; above and below are where a separator
+  // added from it goes.
+  const [menu, setMenu] = useState<{ mod: Mod; above: number; below: number; at: MenuAnchor } | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   // conflicts maps each mod to the mods it shares files with, and how many.
   const [conflicts, setConflicts] = useState<Record<string, Record<string, number>>>({});
@@ -118,7 +120,7 @@ export default function BethesdaModsTab() {
   // Below a folded separator is past the mods it hides.
   const openMenu = (index: number, below: number) => (e: React.MouseEvent) => {
     e.preventDefault();
-    setMenu({ above: index, below, at: { x: e.clientX, y: e.clientY } });
+    setMenu({ mod: mods[index], above: index, below, at: { x: e.clientX, y: e.clientY } });
   };
 
   const nameInput = naming && (
@@ -228,9 +230,6 @@ export default function BethesdaModsTab() {
               )}
               <span className="flex-1" />
               {busy === m.id && <Spinner />}
-              <Button variant="danger" disabled={busy !== null} onClick={() => remove(m)}>
-                Remove
-              </Button>
             </li>
           ) : (
             <li
@@ -282,9 +281,6 @@ export default function BethesdaModsTab() {
                   Nexus
                 </Button>
               )}
-              <Button variant="danger" disabled={busy !== null} onClick={() => remove(m)}>
-                Remove
-              </Button>
             </li>
           ),
         ])}
@@ -319,6 +315,16 @@ export default function BethesdaModsTab() {
             }}
           >
             Add separator below
+          </MenuItem>
+          <MenuItem
+            danger
+            disabled={busy !== null}
+            onClick={() => {
+              remove(menu.mod);
+              setMenu(null);
+            }}
+          >
+            {menu.mod.separator ? "Remove separator" : "Remove"}
           </MenuItem>
         </ContextMenu>
       )}

@@ -1,17 +1,23 @@
 import { useEffect, useRef, useState } from "react";
 import { Engine, errorMessage, Game, LaunchService, Library, Runtime } from "../api";
+import EditableName from "./EditableName";
 import { useLaunchInfo } from "./launch";
 import { Button, ErrorText, inputClass } from "./ui";
 
 type Props = {
   game: Game;
   onRemove: () => void;
+  // onRenamed, when given, puts the game's name in the panel: the desktop
+  // sidebar has no header to rename it in.
+  onRenamed?: (game: Game) => void;
+  // align is the side of the gear the panel lines up with.
+  align?: "left" | "right";
 };
 
 // GameSettings is the gear next to Play on a game's page. It keeps the rarely
 // used and the destructive out of the header: which executable the game
 // starts from, and removing the game from Hermit.
-export default function GameSettings({ game, onRemove }: Props) {
+export default function GameSettings({ game, onRemove, onRenamed, align = "right" }: Props) {
   const [open, setOpen] = useState(false);
   const box = useRef<HTMLDivElement>(null);
   const { info } = useLaunchInfo(game.id);
@@ -81,7 +87,23 @@ export default function GameSettings({ game, onRemove }: Props) {
         {custom && <span className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-indigo-400" />}
       </button>
       {open && (
-        <div className="absolute top-full right-0 z-20 mt-2 flex w-80 flex-col gap-3 rounded-lg border border-zinc-700 bg-zinc-900 p-3 shadow-xl">
+        <div
+          className={`absolute top-full z-20 mt-2 flex w-80 flex-col gap-3 rounded-lg border border-zinc-700 bg-zinc-900 p-3 shadow-xl ${
+            align === "left" ? "left-0" : "right-0"
+          }`}
+        >
+          {onRenamed && (
+            <div className="flex flex-col gap-1 text-sm">
+              <EditableName
+                value={game.name}
+                className="font-medium"
+                onSave={async (name) => onRenamed(await Library.RenameGame(game.id, name))}
+              />
+              <span className="truncate text-xs text-zinc-500 select-text" title={game.path}>
+                {game.path}
+              </span>
+            </div>
+          )}
           {pickExecutable && (
             <label className="flex flex-col gap-1.5 text-sm">
               <span className="text-zinc-400">Start the game from</span>

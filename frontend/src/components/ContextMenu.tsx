@@ -10,12 +10,15 @@ type Props = {
   at: MenuAnchor;
   onClose: () => void;
   children: ReactNode;
+  // width is the panel's width class; a menu opened from a button in the
+  // sidebar takes the sidebar's.
+  width?: string;
 };
 
 // ContextMenu is the little panel a right click opens, keeping the rarely used
 // and the destructive off the card itself. It is driven by the controller as
 // well: the d-pad walks the items, A picks one and B closes it.
-export default function ContextMenu({ at, onClose, children }: Props) {
+export default function ContextMenu({ at, onClose, children, width = "w-52" }: Props) {
   const deck = useLayout() === "deck";
   const box = useRef<HTMLDivElement>(null);
   const top = useModalLayer(true);
@@ -57,7 +60,7 @@ export default function ContextMenu({ at, onClose, children }: Props) {
       <div
         ref={box}
         style={{ left: pos.x, top: pos.y }}
-        className="fixed flex w-52 flex-col rounded-lg border border-zinc-700 bg-zinc-900 p-1 shadow-xl"
+        className={`fixed flex max-h-[80vh] flex-col overflow-y-auto rounded-lg border border-zinc-700 bg-zinc-900 p-1 shadow-xl ${width}`}
         onMouseDown={(e) => e.stopPropagation()}
       >
         {children}
@@ -70,21 +73,39 @@ type ItemProps = {
   onClick: () => void;
   disabled?: boolean;
   danger?: boolean;
+  // selected marks the item that is the current choice, in a menu used as a
+  // drop-down list.
+  selected?: boolean;
   title?: string;
   children: ReactNode;
 };
 
-export function MenuItem({ onClick, disabled, danger, title, children }: ItemProps) {
+export function MenuItem({ onClick, disabled, danger, selected, title, children }: ItemProps) {
   return (
     <button
       disabled={disabled}
       title={title}
       onClick={onClick}
-      className={`rounded px-3 py-2 text-left text-sm transition-colors disabled:pointer-events-none disabled:opacity-40 ${
-        danger ? "text-red-400 hover:bg-red-500/10" : "text-zinc-200 hover:bg-zinc-800"
+      className={`flex items-center gap-2 rounded px-3 py-2 text-left text-sm transition-colors disabled:pointer-events-none disabled:opacity-40 ${
+        danger
+          ? "text-red-400 hover:bg-red-500/10"
+          : selected
+            ? "bg-zinc-800 text-zinc-100"
+            : "text-zinc-200 hover:bg-zinc-800"
       }`}
     >
       {children}
     </button>
   );
+}
+
+export function MenuDivider() {
+  return <div className="my-1 border-t border-zinc-800" />;
+}
+
+// anchorBelow is where a menu opened from a button goes: under it, lined up
+// with its left edge.
+export function anchorBelow(el: HTMLElement): MenuAnchor {
+  const r = el.getBoundingClientRect();
+  return { x: r.left, y: r.bottom + 4 };
 }

@@ -14,7 +14,21 @@ import InstalledTab from "./InstalledTab";
 import LoaderNotice from "./LoaderNotice";
 import { ProfileProvider } from "./ProfileContext";
 
-type Tab = "installed" | "browse" | "config";
+export type Tab = "installed" | "browse" | "config";
+
+// profileTabs are the pages of a profile. A Creation Engine game has neither
+// Thunderstore nor BepInEx: its profile is the list of its mods.
+export function profileTabs(game: Game, profile: Profile | null): { id: Tab; label: string }[] {
+  // Separators head groups of mods and are not mods themselves.
+  const modCount = profile?.mods?.filter((m) => !m.separator).length ?? 0;
+  return game.engine === Engine.EngineCreation
+    ? [{ id: "installed", label: `Mods${modCount ? ` (${modCount})` : ""}` }]
+    : [
+        { id: "installed", label: `Installed${modCount ? ` (${modCount})` : ""}` },
+        { id: "browse", label: "Browse" },
+        { id: "config", label: "Config" },
+      ];
+}
 
 type Props = {
   game: Game;
@@ -22,13 +36,24 @@ type Props = {
   onBack: () => void;
   onGameChanged: () => void;
   onOpenProfile: (profileId: string) => void;
+  // tab, when given, is picked in the desktop sidebar, which also holds the
+  // profile's name and what is done to the profile as a whole; the page then
+  // keeps only the tab's content and Play.
+  tab?: Tab;
+  onProfileChange?: (profile: Profile) => void;
 };
 
-export default function ProfileView({ game, profileId, onBack, onGameChanged, onOpenProfile }: Props) {
+export default function ProfileView({ game, profileId, onBack, onGameChanged, onOpenProfile, tab: chosenTab, onProfileChange }: Props) {
   const deck = useLayout() === "deck";
   const modalOpen = useModalOpen();
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [tab, setTab] = useState<Tab>("installed");
+  const [profile, setProfileState] = useState<Profile | null>(null);
+  const [ownTab, setTab] = useState<Tab>("installed");
+  const embedded = chosenTab !== undefined;
+  const tab = chosenTab ?? ownTab;
+  const setProfile = (p: Profile) => {
+    setProfileState(p);
+    onProfileChange?.(p);
+  };
   const [error, setError] = useState("");
   const [exporting, setExporting] = useState(false);
 
@@ -38,18 +63,8 @@ export default function ProfileView({ game, profileId, onBack, onGameChanged, on
       .catch((err) => setError(errorMessage(err)));
   }, [game.id, profileId]);
 
-  // A Creation Engine game has neither Thunderstore nor BepInEx: its
-  // profile is the list of its mods.
   const creation = game.engine === Engine.EngineCreation;
-  // Separators head groups of mods and are not mods themselves.
-  const modCount = profile?.mods?.filter((m) => !m.separator).length ?? 0;
-  const tabs: { id: Tab; label: string }[] = creation
-    ? [{ id: "installed", label: `Mods${modCount ? ` (${modCount})` : ""}` }]
-    : [
-        { id: "installed", label: `Installed${modCount ? ` (${modCount})` : ""}` },
-        { id: "browse", label: "Browse" },
-        { id: "config", label: "Config" },
-      ];
+  const tabs = profileTabs(game, profile);
 
   const step = (by: number) =>
     setTab((current) => {
@@ -62,53 +77,62 @@ export default function ProfileView({ game, profileId, onBack, onGameChanged, on
 
   return (
     <div className="flex h-full flex-col">
-      <header className="flex items-center gap-3 border-b border-zinc-800 px-6 pt-4">
-        <Button variant="ghost" onClick={onBack} aria-label="Back to game">
-          ←
-        </Button>
-        <div className="flex min-w-0 flex-col pb-3">
-          <span className="text-xs text-zinc-500">{game.name}</span>
-          <span className="truncate text-lg font-semibold">{profile?.name ?? "…"}</span>
-          {profile?.modpack && (
-            <span className="truncate text-xs text-indigo-400">Modpack {packageLabel(profile.modpack)}</span>
-          )}
-        </div>
-        <nav className="ml-6 flex gap-1 self-end" title={deck ? "LT / RT switch tabs" : undefined}>
-          {tabs.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
-              className={`border-b-2 px-3 pb-3 text-sm ${
-                tab === t.id
-                  ? "border-indigo-500 text-zinc-100"
-                  : "border-transparent text-zinc-400 hover:text-zinc-200"
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
-        </nav>
-        <div className="ml-auto flex items-center gap-3 self-center pb-3">
-          {game.activeProfile === profileId && (
-            <span className="text-xs font-medium text-indigo-400">Active profile</span>
-          )}
-          {profile && (
-            <Button
-              variant="ghost"
-              title="Open the profile's folder in the file manager"
-              onClick={() => FolderService.OpenProfile(game.id, profileId).catch((err) => setError(errorMessage(err)))}
-            >
-              Open folder
-            </Button>
-          )}
-          {profile && !creation && (
-            <Button variant="ghost" onClick={() => setExporting(true)}>
-              Export
-            </Button>
-          )}
-          <PlayButton game={game} profileId={profileId} onPlayed={onGameChanged} />
-        </div>
-      </header>
+      {embedded ? (
+        <header className="flex items-center gap-3 border-b border-zinc-800 px-6 py-3">
+          <span className="text-lg font-semibold">{tabs.find((t) => t.id === tab)?.label}</span>
+          <div className="ml-auto">
+            <PlayButton game={game} profileId={profileId} onPlayed={onGameChanged} />
+          </div>
+        </header>
+      ) : (
+        <header className="flex items-center gap-3 border-b border-zinc-800 px-6 pt-4">
+          <Button variant="ghost" onClick={onBack} aria-label="Back to game">
+            ←
+          </Button>
+          <div className="flex min-w-0 flex-col pb-3">
+            <span className="text-xs text-zinc-500">{game.name}</span>
+            <span className="truncate text-lg font-semibold">{profile?.name ?? "…"}</span>
+            {profile?.modpack && (
+              <span className="truncate text-xs text-indigo-400">Modpack {packageLabel(profile.modpack)}</span>
+            )}
+          </div>
+          <nav className="ml-6 flex gap-1 self-end" title={deck ? "LT / RT switch tabs" : undefined}>
+            {tabs.map((t) => (
+              <button
+                key={t.id}
+                onClick={() => setTab(t.id)}
+                className={`border-b-2 px-3 pb-3 text-sm ${
+                  tab === t.id
+                    ? "border-indigo-500 text-zinc-100"
+                    : "border-transparent text-zinc-400 hover:text-zinc-200"
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </nav>
+          <div className="ml-auto flex items-center gap-3 self-center pb-3">
+            {game.activeProfile === profileId && (
+              <span className="text-xs font-medium text-indigo-400">Active profile</span>
+            )}
+            {profile && (
+              <Button
+                variant="ghost"
+                title="Open the profile's folder in the file manager"
+                onClick={() => FolderService.OpenProfile(game.id, profileId).catch((err) => setError(errorMessage(err)))}
+              >
+                Open folder
+              </Button>
+            )}
+            {profile && !creation && (
+              <Button variant="ghost" onClick={() => setExporting(true)}>
+                Export
+              </Button>
+            )}
+            <PlayButton game={game} profileId={profileId} onPlayed={onGameChanged} />
+          </div>
+        </header>
+      )}
 
       {exporting && profile && <ExportModal game={game} profile={profile} onClose={() => setExporting(false)} />}
 

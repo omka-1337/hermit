@@ -5,10 +5,9 @@ import GameView from "../components/GameView";
 import ProfileView from "../components/profile/ProfileView";
 import SettingsView from "./SettingsView";
 import ConsoleShell from "./ConsoleShell";
-import DesktopShell from "./DesktopShell";
+import DesktopWorkspace from "./DesktopWorkspace";
 import { Page } from "./shell";
 import { useLayout } from "../uimode";
-import { Button, Modal } from "../components/ui";
 
 type Props = {
   games: Game[];
@@ -17,8 +16,9 @@ type Props = {
   onGamesChanged: (selectId?: string | null) => Promise<void>;
 };
 
-// Main owns the navigation state and builds the page content; the chrome around
-// it comes from the shell the current layout asks for.
+// Main picks the layout. The desktop one, DesktopWorkspace, is laid out on its
+// own; for the deck Main owns the navigation state and builds the page
+// content, with the chrome around it from ConsoleShell.
 export default function Main({ games, selectedId, onSelect, onGamesChanged }: Props) {
   const deck = useLayout() === "deck";
   const [page, setPage] = useState<Page>("game");
@@ -36,6 +36,10 @@ export default function Main({ games, selectedId, onSelect, onGamesChanged }: Pr
     openGame(id);
     await onGamesChanged(id);
   };
+
+  if (!deck) {
+    return <DesktopWorkspace games={games} selectedId={selectedId} onSelect={onSelect} onGamesChanged={onGamesChanged} />;
+  }
 
   const shellProps = {
     games,
@@ -57,8 +61,7 @@ export default function Main({ games, selectedId, onSelect, onGamesChanged }: Pr
     },
   };
 
-  // The desktop adds games in a dialog over the current page, the console
-  // layout on a page of its own.
+  // The console layout adds games on a page of its own.
   const addGamePage = (
     <div className="mx-auto flex max-w-3xl flex-col gap-4 p-6">
       <h2 className="text-xl font-semibold">Add game</h2>
@@ -69,10 +72,10 @@ export default function Main({ games, selectedId, onSelect, onGamesChanged }: Pr
   const content =
     page === "settings" ? (
       <SettingsView />
-    ) : deck && (page === "add" || !selected) ? (
+    ) : page === "add" || !selected ? (
       // With no games at all the bar highlights Add game, so show its page.
       addGamePage
-    ) : selected && openProfile?.gameId === selected.id ? (
+    ) : openProfile?.gameId === selected.id ? (
       <ProfileView
         key={openProfile.profileId}
         game={selected}
@@ -81,7 +84,7 @@ export default function Main({ games, selectedId, onSelect, onGamesChanged }: Pr
         onGameChanged={() => onGamesChanged(selected.id)}
         onOpenProfile={(profileId) => setOpenProfile({ gameId: selected.id, profileId })}
       />
-    ) : selected ? (
+    ) : (
       <GameView
         key={selected.id}
         game={selected}
@@ -89,34 +92,7 @@ export default function Main({ games, selectedId, onSelect, onGamesChanged }: Pr
         onRemoved={() => onGamesChanged(null)}
         onOpenProfile={(profileId) => setOpenProfile({ gameId: selected.id, profileId })}
       />
-    ) : (
-      <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
-        <p className="text-zinc-400">{games.length ? "Select a game" : "No games added yet"}</p>
-        {!games.length && (
-          <Button variant="primary" onClick={() => setPage("add")}>
-            Add game
-          </Button>
-        )}
-      </div>
     );
 
-  const Shell = deck ? ConsoleShell : DesktopShell;
-
-  return (
-    <>
-      <Shell {...shellProps}>{content}</Shell>
-      {!deck && page === "add" && (
-        <Modal title="Add game" size="lg" onClose={() => setPage("game")}>
-          <GamePicker
-            onAdded={(g) => addedGame(g.id)}
-            actions={
-              <Button variant="ghost" onClick={() => setPage("game")}>
-                Close
-              </Button>
-            }
-          />
-        </Modal>
-      )}
-    </>
-  );
+  return <ConsoleShell {...shellProps}>{content}</ConsoleShell>;
 }

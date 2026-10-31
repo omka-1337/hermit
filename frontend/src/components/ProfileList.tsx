@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { Dialogs } from "@wailsio/runtime";
-import { confirmDanger, Game, Library, Profile } from "../api";
+import { Game, Profile } from "../api";
 import { packageLabel } from "../format";
 import ContextMenu, { MenuAnchor, MenuItem } from "./ContextMenu";
+import { useProfileActions } from "./profileActions";
 import { inputClass } from "./ui";
 
 type Props = {
@@ -31,72 +31,20 @@ export default function ProfileList({
 }: Props) {
   const [menu, setMenu] = useState<{ profile: Profile; at: MenuAnchor } | null>(null);
   const [renaming, setRenaming] = useState<string | null>(null);
-  // moving is the profile being moved; across disks that copies every mod.
-  const [moving, setMoving] = useState<string | null>(null);
-
-  const run = async (action: () => Promise<void>) => {
-    try {
-      await action();
-    } catch (err) {
-      onError(err instanceof Error ? err.message : String(err));
-    }
-  };
+  const { moving, setActive, copy, rename: renameProfile, move, moveTo, remove } = useProfileActions(
+    game,
+    reload,
+    onGameChanged,
+    onError,
+  );
 
   const open = (profile: Profile, e: { clientX: number; clientY: number }) =>
     setMenu({ profile, at: { x: e.clientX, y: e.clientY } });
 
-  const setActive = (p: Profile) =>
-    run(async () => onGameChanged(await Library.SetActiveProfile(game.id, p.id)));
-
-  const copy = (p: Profile) =>
-    run(async () => {
-      await Library.CopyProfile(game.id, p.id, `${p.name} copy`);
-      await reload();
-    });
-
-  const rename = (p: Profile, name: string) =>
-    run(async () => {
-      setRenaming(null);
-      if (!name.trim() || name === p.name) return;
-      await Library.RenameProfile(game.id, p.id, name.trim());
-      await reload();
-    });
-
-  // move puts a profile into a folder of its own inside location, or back
-  // into Hermit's data when location is empty.
-  const move = (p: Profile, location: string) =>
-    run(async () => {
-      setMoving(p.id);
-      try {
-        await Library.MoveProfile(game.id, p.id, location);
-      } finally {
-        setMoving(null);
-        await Promise.all([reload(), (async () => onGameChanged(await Library.GetGame(game.id)))()]);
-      }
-    });
-
-  const moveTo = (p: Profile) =>
-    run(async () => {
-      const location = await Dialogs.OpenFile({
-        Title: `Choose where to keep "${p.name}"`,
-        CanChooseDirectories: true,
-        CanChooseFiles: false,
-        CanCreateDirectories: true,
-      });
-      if (location) await move(p, location);
-    });
-
-  const remove = (p: Profile) =>
-    run(async () => {
-      const ok = await confirmDanger(
-        "Remove profile",
-        `Remove profile "${p.name}" with all its installed mods and configs?`,
-        "Remove",
-      );
-      if (!ok) return;
-      await Library.RemoveProfile(game.id, p.id);
-      await Promise.all([reload(), (async () => onGameChanged(await Library.GetGame(game.id)))()]);
-    });
+  const rename = (p: Profile, name: string) => {
+    setRenaming(null);
+    return renameProfile(p, name);
+  };
 
   return (
     <>

@@ -12,7 +12,6 @@ import {
   UnpackProgress,
 } from "../api";
 import DuplicateModModal from "../components/DuplicateModModal";
-import PlayBar from "../components/PlayBar";
 import { installFromFileEvent } from "../components/TitleMenus";
 import GamePicker from "../components/GamePicker";
 import { LaunchSetup } from "../components/launch";
@@ -36,16 +35,19 @@ type Props = {
 
 // DesktopWorkspace is the mouse-and-keyboard layout. The sidebar picks the
 // game, then its profile, which is the active one, then a page of that
-// profile, top to bottom; the page fills the rest of the window, with Play
-// in its bottom right corner.
+// profile, top to bottom; the page fills the rest of the window, Play in its
+// top right corner. A status bar along the bottom counts the profile's mods
+// and follows a mod being installed.
 export default function DesktopWorkspace({ games, selectedId, onSelect, onGamesChanged }: Props) {
   const [settings, setSettings] = useState(false);
   const [adding, setAdding] = useState(false);
   const [tab, setTab] = useState<Tab>("installed");
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [error, setError] = useState("");
-  // unpacking is an archive being unpacked for File → Install from file.
+  // unpacking is an archive being unpacked for File → Install from file;
+  // installing names the mod while its files go into the profile.
   const [unpacking, setUnpacking] = useState<UnpackProgress | null>(null);
+  const [installing, setInstalling] = useState<string | null>(null);
   const [addRequest, setAddRequest] = useState(0);
   // duplicate is an unpacked archive whose mod the profile has already.
   const [duplicate, setDuplicate] = useState<PreparedMod | null>(null);
@@ -134,9 +136,17 @@ export default function DesktopWorkspace({ games, selectedId, onSelect, onGamesC
   // carryOn installs a prepared archive: through its FOMOD installer's
   // window, or right away.
   const carryOn = async (prepared: PreparedMod) => {
-    if (prepared.fomod) await BethesdaService.OpenFomod(prepared.session);
-    else await BethesdaService.FinishInstall(prepared.session, null);
-    setTab("installed");
+    if (prepared.fomod) {
+      await BethesdaService.OpenFomod(prepared.session);
+      return;
+    }
+    setInstalling(prepared.name);
+    try {
+      await BethesdaService.FinishInstall(prepared.session, null);
+      setTab("installed");
+    } finally {
+      setInstalling(null);
+    }
   };
 
   useEffect(() => Events.On("bethesda:unpack", (ev) => setUnpacking((u) => (u ? ev.data : u))), []);
@@ -170,104 +180,104 @@ export default function DesktopWorkspace({ games, selectedId, onSelect, onGamesC
   const profileChanged = (p: Profile) => setProfiles((list) => list.map((q) => (q.id === p.id ? p : q)));
 
   return (
-    <div className="flex h-full">
-      <aside className="flex w-64 shrink-0 flex-col gap-4 border-r border-zinc-800 bg-zinc-900 p-3">
-        <GameSwitcher
-          games={games}
-          selected={game}
-          onSelect={(id) => {
-            setSettings(false);
-            onSelect(id);
-          }}
-          onAdd={() => setAdding(true)}
-          onChanged={changed}
-          onRemove={removeGame}
-        />
-        {game && (
-          <ProfileSwitcher
-            game={game}
-            profiles={profiles}
-            onGameChanged={changed}
-            reload={loadProfiles}
-            onError={setError}
+    <div className="flex h-full flex-col">
+      <div className="flex min-h-0 flex-1">
+        <aside className="flex w-64 shrink-0 flex-col gap-4 border-r border-zinc-800 bg-zinc-900 p-3">
+          <GameSwitcher
+            games={games}
+            selected={game}
+            onSelect={(id) => {
+              setSettings(false);
+              onSelect(id);
+            }}
+            onAdd={() => setAdding(true)}
+            onChanged={changed}
+            onRemove={removeGame}
           />
-        )}
-        {game && (
-          <nav className="flex flex-col gap-0.5">
-            {tabs.map((t) => (
-              <button
-                key={t.id}
-                onClick={() => {
-                  setSettings(false);
-                  setTab(t.id);
-                }}
-                className={`flex items-center gap-2.5 rounded-md px-3 py-2 text-left text-sm ${
-                  !settings && tab === t.id ? "bg-zinc-800 font-medium text-zinc-100" : "text-zinc-400 hover:bg-zinc-800/60 hover:text-zinc-200"
-                }`}
-              >
-                <TabIcon tab={t.id} />
-                {t.label}
-              </button>
-            ))}
-          </nav>
-        )}
-        <div className="flex-1" />
-        <button
-          onClick={() => setSettings(true)}
-          className={`flex items-center gap-2 rounded-md px-3 py-2 text-left text-sm ${
-            settings ? "bg-zinc-800 text-zinc-100" : "text-zinc-400 hover:bg-zinc-800/60 hover:text-zinc-200"
-          }`}
-        >
-          <GearIcon />
-          Settings
-        </button>
-      </aside>
+          {game && (
+            <ProfileSwitcher
+              game={game}
+              profiles={profiles}
+              onGameChanged={changed}
+              reload={loadProfiles}
+              onError={setError}
+            />
+          )}
+          {game && (
+            <nav className="flex flex-col gap-0.5">
+              {tabs.map((t) => (
+                <button
+                  key={t.id}
+                  onClick={() => {
+                    setSettings(false);
+                    setTab(t.id);
+                  }}
+                  className={`flex items-center gap-2.5 rounded-md px-3 py-2 text-left text-sm ${
+                    !settings && tab === t.id ? "bg-zinc-800 font-medium text-zinc-100" : "text-zinc-400 hover:bg-zinc-800/60 hover:text-zinc-200"
+                  }`}
+                >
+                  <TabIcon tab={t.id} />
+                  {t.label}
+                </button>
+              ))}
+            </nav>
+          )}
+          <div className="flex-1" />
+          <button
+            onClick={() => setSettings(true)}
+            className={`flex items-center gap-2 rounded-md px-3 py-2 text-left text-sm ${
+              settings ? "bg-zinc-800 text-zinc-100" : "text-zinc-400 hover:bg-zinc-800/60 hover:text-zinc-200"
+            }`}
+          >
+            <GearIcon />
+            Settings
+          </button>
+        </aside>
 
-      <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        {error && (
-          <div className="px-6 pt-4">
-            <ErrorText>{error}</ErrorText>
-          </div>
-        )}
-        {settings ? (
-          <div className="min-h-0 flex-1 overflow-auto">
-            <SettingsView />
-          </div>
-        ) : game && profile ? (
-          <>
-            <div className="shrink-0 px-6 empty:hidden [&>section]:pt-4">
-              <LaunchSetup game={game} />
+        <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
+          {error && (
+            <div className="px-6 pt-4">
+              <ErrorText>{error}</ErrorText>
             </div>
-            <div className="min-h-0 flex-1">
-              <ProfileView
-                key={`${game.id}/${profile.id}`}
-                game={game}
-                profileId={profile.id}
-                tab={tab}
-                onBack={() => {}}
-                onGameChanged={() => onGamesChanged(game.id)}
-                onOpenProfile={async (profileId) => changed(await Library.SetActiveProfile(game.id, profileId))}
-                onProfileChange={profileChanged}
-                addRequest={addRequest}
-              />
+          )}
+          {settings ? (
+            <div className="min-h-0 flex-1 overflow-auto">
+              <SettingsView />
             </div>
-            <footer className="flex shrink-0 justify-end border-t border-zinc-800 px-6 py-2.5">
-              <PlayBar game={game} profileId={profile.id} onGameChanged={() => onGamesChanged(game.id)} />
-            </footer>
-          </>
-        ) : (
-          !game && (
-            <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
-              <p className="text-zinc-400">{games.length ? "Choose a game in the top left" : "No games added yet"}</p>
-              {!games.length && (
-                <Button variant="primary" onClick={() => setAdding(true)}>
-                  Add game
-                </Button>
-              )}
-            </div>
-          )
-        )}
-      </main>
+          ) : game && profile ? (
+            <>
+              <div className="shrink-0 px-6 empty:hidden [&>section]:pt-4">
+                <LaunchSetup game={game} />
+              </div>
+              <div className="min-h-0 flex-1">
+                <ProfileView
+                  key={`${game.id}/${profile.id}`}
+                  game={game}
+                  profileId={profile.id}
+                  tab={tab}
+                  onBack={() => {}}
+                  onGameChanged={() => onGamesChanged(game.id)}
+                  onOpenProfile={async (profileId) => changed(await Library.SetActiveProfile(game.id, profileId))}
+                  onProfileChange={profileChanged}
+                  addRequest={addRequest}
+                />
+              </div>
+            </>
+          ) : (
+            !game && (
+              <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
+                <p className="text-zinc-400">{games.length ? "Choose a game in the top left" : "No games added yet"}</p>
+                {!games.length && (
+                  <Button variant="primary" onClick={() => setAdding(true)}>
+                    Add game
+                  </Button>
+                )}
+              </div>
+            )
+          )}
+        </main>
+      </div>
+      <StatusBar profile={game && !settings ? profile : null} unpacking={unpacking} installing={installing} />
 
       {duplicate && (
         <DuplicateModModal
@@ -282,25 +292,6 @@ export default function DesktopWorkspace({ games, selectedId, onSelect, onGamesC
             setDuplicate(null);
           }}
         />
-      )}
-
-      {unpacking && (
-        <Modal title="Installing" onClose={() => {}}>
-          <div className="flex flex-col gap-3">
-            <span className="truncate text-sm">Unpacking {unpacking.file}…</span>
-            <div className="h-2 overflow-hidden rounded-full bg-zinc-800">
-              <div
-                className="h-full bg-indigo-500 transition-[width]"
-                style={{ width: unpacking.total ? `${Math.round((unpacking.done / unpacking.total) * 100)}%` : "0%" }}
-              />
-            </div>
-            {unpacking.total > 0 && (
-              <span className="text-xs text-zinc-500">
-                {formatBytes(unpacking.done)} of {formatBytes(unpacking.total)}
-              </span>
-            )}
-          </div>
-        </Modal>
       )}
 
       {adding && (
@@ -321,5 +312,45 @@ export default function DesktopWorkspace({ games, selectedId, onSelect, onGamesC
         </Modal>
       )}
     </div>
+  );
+}
+
+// StatusBar runs along the bottom of the window: how many mods the profile
+// has and how many of them are on, and how far a mod being installed got.
+function StatusBar({
+  profile,
+  unpacking,
+  installing,
+}: {
+  profile: Profile | null;
+  unpacking: UnpackProgress | null;
+  installing: string | null;
+}) {
+  const mods = profile?.mods?.filter((m) => !m.separator) ?? [];
+  const on = mods.filter((m) => m.enabled).length;
+  const share = unpacking?.total ? unpacking.done / unpacking.total : 0;
+  return (
+    <footer className="flex h-7 shrink-0 items-center gap-4 border-t border-zinc-800 bg-zinc-900 px-3 text-xs text-zinc-500">
+      {profile && (
+        <span>
+          {mods.length} {mods.length === 1 ? "mod" : "mods"}, {on} on
+        </span>
+      )}
+      <span className="flex-1" />
+      {(unpacking || installing) && (
+        <span className="flex min-w-0 items-center gap-2">
+          <span className="truncate">
+            {unpacking ? `Unpacking ${unpacking.file}` : `Installing ${installing}`}
+            {unpacking?.total ? ` · ${formatBytes(unpacking.done)} of ${formatBytes(unpacking.total)}` : "…"}
+          </span>
+          <span className="h-1.5 w-40 shrink-0 overflow-hidden rounded-full bg-zinc-800">
+            <span
+              className={`block h-full bg-indigo-500 transition-[width] ${unpacking ? "" : "w-1/3 animate-pulse"}`}
+              style={unpacking ? { width: `${Math.round(share * 100)}%` } : undefined}
+            />
+          </span>
+        </span>
+      )}
+    </footer>
   );
 }

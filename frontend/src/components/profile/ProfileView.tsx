@@ -4,6 +4,7 @@ import { BethesdaService, Engine, errorMessage, FolderService, Game, InstallServ
 import { useRefresh } from "../../refresh";
 import { packageLabel } from "../../format";
 import { PlayButton } from "../launch";
+import PlayBar from "../PlayBar";
 import { ExportModal } from "../share";
 import { Button, ErrorText, useModalOpen } from "../ui";
 import { useGamepad } from "../../gamepad";
@@ -25,8 +26,9 @@ export type Tab = "installed" | "browse" | "config" | "tools" | "logs";
 // desktop layout the tools its mods bring and the logs its script extender's
 // plugins wrote.
 export function profileTabs(game: Game, profile: Profile | null, desktop = false): { id: Tab; label: string }[] {
-  // Separators head groups of mods and are not mods themselves.
-  const modCount = profile?.mods?.filter((m) => !m.separator).length ?? 0;
+  // Separators head groups of mods and are not mods themselves. The desktop
+  // layout counts mods in its status bar instead.
+  const modCount = desktop ? 0 : (profile?.mods?.filter((m) => !m.separator).length ?? 0);
   return game.engine === Engine.EngineCreation
     ? [
         { id: "installed", label: `Mods${modCount ? ` (${modCount})` : ""}` },
@@ -127,6 +129,9 @@ export default function ProfileView({
       {embedded ? (
         <header className="flex items-center gap-3 border-b border-zinc-800 px-6 py-3">
           <span className="text-lg font-semibold">{tabs.find((t) => t.id === tab)?.label}</span>
+          <div className="ml-auto">
+            <PlayBar game={game} profileId={profileId} onGameChanged={onGameChanged} />
+          </div>
         </header>
       ) : (
         <header className="flex items-center gap-3 border-b border-zinc-800 px-6 pt-4">

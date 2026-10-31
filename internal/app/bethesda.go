@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -25,6 +26,14 @@ import (
 type BethesdaService struct {
 	lib        *library.Library
 	steamRoots []string
+	// OpenWindow opens a window of the app at url; main sets it.
+	OpenWindow func(url, title string)
+	// OnUnpack, when set, follows unpacking an archive as well, for the
+	// command line, where there are no events.
+	OnUnpack func(UnpackProgress)
+
+	mu       sync.Mutex
+	sessions map[string]*installSession
 }
 
 func NewBethesdaService(lib *library.Library, steamRoots []string) *BethesdaService {

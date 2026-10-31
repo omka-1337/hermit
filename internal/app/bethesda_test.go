@@ -1,6 +1,7 @@
 package app
 
 import (
+	"archive/zip"
 	"os"
 	"path/filepath"
 	"slices"
@@ -191,5 +192,94 @@ func TestTools(t *testing.T) {
 	}
 	if !slices.Equal(tools, want) {
 		t.Errorf("tools:\n got  %+v\n want %+v", tools, want)
+	}
+}
+
+func zipFile(t *testing.T, name string, files map[string]string) string {
+	t.Helper()
+	file := filepath.Join(t.TempDir(), name)
+	f, err := os.Create(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := zip.NewWriter(f)
+	for n, content := range files {
+		fw, _ := w.Create(n)
+		fw.Write([]byte(content))
+	}
+	w.Close()
+	f.Close()
+	return file
+}
+
+func TestInstallArchives(t *testing.T) {
+	tmp := t.TempDir()
+	lib, err := library.New(filepath.Join(tmp, "lib"), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gamePath := filepath.Join(tmp, "Skyrim Special Edition")
+	writeFiles(t, gamePath, map[string]string{"SkyrimSE.exe": "", "Data/Skyrim.esm": ""})
+	game, err := lib.AddGame("Skyrim", gamePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := NewBethesdaService(lib, nil)
+
+	plain := zipFile(t, "SkyUI-12604-6-11-1778020881.zip", map[string]string{"SkyUI/SkyUI_SE.esp": "ui"})
+	prepared, err := s.PrepareInstall(game.ID, game.ActiveProfile, plain)
+	if err != nil || prepared.Fomod || prepared.Name != "SkyUI" {
+		t.Fatalf("prepared %+v, %v", prepared, err)
+	}
+	p, err := s.FinishInstall(prepared.Session, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ui := p.Mods[len(p.Mods)-1]
+	if ui.ID != "skyui" || ui.Version != "6.11" || ui.Source.Type != library.SourceNexus || !ui.Enabled {
+		t.Errorf("installed %+v", ui)
+	}
+	profileDir, _ := lib.ProfileDir(game.ID, game.ActiveProfile)
+	if _, err := os.Stat(filepath.Join(profileDir, "mods", "skyui", "SkyUI_SE.esp")); err != nil {
+		t.Error(err)
+	}
+
+	// A patch offered only when SkyUI's plugin is there.
+	config := `<config><moduleName>Patches</moduleName><installSteps><installStep name="Main"><optionalFileGroups>
+	  <group name="Patches" type="SelectAny"><plugins order="Explicit">
+	    <plugin name="SkyUI patch"><files><file source="skyui.esp" destination="Patch - SkyUI.esp"/></files>
+	      <typeDescriptor><dependencyType><defaultType name="NotUsable"/><patterns><pattern>
+	        <dependencies><fileDependency file="SkyUI_SE.esp" state="Active"/></dependencies><type name="Recommended"/>
+	      </pattern></patterns></dependencyType></typeDescriptor></plugin>
+	    <plugin name="Other patch"><files><file source="other.esp" destination="Patch - Other.esp"/></files>
+	      <typeDescriptor><type name="Optional"/></typeDescriptor></plugin>
+	  </plugins></group></optionalFileGroups></installStep></installSteps></config>`
+	withFomod := zipFile(t, "Patches.zip", map[string]string{"fomod/ModuleConfig.xml": config, "skyui.esp": "p", "other.esp": "o"})
+	prepared, err = s.PrepareInstall(game.ID, game.ActiveProfile, withFomod)
+	if err != nil || !prepared.Fomod {
+		t.Fatalf("prepared %+v, %v", prepared, err)
+	}
+	view, err := s.FomodView(prepared.Session, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := view.Steps[0].Groups[0].Plugins[0]; got.Type != "Recommended" || !got.Selected {
+		t.Errorf("SkyUI patch with SkyUI there: %+v", got)
+	}
+	if p, err = s.FinishInstall(prepared.Session, view.Choices); err != nil {
+		t.Fatal(err)
+	}
+	patches := p.Mods[len(p.Mods)-1]
+	if patches.Notes != "FOMOD: SkyUI patch" {
+		t.Errorf("notes %q", patches.Notes)
+	}
+	if _, err := os.Stat(filepath.Join(profileDir, "mods", patches.ID, "Patch - SkyUI.esp")); err != nil {
+		t.Error(err)
+	}
+	if entries, _ := os.ReadDir(filepath.Join(profileDir, ".staging")); len(entries) != 0 {
+		t.Errorf("unpacked archives left: %v", entries)
+	}
+	if _, err := s.FomodView(prepared.Session, nil); err == nil {
+		t.Error("a finished install is still there")
 	}
 }

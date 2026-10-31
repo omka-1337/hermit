@@ -17,6 +17,7 @@ package library
 import (
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"slices"
@@ -274,7 +275,7 @@ func (l *Library) RenameGame(id, name string) (Game, error) {
 // SetLaunchExecutable chooses the file a game is started from; "" goes back to
 // the game's own executable, or for a Creation Engine game to its script
 // extender when it has one. The path is relative to the game folder and must
-// name a file inside it.
+// name a file inside it, or one a mod of the active profile puts there.
 func (l *Library) SetLaunchExecutable(id, exe string) (Game, error) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -293,13 +294,63 @@ func (l *Library) SetLaunchExecutable(id, exe string) (Game, error) {
 		if filepath.IsAbs(clean) || clean == ".." || strings.HasPrefix(clean, ".."+string(filepath.Separator)) {
 			return Game{}, fmt.Errorf("%q is not inside the game folder", exe)
 		}
-		if fi, err := os.Stat(filepath.Join(g.Path, clean)); err != nil || fi.IsDir() {
+		fi, err := os.Stat(filepath.Join(g.Path, clean))
+		if (err != nil || fi.IsDir()) && !slices.Contains(l.profileRootFiles(g), filepath.ToSlash(clean)) {
 			return Game{}, fmt.Errorf("%q was not found in the game folder", exe)
 		}
 		exe = filepath.ToSlash(clean)
 	}
 	g.LaunchExecutable = exe
 	return g, l.saveGame(g)
+}
+
+// ProfileRootFiles lists the files the enabled mods of a Creation Engine
+// game's active profile put into the game folder while it runs, such as the
+// script extender's loader, as paths relative to the game folder.
+func (l *Library) ProfileRootFiles(gameID string) ([]string, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	g, err := l.loadGame(gameID)
+	if err != nil {
+		return nil, err
+	}
+	return l.profileRootFiles(g), nil
+}
+
+func (l *Library) profileRootFiles(g Game) []string {
+	if g.Engine != EngineCreation {
+		return nil
+	}
+	p, err := l.loadProfile(g.ID, g.ActiveProfile)
+	if err != nil {
+		return nil
+	}
+	dir := l.profileDir(g.ID, g.ActiveProfile)
+	var files []string
+	for _, m := range p.Mods {
+		if !m.Enabled || m.Separator {
+			continue
+		}
+		modDir := filepath.Join(dir, bethesda.ModsDir, m.ID)
+		entries, _ := os.ReadDir(modDir)
+		for _, e := range entries {
+			if !e.IsDir() || !strings.EqualFold(e.Name(), bethesda.RootDir) {
+				continue
+			}
+			root := filepath.Join(modDir, e.Name())
+			filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
+				if err == nil && !d.IsDir() {
+					rel, _ := filepath.Rel(root, p)
+					if rel = filepath.ToSlash(rel); !slices.Contains(files, rel) {
+						files = append(files, rel)
+					}
+				}
+				return nil
+			})
+		}
+	}
+	return files
 }
 
 // RemoveGame deletes the game entry together with all its profiles and installed mods.

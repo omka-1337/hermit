@@ -15,5 +15,5 @@ const (
 	OverwriteDir = "overwrite"
 	PluginsFile  = "plugins.txt"
 	INIDir       = "ini"
-	rootDir      = "root"
+	RootDir      = "root"
 )

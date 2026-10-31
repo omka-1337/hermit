@@ -522,3 +522,34 @@ func TestCopyAndRemoveProfileOutsideLibrary(t *testing.T) {
 		t.Fatalf("profile folder outside the library survived removing the game: %v", err)
 	}
 }
+
+func TestLaunchExecutableFromProfileMod(t *testing.T) {
+	lib := newTestLibrary(t)
+	g, err := lib.AddGame("Skyrim", fakeGame(t, "SkyrimSE.exe", "Data/", "Data/Skyrim.esm"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := lib.SetLaunchExecutable(g.ID, "skse64_loader.exe"); err == nil {
+		t.Fatal("picked a loader nothing provides")
+	}
+	dir, _ := lib.ProfileDir(g.ID, g.ActiveProfile)
+	loader := filepath.Join(dir, "mods", "skse64", "Root", "skse64_loader.exe")
+	if err := os.MkdirAll(filepath.Dir(loader), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(loader, nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := lib.UpdateProfile(g.ID, g.ActiveProfile, func(p *Profile) error {
+		p.Mods = []Mod{{ID: "skse64", Name: "SKSE64", Enabled: true}}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if files, _ := lib.ProfileRootFiles(g.ID); len(files) != 1 || files[0] != "skse64_loader.exe" {
+		t.Fatalf("root files %v", files)
+	}
+	if g, err = lib.SetLaunchExecutable(g.ID, "skse64_loader.exe"); err != nil || g.LaunchExecutable != "skse64_loader.exe" {
+		t.Fatalf("loader from a mod: %q %v", g.LaunchExecutable, err)
+	}
+}

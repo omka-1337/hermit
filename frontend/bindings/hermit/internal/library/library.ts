@@ -100,6 +100,15 @@ export function ProfileDir(gameID: string, profileID: string): $CancellablePromi
 }
 
 /**
+ * ProfileRootFiles lists the files the enabled mods of a Creation Engine
+ * game's active profile put into the game folder while it runs, such as the
+ * script extender's loader, as paths relative to the game folder.
+ */
+export function ProfileRootFiles(gameID: string): $CancellablePromise<string[] | null> {
+    return $Call.ByID(2202402963, gameID);
+}
+
+/**
  * RemoveGame deletes the game entry together with all its profiles and installed mods.
  */
 export function RemoveGame(id: string): $CancellablePromise<void> {
@@ -137,7 +146,7 @@ export function SetActiveProfile(gameID: string, profileID: string): $Cancellabl
  * SetLaunchExecutable chooses the file a game is started from; "" goes back to
  * the game's own executable, or for a Creation Engine game to its script
  * extender when it has one. The path is relative to the game folder and must
- * name a file inside it.
+ * name a file inside it, or one a mod of the active profile puts there.
  */
 export function SetLaunchExecutable(id: string, exe: string): $CancellablePromise<$models.Game> {
     return $Call.ByID(1002379714, id, exe);

@@ -196,7 +196,7 @@ func walkMod(folder string, fn func(key string, src source)) error {
 			return nil
 		}
 		src := source{file: p, rel: rel}
-		if first, rest, ok := strings.Cut(rel, "/"); ok && strings.EqualFold(first, rootDir) {
+		if first, rest, ok := strings.Cut(rel, "/"); ok && strings.EqualFold(first, RootDir) {
 			src.rel, src.root = rest, true
 		}
 		key := strings.ToLower(src.rel)

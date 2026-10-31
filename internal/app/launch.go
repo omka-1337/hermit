@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"syscall"
@@ -188,6 +189,17 @@ func (s *LaunchService) ListExecutables(gameID string) ([]string, error) {
 	})
 	if err != nil {
 		return nil, err
+	}
+	// A Creation Engine game's script extender can come from a mod, which
+	// puts it into the game folder only while the game runs.
+	fromMods, err := s.lib.ProfileRootFiles(gameID)
+	if err != nil {
+		return nil, err
+	}
+	for _, f := range fromMods {
+		if strings.EqualFold(filepath.Ext(f), ".exe") && !slices.Contains(found, f) {
+			found = append(found, f)
+		}
 	}
 	own := filepath.ToSlash(game.Executable)
 	sort.SliceStable(found, func(i, j int) bool {

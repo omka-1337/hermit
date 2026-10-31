@@ -41,28 +41,36 @@ type PlayProps = {
   onPlayed?: () => void;
 };
 
-export function PlayButton({ game, profileId, label = "Play", onPlayed }: PlayProps) {
+// usePlay starts a game with a profile: through Steam, which runs it through
+// the wrapper set in its launch options, or, for a game Steam does not
+// start, through PortProton when it is there.
+export function usePlay(game: Game, profileId: string, onPlayed?: () => void) {
   const { info, reload } = useLaunchInfo(game.id);
   const [error, setError] = useState("");
   const [starting, setStarting] = useState(false);
+  const viaPortProton = !!info?.external && !!info.portProton;
 
   const play = async () => {
     setError("");
     try {
-      const fresh = await LaunchService.GetLaunchInfo(game.id);
-      if (!fresh.configured) {
-        const ok = await confirm(
-          "Launch options not found",
-          "Mods load only when Steam runs the game through the mod manager. Set the launch options shown on the game page.\n\n" +
-            "Steam may not have saved them to disk yet. Launch anyway?",
-          "Launch",
-        );
-        if (!ok) return;
+      if (!viaPortProton) {
+        const fresh = await LaunchService.GetLaunchInfo(game.id);
+        if (!fresh.configured) {
+          const ok = await confirm(
+            "Launch options not found",
+            "Mods load only when Steam runs the game through the mod manager. Set the launch options shown on the game page.\n\n" +
+              "Steam may not have saved them to disk yet. Launch anyway?",
+            "Launch",
+          );
+          if (!ok) return;
+        }
       }
       setStarting(true);
-      await LaunchService.Play(game.id, profileId);
+      if (viaPortProton) await LaunchService.PlayViaPortProton(game.id, profileId);
+      else await LaunchService.Play(game.id, profileId);
       onPlayed?.();
-      // Steam takes a few seconds to start the game.
+      // Steam takes a few seconds to start the game, PortProton a while to
+      // bring Wine up; "Running" shows once the session is there.
       setTimeout(() => {
         setStarting(false);
         reload();
@@ -73,9 +81,15 @@ export function PlayButton({ game, profileId, label = "Play", onPlayed }: PlayPr
     }
   };
 
+  return { info, play, starting, error, viaPortProton };
+}
+
+export function PlayButton({ game, profileId, label = "Play", onPlayed }: PlayProps) {
+  const { info, play, starting, error, viaPortProton } = usePlay(game, profileId, onPlayed);
+
   if (info?.external) {
-    if (info.portProton) {
-      return <PortProtonButton game={game} profileId={profileId} running={info.running} onPlayed={onPlayed} />;
+    if (viaPortProton) {
+      return <PortProtonButton running={info.running} starting={starting} error={error} onPlay={play} />;
     }
     return info.running ? (
       <span className="rounded-md bg-zinc-800 px-3 py-1.5 text-sm font-medium text-zinc-300">Running</span>
@@ -199,7 +213,7 @@ function CopyRow({ label, value }: { label: string; value: string }) {
 // PortProton's icon is read once; every game page shows the same one.
 let portProtonIcon: Promise<string> | null = null;
 
-function usePortProtonIcon(): string {
+export function usePortProtonIcon(): string {
   const [icon, setIcon] = useState("");
   useEffect(() => {
     portProtonIcon ??= IconService.GetPortProtonIcon().catch(() => "");
@@ -213,38 +227,20 @@ function usePortProtonIcon(): string {
 }
 
 type PortProtonProps = {
-  game: Game;
-  profileId: string;
   running: boolean;
-  onPlayed?: () => void;
+  starting: boolean;
+  error: string;
+  onPlay: () => void;
 };
 
 // PortProtonButton starts a game outside Steam through PortProton, which has
 // nowhere to paste launch options, so Hermit starts it itself. Launch settings
 // sit behind the gear next to it, out of the way until they are needed.
-function PortProtonButton({ game, profileId, running, onPlayed }: PortProtonProps) {
+function PortProtonButton({ running, starting, error, onPlay }: PortProtonProps) {
   const icon = usePortProtonIcon();
-  const [error, setError] = useState("");
-  const [starting, setStarting] = useState(false);
-
-  const play = async () => {
-    setError("");
-    setStarting(true);
-    try {
-      await LaunchService.PlayViaPortProton(game.id, profileId);
-      onPlayed?.();
-      // PortProton takes a while to bring Wine up; "Running" shows once the
-      // session is there.
-      setTimeout(() => setStarting(false), 8000);
-    } catch (err) {
-      setStarting(false);
-      setError(errorMessage(err));
-    }
-  };
-
   return (
     <div className="flex flex-col items-end gap-1">
-      <Button variant="primary" disabled={running || starting} onClick={play} className="flex items-center gap-2">
+      <Button variant="primary" disabled={running || starting} onClick={onPlay} className="flex items-center gap-2">
         {running ? "Running" : starting ? "Starting…" : "Play via PortProton"}
         {icon && <img src={icon} alt="" className="h-5 w-5 shrink-0" />}
       </Button>

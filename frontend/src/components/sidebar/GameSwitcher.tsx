@@ -40,7 +40,9 @@ export default function GameSwitcher({ games, selected, onSelect, onAdd, onChang
         )}
         <ChevronDownIcon />
       </button>
-      {selected && <GameSettings game={selected} onRemove={onRemove} onRenamed={onChanged} align="left" />}
+      {selected && (
+        <GameSettings game={selected} onRemove={onRemove} onRenamed={onChanged} align="left" pickExecutable={false} />
+      )}
 
       {menu && (
         <ContextMenu at={menu} onClose={() => setMenu(null)} width="w-64">

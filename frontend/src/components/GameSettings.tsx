@@ -12,12 +12,15 @@ type Props = {
   onRenamed?: (game: Game) => void;
   // align is the side of the gear the panel lines up with.
   align?: "left" | "right";
+  // pickExecutable is false where the file the game starts from is picked
+  // next to Play instead.
+  pickExecutable?: boolean;
 };
 
 // GameSettings is the gear next to Play on a game's page. It keeps the rarely
 // used and the destructive out of the header: which executable the game
 // starts from, and removing the game from Hermit.
-export default function GameSettings({ game, onRemove, onRenamed, align = "right" }: Props) {
+export default function GameSettings({ game, onRemove, onRenamed, align = "right", pickExecutable: allowPick = true }: Props) {
   const [open, setOpen] = useState(false);
   const box = useRef<HTMLDivElement>(null);
   const { info } = useLaunchInfo(game.id);
@@ -31,7 +34,7 @@ export default function GameSettings({ game, onRemove, onRenamed, align = "right
 
   // A game that runs through Wine can be started from another file, whether
   // Hermit starts it or Steam does through the launch options.
-  const choosable = !!info?.supported && game.runtime === Runtime.RuntimeProton;
+  const choosable = allowPick && !!info?.supported && game.runtime === Runtime.RuntimeProton;
 
   useEffect(() => {
     if (!choosable) return;

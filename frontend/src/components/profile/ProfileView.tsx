@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Engine, errorMessage, FolderService, Game, InstallService, Profile } from "../../api";
 import { packageLabel } from "../../format";
 import { PlayButton } from "../launch";
+import PlayBar from "../PlayBar";
 import { ExportModal } from "../share";
 import { Button, ErrorText, useModalOpen } from "../ui";
 import { useGamepad } from "../../gamepad";
@@ -81,7 +82,7 @@ export default function ProfileView({ game, profileId, onBack, onGameChanged, on
         <header className="flex items-center gap-3 border-b border-zinc-800 px-6 py-3">
           <span className="text-lg font-semibold">{tabs.find((t) => t.id === tab)?.label}</span>
           <div className="ml-auto">
-            <PlayButton game={game} profileId={profileId} onPlayed={onGameChanged} />
+            <PlayBar game={game} profileId={profileId} onGameChanged={onGameChanged} />
           </div>
         </header>
       ) : (

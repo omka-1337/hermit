@@ -2,6 +2,7 @@ import { CSSProperties, useState } from "react";
 import { Browser, Dialogs } from "@wailsio/runtime";
 import { confirm, errorMessage, InfoService } from "../api";
 import ContextMenu, { anchorBelow, MenuAnchor, MenuItem } from "./ContextMenu";
+import hermitIcon from "../assets/hermit.png";
 
 const noDrag = { "--wails-draggable": "no-drag" } as CSSProperties;
 
@@ -52,7 +53,8 @@ export default function TitleMenus() {
 
   return (
     <div style={noDrag} className="flex h-full" onDoubleClick={(e) => e.stopPropagation()}>
-      <button className={`${button("hermit")} font-semibold`} onClick={open("hermit")}>
+      <button className={`${button("hermit")} gap-1.5 font-semibold`} onClick={open("hermit")}>
+        <img src={hermitIcon} alt="" className="h-5 w-5" />
         Hermit
       </button>
       <button className={button("file")} onClick={open("file")}>

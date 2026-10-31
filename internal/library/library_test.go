@@ -370,3 +370,106 @@ func TestCopyProfile(t *testing.T) {
 		t.Fatalf("source renamed to %q", again.Name)
 	}
 }
+
+func TestMoveProfileOutOfLibraryAndBack(t *testing.T) {
+	lib := newTestLibrary(t)
+	g, err := lib.AddGame("Valheim", fakeGame(t, "Valheim_Data/", "Valheim.exe", "UnityPlayer.dll"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	inside := lib.profileDir(g.ID, g.ActiveProfile)
+	if err := os.WriteFile(filepath.Join(inside, "BepInEx", "plugins", "mod.dll"), []byte("mod"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	location := t.TempDir()
+	dir, err := lib.MoveProfile(g.ID, g.ActiveProfile, location)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := filepath.Join(location, "valheim-default"); dir != want {
+		t.Fatalf("moved to %s, want %s", dir, want)
+	}
+	if got, _ := lib.ProfileDir(g.ID, g.ActiveProfile); got != dir {
+		t.Fatalf("ProfileDir = %s, want %s", got, dir)
+	}
+	if data, err := os.ReadFile(filepath.Join(dir, "BepInEx", "plugins", "mod.dll")); err != nil || string(data) != "mod" {
+		t.Fatalf("mod file after the move: %q, %v", data, err)
+	}
+	if _, err := os.Stat(inside); !os.IsNotExist(err) {
+		t.Fatalf("old folder is still there: %v", err)
+	}
+	if profiles, err := lib.ListProfiles(g.ID); err != nil || len(profiles) != 1 {
+		t.Fatalf("profiles after the move: %+v, %v", profiles, err)
+	}
+
+	back, err := lib.MoveProfile(g.ID, g.ActiveProfile, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if back != inside {
+		t.Fatalf("moved back to %s, want %s", back, inside)
+	}
+	if g, _ := lib.GetGame(g.ID); len(g.ProfileDirs) != 0 {
+		t.Fatalf("game still lists folders: %v", g.ProfileDirs)
+	}
+}
+
+func TestMoveProfileRefusesGameFolderAndRunningGame(t *testing.T) {
+	lib := newTestLibrary(t)
+	g, err := lib.AddGame("Valheim", fakeGame(t, "Valheim_Data/", "Valheim.exe", "UnityPlayer.dll"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := lib.MoveProfile(g.ID, g.ActiveProfile, filepath.Join(g.Path, "Valheim_Data")); err == nil {
+		t.Fatal("moved a profile into the game folder")
+	}
+	if err := os.WriteFile(filepath.Join(lib.gameDir(g.ID), SessionFile), []byte("{}"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := lib.MoveProfile(g.ID, g.ActiveProfile, t.TempDir()); !errors.Is(err, ErrGameRunning) {
+		t.Fatalf("got %v, want ErrGameRunning", err)
+	}
+}
+
+func TestCopyAndRemoveProfileOutsideLibrary(t *testing.T) {
+	lib := newTestLibrary(t)
+	g, err := lib.AddGame("Valheim", fakeGame(t, "Valheim_Data/", "Valheim.exe", "UnityPlayer.dll"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	location := t.TempDir()
+	dir, err := lib.MoveProfile(g.ID, g.ActiveProfile, location)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := lib.MoveProfile(g.ID, g.ActiveProfile, filepath.Join(dir, "BepInEx")); err == nil {
+		t.Fatal("moved a profile into its own folder")
+	}
+
+	copied, err := lib.CopyProfile(g.ID, g.ActiveProfile, "Copy")
+	if err != nil {
+		t.Fatal(err)
+	}
+	copyDir, _ := lib.ProfileDir(g.ID, copied.ID)
+	if want := filepath.Join(location, "valheim-copy"); copyDir != want {
+		t.Fatalf("copy is in %s, want %s next to the original", copyDir, want)
+	}
+
+	if err := lib.RemoveProfile(g.ID, copied.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(copyDir); !os.IsNotExist(err) {
+		t.Fatalf("removed profile's folder is still there: %v", err)
+	}
+	if g, _ := lib.GetGame(g.ID); len(g.ProfileDirs) != 1 {
+		t.Fatalf("folders after removing the copy: %v", g.ProfileDirs)
+	}
+
+	if err := lib.RemoveGame(g.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(dir); !os.IsNotExist(err) {
+		t.Fatalf("profile folder outside the library survived removing the game: %v", err)
+	}
+}

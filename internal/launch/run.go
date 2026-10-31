@@ -145,7 +145,7 @@ func (w *Wrapper) Prepare(gameID string, command, env []string, pid int, logOut 
 	}
 	if prev != nil {
 		// Left over from a session that did not exit cleanly.
-		Unlink(game.Path, prev.Links, w.Lib.Root())
+		Unlink(game.Path, prev.Links, prev.linkRoot(w.Lib.Root()))
 	}
 
 	profile, err := w.Installer.Refresh(game.ID, game.ActiveProfile)
@@ -157,7 +157,7 @@ func (w *Wrapper) Prepare(gameID string, command, env []string, pid int, logOut 
 		return plan, err
 	}
 
-	session := Session{ProfileID: profile.ID, PID: pid, StartedAt: time.Now(), Links: []string{}}
+	session := Session{ProfileID: profile.ID, PID: pid, StartedAt: time.Now(), Links: []string{}, ProfileDir: profileDir}
 	modded := false
 	if game.Runtime == library.RuntimeNative {
 		launcher, err := nativeLauncher(profileDir)
@@ -169,7 +169,7 @@ func (w *Wrapper) Prepare(gameID string, command, env []string, pid int, logOut 
 			modded = true
 		}
 	} else {
-		session.Links, err = LinkProfile(game.Path, profileDir, w.Lib.Root())
+		session.Links, err = LinkProfile(game.Path, profileDir, profileDir)
 		if err != nil {
 			return plan, err
 		}
@@ -181,7 +181,7 @@ func (w *Wrapper) Prepare(gameID string, command, env []string, pid int, logOut 
 			if exe, ok := portProtonExe(command); ok {
 				settings := PortProtonSettings(exe)
 				if added, err := addPPDBOverride(settings, "winhttp", "n,b"); err != nil {
-					Unlink(game.Path, session.Links, w.Lib.Root())
+					Unlink(game.Path, session.Links, profileDir)
 					return plan, fmt.Errorf("adding the winhttp override to PortProton's settings: %w", err)
 				} else if added {
 					session.PPDB = settings
@@ -191,7 +191,7 @@ func (w *Wrapper) Prepare(gameID string, command, env []string, pid int, logOut 
 	}
 	session.Modded = modded
 	if err := writeSession(dataDir, session); err != nil {
-		Unlink(game.Path, session.Links, w.Lib.Root())
+		Unlink(game.Path, session.Links, profileDir)
 		if session.PPDB != "" {
 			removePPDBOverride(session.PPDB, "winhttp", "n,b")
 		}
@@ -238,7 +238,7 @@ func (w *Wrapper) Cleanup(gameID string) error {
 	if session.PPDB != "" {
 		ppdbErr = removePPDBOverride(session.PPDB, "winhttp", "n,b")
 	}
-	return errors.Join(reportErr, ppdbErr, Unlink(game.Path, session.Links, w.Lib.Root()), os.Remove(sessionPath(dataDir)))
+	return errors.Join(reportErr, ppdbErr, Unlink(game.Path, session.Links, session.linkRoot(w.Lib.Root())), os.Remove(sessionPath(dataDir)))
 }
 
 // nativeLauncher returns the BepInEx launcher script of a profile, made

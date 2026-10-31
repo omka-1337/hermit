@@ -13,6 +13,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"hermit/internal/library"
 )
 
 // notLinked are profile entries that belong to the manager, not the game.
@@ -31,6 +33,10 @@ type Session struct {
 	StartedAt time.Time `json:"startedAt"`
 	// Links are names of symlinks created in the game directory.
 	Links []string `json:"links"`
+	// ProfileDir is the folder the links point into. Sessions written before
+	// profiles could live outside the library do not have it; their links
+	// point into the library root.
+	ProfileDir string `json:"profileDir,omitempty"`
 	// Modded records whether the game was started with BepInEx, so the
 	// session can be finished by a process that did not start it.
 	Modded bool `json:"modded"`
@@ -39,7 +45,15 @@ type Session struct {
 	PPDB string `json:"ppdb,omitempty"`
 }
 
-func sessionPath(gameDataDir string) string { return filepath.Join(gameDataDir, "launch.json") }
+func sessionPath(gameDataDir string) string { return filepath.Join(gameDataDir, library.SessionFile) }
+
+// linkRoot is the folder the session's links point into.
+func (s *Session) linkRoot(libraryRoot string) string {
+	if s.ProfileDir != "" {
+		return s.ProfileDir
+	}
+	return libraryRoot
+}
 
 // ReadSession returns the stored session, or nil if there is none.
 func ReadSession(gameDataDir string) (*Session, error) {
@@ -76,7 +90,8 @@ func writeSession(gameDataDir string, s Session) error {
 
 // LinkProfile symlinks the profile's BepInEx folder and loader files into
 // gamePath. Existing symlinks into dataRoot (left by a crashed session) are
-// replaced; real files or foreign symlinks are never touched.
+// replaced; real files or foreign symlinks are never touched. dataRoot is the
+// profile folder or a folder containing it.
 func LinkProfile(gamePath, profileDir, dataRoot string) ([]string, error) {
 	if _, err := os.Stat(filepath.Join(profileDir, loaderMarker)); err != nil {
 		return nil, nil

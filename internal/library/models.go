@@ -36,6 +36,10 @@ type Game struct {
 	// apart from Executable, which identifies the game (Thunderstore finds
 	// its community by that name), because some mods ship their own launcher.
 	LaunchExecutable string `json:"launchExecutable,omitempty"`
+	// ProfileDirs maps the ids of profiles kept outside the library to their
+	// folders, so a profile with large mods can live on another disk, next to
+	// the game. Profiles not listed are in games/<id>/profiles/<profile-id>.
+	ProfileDirs map[string]string `json:"profileDirs,omitempty"`
 }
 
 // GameCandidate is a game that can be added: found in Steam or picked manually.

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Dialogs } from "@wailsio/runtime";
 import { confirmDanger, Game, Library, Profile } from "../api";
 import { packageLabel } from "../format";
 import ContextMenu, { MenuAnchor, MenuItem } from "./ContextMenu";
@@ -17,8 +18,8 @@ type Props = {
 
 // ProfileList shows the profiles of a game as cards: a card opens its profile,
 // and everything else about it — which one is active, renaming, copying,
-// removing — waits in the menu a right click opens, so the card itself stays
-// one plain thing to click.
+// moving to another folder, removing — waits in the menu a right click opens,
+// so the card itself stays one plain thing to click.
 export default function ProfileList({
   game,
   profiles,
@@ -30,6 +31,8 @@ export default function ProfileList({
 }: Props) {
   const [menu, setMenu] = useState<{ profile: Profile; at: MenuAnchor } | null>(null);
   const [renaming, setRenaming] = useState<string | null>(null);
+  // moving is the profile being moved; across disks that copies every mod.
+  const [moving, setMoving] = useState<string | null>(null);
 
   const run = async (action: () => Promise<void>) => {
     try {
@@ -59,6 +62,30 @@ export default function ProfileList({
       await reload();
     });
 
+  // move puts a profile into a folder of its own inside location, or back
+  // into Hermit's data when location is empty.
+  const move = (p: Profile, location: string) =>
+    run(async () => {
+      setMoving(p.id);
+      try {
+        await Library.MoveProfile(game.id, p.id, location);
+      } finally {
+        setMoving(null);
+        await Promise.all([reload(), (async () => onGameChanged(await Library.GetGame(game.id)))()]);
+      }
+    });
+
+  const moveTo = (p: Profile) =>
+    run(async () => {
+      const location = await Dialogs.OpenFile({
+        Title: `Choose where to keep "${p.name}"`,
+        CanChooseDirectories: true,
+        CanChooseFiles: false,
+        CanCreateDirectories: true,
+      });
+      if (location) await move(p, location);
+    });
+
   const remove = (p: Profile) =>
     run(async () => {
       const ok = await confirmDanger(
@@ -80,6 +107,7 @@ export default function ProfileList({
         {profiles.map((p) => {
           const active = p.id === game.activeProfile;
           const modCount = p.mods?.length ?? 0;
+          const folder = game.profileDirs?.[p.id];
           return (
             <li key={p.id} className="relative">
               {/* The active profile shows a strip sticking out from under its card. */}
@@ -111,6 +139,7 @@ export default function ProfileList({
                 ) : (
                   <button
                     data-focus-first={active || undefined}
+                    disabled={moving === p.id}
                     onClick={() => onOpenProfile(p.id)}
                     className="flex min-w-0 flex-1 items-center gap-3 px-4 py-3 text-left hover:bg-zinc-800/50"
                   >
@@ -119,9 +148,14 @@ export default function ProfileList({
                       {p.modpack && (
                         <span className="truncate text-xs text-indigo-400">Modpack {packageLabel(p.modpack)}</span>
                       )}
+                      {folder && (
+                        <span className="truncate text-xs text-zinc-500" title={folder}>
+                          {folder}
+                        </span>
+                      )}
                     </span>
                     <span className="ml-auto shrink-0 text-xs text-zinc-500">
-                      {modCount} {modCount === 1 ? "mod" : "mods"}
+                      {moving === p.id ? "Moving…" : `${modCount} ${modCount === 1 ? "mod" : "mods"}`}
                     </span>
                   </button>
                 )}
@@ -173,6 +207,27 @@ export default function ProfileList({
           >
             Duplicate
           </MenuItem>
+          <MenuItem
+            title="Keeps the profile and its mods in a folder you choose, e.g. on the disk the game is on"
+            disabled={moving !== null}
+            onClick={() => {
+              moveTo(menu.profile);
+              setMenu(null);
+            }}
+          >
+            Move to folder…
+          </MenuItem>
+          {game.profileDirs?.[menu.profile.id] && (
+            <MenuItem
+              disabled={moving !== null}
+              onClick={() => {
+                move(menu.profile, "");
+                setMenu(null);
+              }}
+            >
+              Move back into Hermit
+            </MenuItem>
+          )}
           <MenuItem
             danger
             disabled={profiles.length <= 1}

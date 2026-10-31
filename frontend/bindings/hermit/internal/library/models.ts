@@ -55,6 +55,13 @@ export interface Game {
      * its community by that name), because some mods ship their own launcher.
      */
     "launchExecutable"?: string;
+
+    /**
+     * ProfileDirs maps the ids of profiles kept outside the library to their
+     * folders, so a profile with large mods can live on another disk, next to
+     * the game. Profiles not listed are in games/<id>/profiles/<profile-id>.
+     */
+    "profileDirs"?: { [_ in string]?: string } | null;
 }
 
 /**

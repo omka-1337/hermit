@@ -82,6 +82,16 @@ export function ListProfiles(gameID: string): $CancellablePromise<$models.Profil
 }
 
 /**
+ * MoveProfile moves a profile with all its mods into a folder of its own
+ * inside location, named after the game and the profile, and returns that
+ * folder. An empty location moves it back into the library. Moving to
+ * another disk copies everything, which takes a while for large profiles.
+ */
+export function MoveProfile(gameID: string, profileID: string, location: string): $CancellablePromise<string> {
+    return $Call.ByID(2350190191, gameID, profileID, location);
+}
+
+/**
  * ProfileDir returns the directory of an existing profile.
  */
 export function ProfileDir(gameID: string, profileID: string): $CancellablePromise<string> {

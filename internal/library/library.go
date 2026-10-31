@@ -7,6 +7,9 @@
 //	games/<game-id>/profiles/<profile-id>/profile.json
 //	games/<game-id>/profiles/<profile-id>/BepInEx/...
 //
+// A profile can also be kept in a folder of its own outside the root, listed
+// in its game's game.json; nothing else about it changes.
+//
 // Directory names are stable ids; display names live in the JSON files, so
 // renaming never moves anything on disk.
 package library
@@ -16,9 +19,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
+	"syscall"
 
 	"hermit/internal/steam"
 )
@@ -29,9 +34,14 @@ var (
 	ErrEmptyName     = errors.New("name must not be empty")
 	ErrInvalidPath   = errors.New("game path must be an existing directory")
 	ErrAlreadyExists = errors.New("already added")
+	ErrGameRunning   = errors.New("the game is running or its last session was not finished")
 )
 
 const DefaultProfileName = "Default"
+
+// SessionFile is written to a game's data directory by package launch for as
+// long as a profile is linked into the game.
+const SessionFile = "launch.json"
 
 type Library struct {
 	root       string
@@ -56,7 +66,30 @@ func (l *Library) profilesDir(gameID string) string {
 	return filepath.Join(l.gameDir(gameID), "profiles")
 }
 func (l *Library) profileDir(gameID, profileID string) string {
+	if g, err := l.loadGame(gameID); err == nil {
+		if dir, ok := g.ProfileDirs[profileID]; ok {
+			return dir
+		}
+	}
 	return filepath.Join(l.profilesDir(gameID), profileID)
+}
+
+// profileIDs lists the ids of a game's profiles, in the library and outside it.
+func (l *Library) profileIDs(gameID string) ([]string, error) {
+	ids, err := listDirs(l.profilesDir(gameID))
+	if err != nil {
+		return nil, err
+	}
+	g, err := l.loadGame(gameID)
+	if err != nil {
+		return ids, nil
+	}
+	for id := range g.ProfileDirs {
+		if !slices.Contains(ids, id) {
+			ids = append(ids, id)
+		}
+	}
+	return ids, nil
 }
 
 // ListGames returns all games sorted by name.
@@ -257,8 +290,14 @@ func (l *Library) RemoveGame(id string) error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
-	if _, err := l.loadGame(id); err != nil {
+	g, err := l.loadGame(id)
+	if err != nil {
 		return err
+	}
+	for _, dir := range g.ProfileDirs {
+		if err := os.RemoveAll(dir); err != nil {
+			return err
+		}
 	}
 	return os.RemoveAll(l.gameDir(id))
 }
@@ -362,21 +401,42 @@ func (l *Library) CopyProfile(gameID, profileID, name string) (Profile, error) {
 	if name == "" {
 		return Profile{}, ErrEmptyName
 	}
+	g, err := l.loadGame(gameID)
+	if err != nil {
+		return Profile{}, err
+	}
 	source, err := l.loadProfile(gameID, profileID)
 	if err != nil {
 		return Profile{}, err
 	}
-	ids, err := listDirs(l.profilesDir(gameID))
+	ids, err := l.profileIDs(gameID)
 	if err != nil {
 		return Profile{}, err
 	}
 	p := source
 	p.ID = uniqueID(slugify(name, "profile"), ids)
 	p.Name = name
-	dir := l.profileDir(gameID, p.ID)
+	// The copy goes where the original is: a profile was moved out of the
+	// library because its mods are large, and a copy of it is just as large.
+	dir := filepath.Join(l.profilesDir(gameID), p.ID)
+	if sourceDir, ok := g.ProfileDirs[profileID]; ok {
+		if dir, err = freeFolder(filepath.Dir(sourceDir), gameID+"-"+p.ID); err != nil {
+			return Profile{}, err
+		}
+		if g.ProfileDirs == nil {
+			g.ProfileDirs = map[string]string{}
+		}
+		g.ProfileDirs[p.ID] = dir
+	}
 	if err := os.CopyFS(dir, os.DirFS(l.profileDir(gameID, profileID))); err != nil {
 		_ = os.RemoveAll(dir)
 		return Profile{}, err
+	}
+	if g.ProfileDirs[p.ID] != "" {
+		if err := l.saveGame(g); err != nil {
+			_ = os.RemoveAll(dir)
+			return Profile{}, err
+		}
 	}
 	if err := l.saveProfile(gameID, p); err != nil {
 		_ = os.RemoveAll(dir)
@@ -408,6 +468,8 @@ func (l *Library) RemoveProfile(gameID, profileID string) error {
 	if err := os.RemoveAll(l.profileDir(gameID, profileID)); err != nil {
 		return err
 	}
+	_, outside := g.ProfileDirs[profileID]
+	delete(g.ProfileDirs, profileID)
 	if g.ActiveProfile == profileID {
 		for _, p := range profiles {
 			if p.ID != profileID {
@@ -417,11 +479,137 @@ func (l *Library) RemoveProfile(gameID, profileID string) error {
 		}
 		return l.saveGame(g)
 	}
+	if outside {
+		return l.saveGame(g)
+	}
 	return nil
 }
 
+// MoveProfile moves a profile with all its mods into a folder of its own
+// inside location, named after the game and the profile, and returns that
+// folder. An empty location moves it back into the library. Moving to
+// another disk copies everything, which takes a while for large profiles.
+func (l *Library) MoveProfile(gameID, profileID, location string) (string, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	g, err := l.loadGame(gameID)
+	if err != nil {
+		return "", err
+	}
+	if _, err := l.loadProfile(gameID, profileID); err != nil {
+		return "", err
+	}
+	// Links in the game folder point into the profile while it runs.
+	if _, err := os.Stat(filepath.Join(l.gameDir(gameID), SessionFile)); err == nil {
+		return "", ErrGameRunning
+	}
+	current := l.profileDir(gameID, profileID)
+
+	target := filepath.Join(l.profilesDir(gameID), profileID)
+	if location != "" {
+		if location, err = canonicalDir(location); err != nil {
+			return "", err
+		}
+		switch {
+		case within(location, g.Path):
+			return "", errors.New("profiles cannot be kept in the game folder: Hermit does not change anything there")
+		case within(location, current):
+			return "", errors.New("a profile cannot be moved into its own folder")
+		case within(location, l.root):
+			return "", errors.New("this folder is inside Hermit's own data; choose a folder outside it")
+		case filepath.Dir(current) == location:
+			return current, nil
+		}
+		if dir := l.profileDirContaining(location); dir != "" {
+			return "", fmt.Errorf("this folder is inside another profile (%s); choose a folder outside it", dir)
+		}
+		if target, err = freeFolder(location, gameID+"-"+profileID); err != nil {
+			return "", err
+		}
+	}
+	if target == current {
+		return current, nil
+	}
+	if err := moveDir(current, target); err != nil {
+		return "", err
+	}
+
+	if location == "" {
+		delete(g.ProfileDirs, profileID)
+	} else {
+		if g.ProfileDirs == nil {
+			g.ProfileDirs = map[string]string{}
+		}
+		g.ProfileDirs[profileID] = target
+	}
+	if err := l.saveGame(g); err != nil {
+		// Put it back where game.json still says it is.
+		if moveErr := moveDir(target, current); moveErr != nil {
+			return "", errors.Join(err, moveErr)
+		}
+		return "", err
+	}
+	return target, nil
+}
+
+// profileDirContaining returns the folder of a profile kept outside the
+// library that path is in, of any game, or "".
+func (l *Library) profileDirContaining(path string) string {
+	ids, _ := listDirs(l.gamesDir())
+	for _, id := range ids {
+		g, err := l.loadGame(id)
+		if err != nil {
+			continue
+		}
+		for _, dir := range g.ProfileDirs {
+			if within(path, dir) {
+				return dir
+			}
+		}
+	}
+	return ""
+}
+
+// freeFolder returns a path for a new folder in dir named base, or base-2 and
+// so on when that name is taken.
+func freeFolder(dir, base string) (string, error) {
+	entries, err := os.ReadDir(dir)
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return "", err
+	}
+	taken := make([]string, len(entries))
+	for i, e := range entries {
+		taken[i] = e.Name()
+	}
+	return filepath.Join(dir, uniqueID(base, taken)), nil
+}
+
+// moveDir renames a folder, or copies it and removes the original when the
+// two places are on different file systems.
+func moveDir(from, to string) error {
+	if err := os.MkdirAll(filepath.Dir(to), 0o755); err != nil {
+		return err
+	}
+	err := os.Rename(from, to)
+	if !errors.Is(err, syscall.EXDEV) {
+		return err
+	}
+	if err := os.CopyFS(to, os.DirFS(from)); err != nil {
+		_ = os.RemoveAll(to)
+		return err
+	}
+	return os.RemoveAll(from)
+}
+
+// within reports whether path is dir or inside it.
+func within(path, dir string) bool {
+	rel, err := filepath.Rel(dir, path)
+	return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
+}
+
 func (l *Library) createProfile(gameID, name string) (Profile, error) {
-	ids, err := listDirs(l.profilesDir(gameID))
+	ids, err := l.profileIDs(gameID)
 	if err != nil {
 		return Profile{}, err
 	}
@@ -445,7 +633,7 @@ func (l *Library) createProfile(gameID, name string) (Profile, error) {
 }
 
 func (l *Library) listProfiles(gameID string) ([]Profile, error) {
-	ids, err := listDirs(l.profilesDir(gameID))
+	ids, err := l.profileIDs(gameID)
 	if err != nil {
 		return nil, err
 	}

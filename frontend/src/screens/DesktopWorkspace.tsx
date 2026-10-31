@@ -1,17 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Dialogs, Events } from "@wailsio/runtime";
-import {
-  BethesdaService,
-  confirmDanger,
-  Engine,
-  errorMessage,
-  Game,
-  Library,
-  PreparedMod,
-  Profile,
-  UnpackProgress,
-} from "../api";
-import DuplicateModModal from "../components/DuplicateModModal";
+import { confirmDanger, Engine, errorMessage, Game, Library, Profile } from "../api";
+import { QueueStatus, useInstallQueue } from "../installQueue";
 import { installFromFileEvent } from "../components/TitleMenus";
 import GamePicker from "../components/GamePicker";
 import { LaunchSetup } from "../components/launch";
@@ -21,7 +11,6 @@ import GameSwitcher from "../components/sidebar/GameSwitcher";
 import ProfileSwitcher from "../components/sidebar/ProfileSwitcher";
 import { TabIcon } from "../components/sidebar/icons";
 import { Button, ErrorText, Modal } from "../components/ui";
-import { formatBytes } from "../format";
 import { requestRefresh, useRefresh } from "../refresh";
 import SettingsView from "./SettingsView";
 import { GearIcon } from "./shell";
@@ -44,13 +33,8 @@ export default function DesktopWorkspace({ games, selectedId, onSelect, onGamesC
   const [tab, setTab] = useState<Tab>("installed");
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [error, setError] = useState("");
-  // unpacking is an archive being unpacked for File → Install from file;
-  // installing names the mod while its files go into the profile.
-  const [unpacking, setUnpacking] = useState<UnpackProgress | null>(null);
-  const [installing, setInstalling] = useState<string | null>(null);
   const [addRequest, setAddRequest] = useState(0);
-  // duplicate is an unpacked archive whose mod the profile has already.
-  const [duplicate, setDuplicate] = useState<PreparedMod | null>(null);
+  const queue = useInstallQueue(setError);
   const game = games.find((g) => g.id === selectedId) ?? null;
   const profile = profiles.find((p) => p.id === game?.activeProfile) ?? null;
   const tabs = game ? profileTabs(game, profile, true) : [];
@@ -86,9 +70,9 @@ export default function DesktopWorkspace({ games, selectedId, onSelect, onGamesC
 
   const changed = (g: Game) => onGamesChanged(g.id);
 
-  // File → Install from file: a Bethesda game's archive is unpacked here and
-  // installed, through its FOMOD installer's window when it has one; other
-  // games add the file in the dialog the Installed page has for it.
+  // File → Install from file: a Bethesda game's archives, as many as are
+  // picked, join the queue of installs; other games add the file in the
+  // dialog the Installed page has for it.
   useEffect(() => {
     const install = async () => {
       if (!game) return;
@@ -98,27 +82,20 @@ export default function DesktopWorkspace({ games, selectedId, onSelect, onGamesC
         setAddRequest((n) => n + 1);
         return;
       }
-      const file = await Dialogs.OpenFile({
-        Title: "Choose a mod archive",
+      const files = await Dialogs.OpenFile({
+        Title: "Choose mod archives",
         CanChooseFiles: true,
+        AllowsMultipleSelection: true,
         Filters: [{ DisplayName: "Mod archives (zip, 7z, rar)", Pattern: "*.zip;*.7z;*.rar" }],
       });
-      if (!file) return;
+      if (!files?.length) return;
       setError("");
-      setUnpacking({ file: file.split("/").pop() ?? file, done: 0, total: 0 });
-      try {
-        const prepared = await BethesdaService.PrepareInstall(game.id, game.activeProfile, file);
-        if (prepared.existing) setDuplicate(prepared);
-        else await carryOn(prepared);
-      } catch (err) {
-        setError(errorMessage(err));
-      } finally {
-        setUnpacking(null);
-      }
+      setTab("installed");
+      queue.add(game.id, game.activeProfile, files).catch((err) => setError(errorMessage(err)));
     };
     window.addEventListener(installFromFileEvent, install);
     return () => window.removeEventListener(installFromFileEvent, install);
-  }, [game]);
+  }, [game, queue]);
 
   // F5 reads everything on screen again, as in MO2; the web view would
   // otherwise reload the whole interface.
@@ -132,24 +109,6 @@ export default function DesktopWorkspace({ games, selectedId, onSelect, onGamesC
     return () => window.removeEventListener("keydown", onKey);
   }, []);
   useRefresh(() => loadProfiles().catch((err) => setError(errorMessage(err))));
-
-  // carryOn installs a prepared archive: through its FOMOD installer's
-  // window, or right away.
-  const carryOn = async (prepared: PreparedMod) => {
-    if (prepared.fomod) {
-      await BethesdaService.OpenFomod(prepared.session, 1, 1);
-      return;
-    }
-    setInstalling(prepared.name);
-    try {
-      await BethesdaService.FinishInstall(prepared.session, null);
-      setTab("installed");
-    } finally {
-      setInstalling(null);
-    }
-  };
-
-  useEffect(() => Events.On("bethesda:unpack", (ev) => setUnpacking((u) => (u ? ev.data : u))), []);
 
   // A mod installed from a FOMOD installer's window changes the profile's count.
   useEffect(
@@ -277,22 +236,9 @@ export default function DesktopWorkspace({ games, selectedId, onSelect, onGamesC
           )}
         </main>
       </div>
-      <StatusBar profile={game && !settings ? profile : null} unpacking={unpacking} installing={installing} />
+      <StatusBar profile={game && !settings ? profile : null} queue={queue.status} />
 
-      {duplicate && (
-        <DuplicateModModal
-          prepared={duplicate}
-          onChoose={async (target, name) => {
-            await BethesdaService.ChooseTarget(duplicate.session, target, name);
-            setDuplicate(null);
-            await carryOn(duplicate).catch((err) => setError(errorMessage(err)));
-          }}
-          onCancel={() => {
-            BethesdaService.CancelInstall(duplicate.session).catch(() => {});
-            setDuplicate(null);
-          }}
-        />
-      )}
+      {queue.dialog}
 
       {adding && (
         <Modal title="Add game" size="lg" onClose={() => setAdding(false)}>
@@ -316,19 +262,19 @@ export default function DesktopWorkspace({ games, selectedId, onSelect, onGamesC
 }
 
 // StatusBar runs along the bottom of the window: how many mods the profile
-// has and how many of them are on, and how far a mod being installed got.
-function StatusBar({
-  profile,
-  unpacking,
-  installing,
-}: {
-  profile: Profile | null;
-  unpacking: UnpackProgress | null;
-  installing: string | null;
-}) {
+// has and how many of them are on, and how far a queue of installs got, as
+// installed of queued.
+function StatusBar({ profile, queue }: { profile: Profile | null; queue: QueueStatus | null }) {
   const mods = profile?.mods?.filter((m) => !m.separator) ?? [];
   const on = mods.filter((m) => m.enabled).length;
-  const share = unpacking?.total ? unpacking.done / unpacking.total : 0;
+  // One archive shows how far it is unpacked; a queue, how many are through.
+  const share = !queue
+    ? 0
+    : queue.total > 1
+      ? queue.finished / queue.total
+      : queue.unpack?.total
+        ? queue.unpack.done / queue.unpack.total
+        : queue.finished;
   return (
     <footer className="flex h-7 shrink-0 items-center gap-4 border-t border-zinc-800 bg-zinc-900 px-3 text-xs text-zinc-500">
       {profile && (
@@ -337,17 +283,17 @@ function StatusBar({
         </span>
       )}
       <span className="flex-1" />
-      {(unpacking || installing) && (
+      {queue && (
         <span className="flex min-w-0 items-center gap-2">
           <span className="truncate">
-            {unpacking ? `Unpacking ${unpacking.file}` : `Installing ${installing}`}
-            {unpacking?.total ? ` · ${formatBytes(unpacking.done)} of ${formatBytes(unpacking.total)}` : "…"}
+            {queue.action}
+            {queue.unpack?.total ? ` · ${Math.round((queue.unpack.done / queue.unpack.total) * 100)}%` : ""}
           </span>
           <span className="h-1.5 w-40 shrink-0 overflow-hidden rounded-full bg-zinc-800">
-            <span
-              className={`block h-full bg-indigo-500 transition-[width] ${unpacking ? "" : "w-1/3 animate-pulse"}`}
-              style={unpacking ? { width: `${Math.round(share * 100)}%` } : undefined}
-            />
+            <span className="block h-full bg-indigo-500 transition-[width]" style={{ width: `${Math.round(share * 100)}%` }} />
+          </span>
+          <span className="shrink-0 font-medium text-zinc-300 tabular-nums">
+            {queue.finished}/{queue.total}
           </span>
         </span>
       )}

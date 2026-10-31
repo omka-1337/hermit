@@ -40,7 +40,8 @@ const groupHints: Record<string, string> = {
 // the pointer is about on the right. Every change of an option is worked out
 // again by Hermit, so steps that depend on earlier options come and go as
 // they are picked.
-export default function FomodWindow({ session }: { session: string }) {
+// position and total place the installer among those of a queue of installs.
+export default function FomodWindow({ session, position, total }: { session: string; position: number; total: number }) {
   const [info, setInfo] = useState<PreparedMod | null>(null);
   const [view, setView] = useState<View | null>(null);
   const [at, setAt] = useState(0);
@@ -128,6 +129,14 @@ export default function FomodWindow({ session }: { session: string }) {
           <span className="text-sm text-zinc-500">
             {[info?.version, info?.author && `by ${info.author}`].filter(Boolean).join(" · ")}
           </span>
+          {total > 1 && (
+            <span
+              className="ml-auto shrink-0 rounded-md bg-zinc-800 px-2 py-0.5 text-sm font-medium text-zinc-300 tabular-nums"
+              title="Installers in the queue"
+            >
+              {position}/{total}
+            </span>
+          )}
         </header>
 
         <div className="flex min-h-0 flex-1">

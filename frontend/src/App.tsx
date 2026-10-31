@@ -17,15 +17,18 @@ type State =
 // /#steam-setup; it shares this bundle but none of the manager's chrome.
 const isSteamSetupWindow = window.location.hash === "#steam-setup";
 
-// A FOMOD installer opens in a window of its own at /#fomod/<session>.
-const fomodSession = window.location.hash.startsWith("#fomod/") ? window.location.hash.slice("#fomod/".length) : null;
+// A FOMOD installer opens in a window of its own at
+// /#fomod/<session>/<position>/<total>, its place among the installers of a
+// queue of installs.
+const fomodRoute = window.location.hash.startsWith("#fomod/") ? window.location.hash.slice("#fomod/".length).split("/") : null;
 
 function App() {
   if (isSteamSetupWindow) {
     return <SteamSetupWindow />;
   }
-  if (fomodSession) {
-    return <FomodWindow session={fomodSession} />;
+  if (fomodRoute) {
+    const [session, position, total] = fomodRoute;
+    return <FomodWindow session={session} position={Number(position) || 1} total={Number(total) || 1} />;
   }
 
   const [state, setState] = useState<State>({ status: "loading" });

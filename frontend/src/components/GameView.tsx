@@ -98,10 +98,7 @@ export default function GameView({ game, onChanged, onRemoved, onOpenProfile }: 
 
       <ErrorText>{error}</ErrorText>
 
-      <section className="flex flex-col gap-3">
-        <h2 className="text-sm font-semibold tracking-wide text-zinc-400 uppercase">Launch</h2>
-        <LaunchSetup game={game} />
-      </section>
+      <LaunchSetup game={game} />
 
       <section className="flex flex-col gap-3">
         <h2 className="text-sm font-semibold tracking-wide text-zinc-400 uppercase">Profiles</h2>

@@ -93,49 +93,40 @@ export function PlayButton({ game, profileId, label = "Play", onPlayed }: PlayPr
   );
 }
 
+// LaunchSetup is the Launch section of a game's page: how to get the game to
+// load its profile. Once Steam has the launch options there is nothing left
+// to do there, and the section is not shown.
 export function LaunchSetup({ game }: { game: Game }) {
   const { info, reload } = useLaunchInfo(game.id);
+  if (!info || (info.supported && !info.external && info.configured)) return null;
+  return (
+    <section className="flex flex-col gap-3">
+      <h2 className="text-sm font-semibold tracking-wide text-zinc-400 uppercase">Launch</h2>
+      {!info.supported ? (
+        <p className="text-sm text-zinc-400">{info.reason}</p>
+      ) : info.external ? (
+        <ExternalLaunchSetup info={info} />
+      ) : (
+        <SteamLaunchSetup info={info} reload={reload} />
+      )}
+    </section>
+  );
+}
+
+function SteamLaunchSetup({ info, reload }: { info: LaunchInfo; reload: () => void }) {
   const [copied, setCopied] = useState(false);
 
-  if (info && !info.supported) {
-    return <p className="text-sm text-zinc-400">{info.reason}</p>;
-  }
-
-  // While the info is being read the card is drawn as it will look, so the
-  // page keeps its shape instead of collapsing on every game switch.
-  const shown: LaunchInfo = info ?? {
-    supported: true,
-    configured: false,
-    running: false,
-    runningProfile: "",
-    reason: "",
-    launchOptions: "",
-    external: false,
-    launchPrefix: "",
-    portProton: false,
-  };
-
-  if (shown.external) {
-    return <ExternalLaunchSetup info={shown} />;
-  }
-
   const copy = async () => {
-    await Clipboard.SetText(shown.launchOptions);
+    await Clipboard.SetText(info.launchOptions);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
   return (
-    <div className={`flex flex-col gap-3 rounded-lg border border-zinc-800 p-4 ${info ? "" : "opacity-60"}`}>
+    <div className="flex flex-col gap-3 rounded-lg border border-zinc-800 p-4">
       <div className="flex items-center justify-between gap-3">
         <span className="text-sm font-medium">Steam launch options</span>
-        {!info ? (
-          <span className="text-xs text-zinc-500">Checking…</span>
-        ) : shown.configured ? (
-          <span className="text-xs text-emerald-400">✓ Set in Steam</span>
-        ) : (
-          <span className="text-xs text-amber-400">Not detected</span>
-        )}
+        <span className="text-xs text-amber-400">Not detected</span>
       </div>
       <p className="text-xs text-zinc-400">
         In Steam open the game&apos;s Properties → General → Launch Options and paste this. The active profile is then
@@ -145,20 +136,14 @@ export function LaunchSetup({ game }: { game: Game }) {
       </p>
       <div className="flex gap-2">
         <code className="flex-1 truncate rounded-md bg-zinc-900 px-3 py-1.5 font-mono text-xs text-zinc-300 select-text">
-          {shown.launchOptions}
+          {info.launchOptions}
         </code>
-        <Button disabled={!info} onClick={copy}>
-          {copied ? "Copied" : "Copy"}
+        <Button onClick={copy}>{copied ? "Copied" : "Copy"}</Button>
+        <Button variant="ghost" onClick={reload}>
+          Check again
         </Button>
-        {!shown.configured && (
-          <Button variant="ghost" disabled={!info} onClick={reload}>
-            Check again
-          </Button>
-        )}
       </div>
-      {!shown.configured && (
-        <p className="text-xs text-zinc-500">Steam saves launch options with a delay, sometimes only when it exits.</p>
-      )}
+      <p className="text-xs text-zinc-500">Steam saves launch options with a delay, sometimes only when it exits.</p>
     </div>
   );
 }

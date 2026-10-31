@@ -1,6 +1,17 @@
 import { useCallback, useEffect, useState } from "react";
 import { Dialogs, Events } from "@wailsio/runtime";
-import { BethesdaService, confirmDanger, Engine, errorMessage, Game, Library, Profile, UnpackProgress } from "../api";
+import {
+  BethesdaService,
+  confirmDanger,
+  Engine,
+  errorMessage,
+  Game,
+  Library,
+  PreparedMod,
+  Profile,
+  UnpackProgress,
+} from "../api";
+import DuplicateModModal from "../components/DuplicateModModal";
 import PlayBar from "../components/PlayBar";
 import { installFromFileEvent } from "../components/TitleMenus";
 import GamePicker from "../components/GamePicker";
@@ -35,6 +46,8 @@ export default function DesktopWorkspace({ games, selectedId, onSelect, onGamesC
   // unpacking is an archive being unpacked for File → Install from file.
   const [unpacking, setUnpacking] = useState<UnpackProgress | null>(null);
   const [addRequest, setAddRequest] = useState(0);
+  // duplicate is an unpacked archive whose mod the profile has already.
+  const [duplicate, setDuplicate] = useState<PreparedMod | null>(null);
   const game = games.find((g) => g.id === selectedId) ?? null;
   const profile = profiles.find((p) => p.id === game?.activeProfile) ?? null;
   const tabs = game ? profileTabs(game, profile, true) : [];
@@ -92,9 +105,8 @@ export default function DesktopWorkspace({ games, selectedId, onSelect, onGamesC
       setUnpacking({ file: file.split("/").pop() ?? file, done: 0, total: 0 });
       try {
         const prepared = await BethesdaService.PrepareInstall(game.id, game.activeProfile, file);
-        if (prepared.fomod) await BethesdaService.OpenFomod(prepared.session);
-        else await BethesdaService.FinishInstall(prepared.session, null);
-        setTab("installed");
+        if (prepared.existing) setDuplicate(prepared);
+        else await carryOn(prepared);
       } catch (err) {
         setError(errorMessage(err));
       } finally {
@@ -104,6 +116,14 @@ export default function DesktopWorkspace({ games, selectedId, onSelect, onGamesC
     window.addEventListener(installFromFileEvent, install);
     return () => window.removeEventListener(installFromFileEvent, install);
   }, [game]);
+
+  // carryOn installs a prepared archive: through its FOMOD installer's
+  // window, or right away.
+  const carryOn = async (prepared: PreparedMod) => {
+    if (prepared.fomod) await BethesdaService.OpenFomod(prepared.session);
+    else await BethesdaService.FinishInstall(prepared.session, null);
+    setTab("installed");
+  };
 
   useEffect(() => Events.On("bethesda:unpack", (ev) => setUnpacking((u) => (u ? ev.data : u))), []);
 
@@ -236,6 +256,21 @@ export default function DesktopWorkspace({ games, selectedId, onSelect, onGamesC
         <aside className="flex w-72 shrink-0 flex-col gap-4 border-l border-zinc-800 bg-zinc-900 p-3">
           <PlayBar game={game} profileId={profile.id} onGameChanged={() => onGamesChanged(game.id)} stretch />
         </aside>
+      )}
+
+      {duplicate && (
+        <DuplicateModModal
+          prepared={duplicate}
+          onChoose={async (target, name) => {
+            await BethesdaService.ChooseTarget(duplicate.session, target, name);
+            setDuplicate(null);
+            await carryOn(duplicate).catch((err) => setError(errorMessage(err)));
+          }}
+          onCancel={() => {
+            BethesdaService.CancelInstall(duplicate.session).catch(() => {});
+            setDuplicate(null);
+          }}
+        />
       )}
 
       {unpacking && (

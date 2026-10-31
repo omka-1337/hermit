@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { errorMessage, FolderService, Game, InstallService, Profile } from "../../api";
+import { Engine, errorMessage, FolderService, Game, InstallService, Profile } from "../../api";
 import { packageLabel } from "../../format";
 import { PlayButton } from "../launch";
 import { ExportModal } from "../share";
@@ -7,6 +7,7 @@ import { Button, ErrorText, useModalOpen } from "../ui";
 import { useGamepad } from "../../gamepad";
 import { usePageHints } from "../../screens/shell";
 import { useLayout } from "../../uimode";
+import BethesdaModsTab from "./BethesdaModsTab";
 import BrowseTab from "./BrowseTab";
 import ConfigTab from "./ConfigTab";
 import InstalledTab from "./InstalledTab";
@@ -37,12 +38,17 @@ export default function ProfileView({ game, profileId, onBack, onGameChanged, on
       .catch((err) => setError(errorMessage(err)));
   }, [game.id, profileId]);
 
+  // A Creation Engine game has neither Thunderstore nor BepInEx: its
+  // profile is the list of its mods.
+  const creation = game.engine === Engine.EngineCreation;
   const modCount = profile?.mods?.length ?? 0;
-  const tabs: { id: Tab; label: string }[] = [
-    { id: "installed", label: `Installed${modCount ? ` (${modCount})` : ""}` },
-    { id: "browse", label: "Browse" },
-    { id: "config", label: "Config" },
-  ];
+  const tabs: { id: Tab; label: string }[] = creation
+    ? [{ id: "installed", label: `Mods${modCount ? ` (${modCount})` : ""}` }]
+    : [
+        { id: "installed", label: `Installed${modCount ? ` (${modCount})` : ""}` },
+        { id: "browse", label: "Browse" },
+        { id: "config", label: "Config" },
+      ];
 
   const step = (by: number) =>
     setTab((current) => {
@@ -94,7 +100,7 @@ export default function ProfileView({ game, profileId, onBack, onGameChanged, on
               Open folder
             </Button>
           )}
-          {profile && (
+          {profile && !creation && (
             <Button variant="ghost" onClick={() => setExporting(true)}>
               Export
             </Button>
@@ -113,15 +119,23 @@ export default function ProfileView({ game, profileId, onBack, onGameChanged, on
         )}
         {profile && (
           <ProfileProvider game={game} profile={profile} onProfileChange={setProfile} onOpenProfile={onOpenProfile}>
-            {tab !== "config" && <LoaderNotice />}
-            <div className="min-h-0 flex-1">
-              {tab === "installed" && <InstalledTab onBrowse={() => setTab("browse")} />}
-              {tab === "config" && <ConfigTab />}
-              {/* Browse stays mounted so search and scroll survive tab switches. */}
-              <div className={tab === "browse" ? "h-full" : "hidden"}>
-                <BrowseTab />
+            {creation ? (
+              <div className="min-h-0 flex-1">
+                <BethesdaModsTab />
               </div>
-            </div>
+            ) : (
+              <>
+                {tab !== "config" && <LoaderNotice />}
+                <div className="min-h-0 flex-1">
+                  {tab === "installed" && <InstalledTab onBrowse={() => setTab("browse")} />}
+                  {tab === "config" && <ConfigTab />}
+                  {/* Browse stays mounted so search and scroll survive tab switches. */}
+                  <div className={tab === "browse" ? "h-full" : "hidden"}>
+                    <BrowseTab />
+                  </div>
+                </div>
+              </>
+            )}
           </ProfileProvider>
         )}
       </div>

@@ -150,6 +150,12 @@ export interface Mod {
      * until they have been scanned.
      */
     "plugins": plugininfo$0.Plugin[] | null;
+
+    /**
+     * Notes are the user's own words about the mod, such as the options
+     * picked in its installer.
+     */
+    "notes"?: string;
 }
 
 /**
@@ -159,14 +165,15 @@ export interface ModSource {
     "type": ModSourceType;
 
     /**
-     * URL is the Thunderstore download URL, the GitHub repository URL, or the
-     * file name of a local file.
+     * URL is the Thunderstore download URL, the GitHub repository URL, the
+     * mod's page on Nexus Mods, or the file name of a local file.
      */
     "url"?: string;
     "sha256"?: string;
 
     /**
-     * Release and Asset identify the GitHub release file the mod came from.
+     * Release and Asset identify the GitHub release file the mod came from;
+     * for a mod from Nexus Mods, Asset is the file it was installed from.
      */
     "release"?: string;
     "asset"?: string;
@@ -181,6 +188,7 @@ export enum ModSourceType {
     SourceLocal = "local",
     SourceThunderstore = "thunderstore",
     SourceGitHub = "github",
+    SourceNexus = "nexus",
 };
 
 /**

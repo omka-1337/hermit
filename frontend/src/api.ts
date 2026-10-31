@@ -7,6 +7,7 @@ export { Store as SettingsStore } from "../bindings/hermit/internal/settings";
 export { UIMode, BrowseView } from "../bindings/hermit/internal/settings";
 export type { Settings } from "../bindings/hermit/internal/settings";
 export {
+  BethesdaService,
   BrowseService,
   CacheService,
   ConfigService,
@@ -19,6 +20,7 @@ export {
   SteamService,
 } from "../bindings/hermit/internal/app";
 export type { ImportProgress, ImportResult, Preview } from "../bindings/hermit/internal/profileshare";
+export type { MO2Instance } from "../bindings/hermit/internal/bethesda";
 export type { ConfigContent } from "../bindings/hermit/internal/app";
 export type { Change, Entry, FileInfo as ConfigFileInfo } from "../bindings/hermit/internal/configs";
 export type { LaunchInfo } from "../bindings/hermit/internal/app";

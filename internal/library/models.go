@@ -96,6 +96,9 @@ type Mod struct {
 	// Plugins are the BepInEx plugins found in the mod's assemblies; nil
 	// until they have been scanned.
 	Plugins []plugininfo.Plugin `json:"plugins"`
+	// Notes are the user's own words about the mod, such as the options
+	// picked in its installer.
+	Notes string `json:"notes,omitempty"`
 }
 
 type ModSourceType string
@@ -104,16 +107,18 @@ const (
 	SourceLocal        ModSourceType = "local"
 	SourceThunderstore ModSourceType = "thunderstore"
 	SourceGitHub       ModSourceType = "github"
+	SourceNexus        ModSourceType = "nexus"
 )
 
 // ModSource describes where a mod came from and how to fetch it again.
 type ModSource struct {
 	Type ModSourceType `json:"type"`
-	// URL is the Thunderstore download URL, the GitHub repository URL, or the
-	// file name of a local file.
+	// URL is the Thunderstore download URL, the GitHub repository URL, the
+	// mod's page on Nexus Mods, or the file name of a local file.
 	URL    string `json:"url,omitempty"`
 	SHA256 string `json:"sha256,omitempty"`
-	// Release and Asset identify the GitHub release file the mod came from.
+	// Release and Asset identify the GitHub release file the mod came from;
+	// for a mod from Nexus Mods, Asset is the file it was installed from.
 	Release string `json:"release,omitempty"`
 	Asset   string `json:"asset,omitempty"`
 }

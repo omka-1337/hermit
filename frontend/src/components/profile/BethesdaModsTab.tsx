@@ -16,6 +16,12 @@ import { useDragReorder } from "./useDragReorder";
 // to it or removes the row.
 // Clicking a mod shows its conflicts: in green the mods whose files it
 // replaces, in red the ones replacing its files.
+// columns lay out the header and every mod row alike: the grip, the place in
+// the order, Active, Name, Source and Author.
+const columns = "grid grid-cols-[1rem_2rem_3.25rem_minmax(0,1fr)_7rem_10rem] items-center gap-x-3";
+
+const sourceLabels: Record<string, string> = { nexus: "Nexus", local: "Local", github: "GitHub", thunderstore: "Thunderstore" };
+
 export default function BethesdaModsTab() {
   const { game, profile, applyProfile, setEnabled } = useProfile();
   const [error, setError] = useState("");
@@ -196,9 +202,20 @@ export default function BethesdaModsTab() {
   }
 
   return (
-    <div ref={scroller} className="relative h-full overflow-y-auto px-6 py-3">
+    <div ref={scroller} className="relative h-full overflow-y-auto px-6 pb-3">
       {importModal}
       <ErrorText>{error}</ErrorText>
+      {/* The header stays in place while the list scrolls under it. */}
+      <div
+        className={`${columns} sticky top-0 z-10 -mx-6 border-b border-l-2 border-zinc-800 border-l-transparent bg-zinc-950 px-6 py-2 text-xs font-medium text-zinc-500`}
+      >
+        <span />
+        <span className="text-right">#</span>
+        <span>Active</span>
+        <span>Name</span>
+        <span>Source</span>
+        <span>Author</span>
+      </div>
       <ul className="divide-y divide-zinc-800">
         {rows.map(({ m, i, count, priority, hidden, rel, relations }) => [
           naming?.at === i && nameInput,
@@ -208,7 +225,7 @@ export default function BethesdaModsTab() {
               data-drag-row={m.id}
               onPointerDown={(e) => busy === null && start(e, dragRows(m, i, count), m.name)}
               onContextMenu={openMenu(i, collapsed.has(m.id) ? i + 1 + count : i + 1)}
-              className={`flex items-center gap-2 border-l-2 border-transparent bg-zinc-900/60 py-1.5 pr-0 pl-1 ${
+              className={`flex items-center gap-2 border-l-2 border-transparent bg-zinc-900/60 py-1.5 ${
                 drag?.ids.includes(m.id) ? "opacity-40" : ""
               }`}
             >
@@ -245,7 +262,7 @@ export default function BethesdaModsTab() {
                     ? `Replaces ${conflicts[selected!]?.[m.id]} files of ${selectedName}`
                     : undefined
               }
-              className={`flex cursor-default items-center gap-3 border-l-2 py-2 ${drag?.ids.includes(m.id) ? "opacity-40" : ""} ${
+              className={`${columns} cursor-default border-l-2 py-2 ${drag?.ids.includes(m.id) ? "opacity-40" : ""} ${
                 m.id === selected
                   ? "border-indigo-500 bg-indigo-500/15"
                   : rel === "replaced"
@@ -256,7 +273,7 @@ export default function BethesdaModsTab() {
               }`}
             >
               <Grip />
-              <span className="w-7 shrink-0 text-right text-xs text-zinc-600 tabular-nums">{priority}</span>
+              <span className="text-right text-xs text-zinc-600 tabular-nums">{priority}</span>
               <Toggle
                 first={i === 0}
                 checked={m.enabled}
@@ -264,10 +281,11 @@ export default function BethesdaModsTab() {
                 title={m.enabled ? "Disable" : "Enable"}
                 onChange={(enabled) => act(m.id, () => setEnabled(m.id, enabled))}
               />
-              <div className={`flex min-w-0 flex-1 flex-col ${m.enabled ? "" : "opacity-50"}`}>
-                <span className="truncate text-sm font-medium">
-                  {m.name}
-                  {m.version && <span className="ml-2 font-normal text-zinc-500">{m.version}</span>}
+              <div className={`flex min-w-0 flex-col ${m.enabled ? "" : "opacity-50"}`}>
+                <span className="flex min-w-0 items-center gap-2 text-sm font-medium">
+                  <span className="truncate">{m.name}</span>
+                  {m.version && <span className="shrink-0 font-normal text-zinc-500">{m.version}</span>}
+                  {busy === m.id && <Spinner />}
                 </span>
                 {m.notes && (
                   <span className="truncate text-xs text-zinc-500" title={m.notes}>
@@ -275,12 +293,20 @@ export default function BethesdaModsTab() {
                   </span>
                 )}
               </div>
-              {busy === m.id && <Spinner />}
-              {m.source.type === "nexus" && (
-                <Button variant="ghost" title={m.source.url} onClick={() => Browser.OpenURL(m.source.url!)}>
-                  Nexus
-                </Button>
-              )}
+              <span className={`truncate text-sm ${m.enabled ? "" : "opacity-50"}`}>
+                {m.source.type === "nexus" ? (
+                  <button
+                    title={m.source.url}
+                    onClick={() => Browser.OpenURL(m.source.url!)}
+                    className="text-indigo-400 hover:text-indigo-300 hover:underline"
+                  >
+                    Nexus
+                  </button>
+                ) : (
+                  <span className="text-zinc-400">{sourceLabels[m.source.type] ?? ""}</span>
+                )}
+              </span>
+              <span className={`truncate text-sm text-zinc-400 ${m.enabled ? "" : "opacity-50"}`}>{m.author}</span>
             </li>
           ),
         ])}

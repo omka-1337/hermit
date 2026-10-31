@@ -8,6 +8,9 @@ import (
 	"strings"
 
 	"hermit/internal/creation"
+	"hermit/internal/deploy"
+	"hermit/internal/redengine"
+	"hermit/internal/unreal"
 )
 
 // Engine is what a game is built on; it decides how the game is modded.
@@ -16,19 +19,24 @@ type Engine string
 const (
 	EngineUnknown  Engine = "unknown"
 	EngineUnity    Engine = "unity"
-	EngineCreation Engine = "creation" // the Creation Engine
+	EngineCreation Engine = "creation"  // the Creation Engine
+	EngineRED      Engine = "redengine" // CD Projekt Red's REDengine
+	EngineUnreal   Engine = "unreal"
 )
 
 // Detection is what can be learned about a game from its install directory.
 type Detection struct {
 	Unity  bool   `json:"unity"`
 	Engine Engine `json:"engine"`
-	// EngineVersion is the Unity version, e.g. "2022.3.62f2", or "2" for
-	// Creation Engine 2; empty when it is not known.
+	// EngineVersion is the Unity version, e.g. "2022.3.62f2", "2" for
+	// Creation Engine 2, "4" for REDengine 4 or "3" for Unreal Engine 3;
+	// empty when it is not known.
 	EngineVersion string  `json:"engineVersion"`
 	Runtime       Runtime `json:"runtime"`
 	Backend       Backend `json:"backend"`
-	// Executable is the game executable file name, e.g. "Valheim.exe".
+	// Executable is the game executable file name, e.g. "Valheim.exe", or
+	// its slash-separated path for a game that keeps it in a folder, as
+	// "bin/x64/Cyberpunk2077.exe".
 	Executable string `json:"executable"`
 }
 
@@ -38,7 +46,8 @@ type Detection struct {
 // builds), UnityPlayer.so (Linux builds), or, for old Unity versions without
 // those files, by a <Name>_Data folder with managed or IL2CPP data next to a
 // matching executable. Creation Engine games are recognised by their
-// executable and the master file in Data.
+// executable and the master file in Data, REDengine and Unreal Engine games
+// by their executable.
 func DetectGame(dir string) Detection {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -98,7 +107,33 @@ func DetectGame(dir string) Detection {
 			}
 		}
 	}
+	for _, g := range redengine.Games {
+		if hasPathFold(dir, g.Exe) {
+			d.Engine, d.EngineVersion, d.Executable, d.Runtime = EngineRED, g.EngineVersion, g.Exe, RuntimeProton
+			return d
+		}
+	}
+	for _, g := range unreal.Games {
+		if hasPathFold(dir, g.Exe) {
+			d.Engine, d.EngineVersion, d.Executable, d.Runtime = EngineUnreal, g.EngineVersion, g.Exe, RuntimeProton
+			return d
+		}
+	}
 	return d
+}
+
+// hasPathFold reports whether dir has a file at the slash-separated path
+// rel, its folders and name in any letter case.
+func hasPathFold(dir, rel string) bool {
+	parts := strings.Split(rel, "/")
+	for _, part := range parts[:len(parts)-1] {
+		name, err := deploy.FindFold(dir, part)
+		if err != nil || name == "" {
+			return false
+		}
+		dir = filepath.Join(dir, name)
+	}
+	return hasFileFold(dir, parts[len(parts)-1])
 }
 
 // unityVersionPattern matches a Unity version such as "2022.3.62f2" or

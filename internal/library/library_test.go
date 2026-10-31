@@ -223,6 +223,15 @@ func TestDetectGame(t *testing.T) {
 			[]string{"Data/", "SkyrimSE.exe"},
 			Detection{Engine: EngineUnknown, Runtime: RuntimeUnknown, Backend: BackendUnknown},
 		},
+		{
+			[]string{"bin/", "bin/x64/", "bin/x64/Cyberpunk2077.exe", "archive/", "REDprelauncher.exe"},
+			Detection{Engine: EngineRED, EngineVersion: "4", Runtime: RuntimeProton, Backend: BackendUnknown, Executable: "bin/x64/Cyberpunk2077.exe"},
+		},
+		{
+			// In whatever letter case.
+			[]string{"binaries/", "binaries/WIN64/", "binaries/WIN64/batmanak.exe", "BmGame/"},
+			Detection{Engine: EngineUnreal, EngineVersion: "3", Runtime: RuntimeProton, Backend: BackendUnknown, Executable: "Binaries/Win64/BatmanAK.exe"},
+		},
 	}
 	for _, tc := range cases {
 		if got := DetectGame(fakeGame(t, tc.files...)); got != tc.want {

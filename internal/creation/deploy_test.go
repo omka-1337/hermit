@@ -6,6 +6,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"hermit/internal/deploy"
 )
 
 func write(t *testing.T, root string, files map[string]string) {
@@ -185,7 +187,7 @@ func TestDeploySwapsPlugins(t *testing.T) {
 
 func TestConflicts(t *testing.T) {
 	_, profile := setup(t)
-	got, err := Conflicts(profile, []string{"low", "high", "skse", "off", "missing"})
+	got, err := deploy.Conflicts(profile, []string{"low", "high", "skse", "off", "missing"}, Target)
 	if err != nil {
 		t.Fatal(err)
 	}

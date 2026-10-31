@@ -64,6 +64,10 @@ function engineLabel(engine: Engine, version: string): string | null {
     }
     case Engine.EngineCreation:
       return version ? `Creation Engine ${version}` : "Creation Engine";
+    case Engine.EngineRED:
+      return version ? `REDengine ${version}` : "REDengine";
+    case Engine.EngineUnreal:
+      return version ? `Unreal Engine ${version}` : "Unreal Engine";
   }
   return null;
 }

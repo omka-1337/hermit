@@ -13,20 +13,22 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/application"
 
 	"hermit/internal/creation"
+	"hermit/internal/deploy"
 	"hermit/internal/fomod"
 	"hermit/internal/library"
+	"hermit/internal/nexus"
 	"hermit/internal/plugininfo"
 )
 
 const (
 	// UnpackProgressEvent carries how far unpacking an archive got.
-	UnpackProgressEvent = "creation:unpack"
+	UnpackProgressEvent = "modlist:unpack"
 	// ModInstalledEvent says a mod was installed into a profile, so that the
 	// main window shows it whichever window installed it.
-	ModInstalledEvent = "creation:installed"
+	ModInstalledEvent = "modlist:installed"
 	// InstallClosedEvent says an install was cancelled, so that the queue of
 	// installs goes on to the next.
-	InstallClosedEvent = "creation:install-closed"
+	InstallClosedEvent = "modlist:install-closed"
 )
 
 // UnpackProgress is the payload of UnpackProgressEvent.
@@ -45,7 +47,8 @@ type PreparedMod struct {
 	// Fomod is set when the archive has an installer with options to pick.
 	Fomod bool   `json:"fomod"`
 	Image string `json:"image"`
-	// Unsure is set when nothing in a plain archive looked like Data.
+	// Unsure is set when nothing in a plain archive looked like the game's
+	// files.
 	Unsure bool `json:"unsure"`
 	// Existing is the name of the mod of the profile the archive has the
 	// name of, if one does: ChooseTarget says what to do about it.
@@ -65,7 +68,7 @@ const (
 
 type installSession struct {
 	gameID, profileID string
-	staged            *creation.Staged
+	staged            *deploy.Staged
 	env               fomod.Environment
 	// existing is the id of the mod with the archive's name, target what to
 	// do about it, and name the name the mod is installed under.
@@ -82,8 +85,8 @@ func emit(name string, data any) {
 
 // PrepareInstall unpacks a mod archive for a profile and looks at it. What
 // it unpacked stays until the mod is installed or the install is cancelled.
-func (s *CreationService) PrepareInstall(gameID, profileID, file string) (PreparedMod, error) {
-	game, _, err := s.creationGame(gameID)
+func (s *ModListService) PrepareInstall(gameID, profileID, file string) (PreparedMod, error) {
+	game, modding, err := s.deployedGame(gameID)
 	if err != nil {
 		return PreparedMod{}, err
 	}
@@ -96,9 +99,9 @@ func (s *CreationService) PrepareInstall(gameID, profileID, file string) (Prepar
 		return PreparedMod{}, err
 	}
 	name := filepath.Base(file)
-	staging := filepath.Join(profileDir, creation.StagingDir)
+	staging := filepath.Join(profileDir, deploy.StagingDir)
 	s.removeStale(staging)
-	staged, err := creation.Stage(file, staging, func(done, total int64) {
+	staged, err := deploy.Stage(file, staging, modding.Layout, func(done, total int64) {
 		progress := UnpackProgress{File: name, Done: done, Total: total}
 		emit(UnpackProgressEvent, progress)
 		if s.OnUnpack != nil {
@@ -113,9 +116,10 @@ func (s *CreationService) PrepareInstall(gameID, profileID, file string) (Prepar
 	if s.sessions == nil {
 		s.sessions = map[string]*installSession{}
 	}
-	is := &installSession{
-		gameID: gameID, profileID: profileID, staged: staged, name: staged.Name,
-		env: pluginStates(game.Path, profileDir, profile),
+	is := &installSession{gameID: gameID, profileID: profileID, staged: staged, name: staged.Name}
+	// Installers of Creation Engine mods ask about the plugins the game has.
+	if game.Engine == library.EngineCreation {
+		is.env = pluginStates(game.Path, profileDir, profile)
 	}
 	if m, ok := modNamed(profile, staged.Name); ok {
 		is.existing = m.ID
@@ -138,7 +142,7 @@ func (s *CreationService) PrepareInstall(gameID, profileID, file string) (Prepar
 // ChooseTarget says what installing a prepared archive does to the mod with
 // its name: TargetReplace, TargetMerge, or TargetRename with name the name
 // to install it under, which no mod of the profile may have.
-func (s *CreationService) ChooseTarget(session, target, name string) error {
+func (s *ModListService) ChooseTarget(session, target, name string) error {
 	is, err := s.session(session)
 	if err != nil {
 		return err
@@ -180,10 +184,10 @@ func modNamed(p library.Profile, name string) (library.Mod, bool) {
 // CheckFomods tells which archives come with a FOMOD installer, before any
 // of them is unpacked: a queue of installs counts the installers ahead. An
 // archive that cannot be read counts as having none; unpacking it says why.
-func (s *CreationService) CheckFomods(files []string) []bool {
+func (s *ModListService) CheckFomods(files []string) []bool {
 	has := make([]bool, len(files))
 	for i, f := range files {
-		has[i], _ = creation.HasFomod(f)
+		has[i], _ = deploy.HasFomod(f)
 	}
 	return has
 }
@@ -191,7 +195,7 @@ func (s *CreationService) CheckFomods(files []string) []bool {
 // OpenFomod shows the installer of a prepared archive in a window of its own;
 // position and total, when total is above one, say which of the installers
 // of a queue of installs it is. Closing the window cancels the install.
-func (s *CreationService) OpenFomod(session string, position, total int) error {
+func (s *ModListService) OpenFomod(session string, position, total int) error {
 	is, err := s.session(session)
 	if err != nil {
 		return err
@@ -213,7 +217,7 @@ func (s *CreationService) OpenFomod(session string, position, total int) error {
 }
 
 // PreparedInfo describes a prepared archive to the installer's window.
-func (s *CreationService) PreparedInfo(session string) (PreparedMod, error) {
+func (s *ModListService) PreparedInfo(session string) (PreparedMod, error) {
 	is, err := s.session(session)
 	if err != nil {
 		return PreparedMod{}, err
@@ -227,7 +231,7 @@ func (s *CreationService) PreparedInfo(session string) (PreparedMod, error) {
 
 // FomodView is the installer of a prepared archive with the options picked
 // so far.
-func (s *CreationService) FomodView(session string, choices fomod.Choices) (fomod.View, error) {
+func (s *ModListService) FomodView(session string, choices fomod.Choices) (fomod.View, error) {
 	is, err := s.session(session)
 	if err != nil {
 		return fomod.View{}, err
@@ -239,7 +243,7 @@ func (s *CreationService) FomodView(session string, choices fomod.Choices) (fomo
 }
 
 // FomodImage returns a picture of the installer as a data URL.
-func (s *CreationService) FomodImage(session, path string) (string, error) {
+func (s *ModListService) FomodImage(session, path string) (string, error) {
 	is, err := s.session(session)
 	if err != nil {
 		return "", err
@@ -271,7 +275,7 @@ func (s *CreationService) FomodImage(session, path string) (string, error) {
 // options picked in choices. An archive with the name of a mod of the
 // profile replaces or merges with that mod, keeping its place and whether it
 // is on, or becomes a mod of its own, as ChooseTarget said.
-func (s *CreationService) FinishInstall(session string, choices fomod.Choices) (library.Profile, error) {
+func (s *ModListService) FinishInstall(session string, choices fomod.Choices) (library.Profile, error) {
 	is, err := s.session(session)
 	if err != nil {
 		return library.Profile{}, err
@@ -305,8 +309,8 @@ func (s *CreationService) FinishInstall(session string, choices fomod.Choices) (
 
 	source := library.ModSource{Type: library.SourceLocal, URL: is.staged.File}
 	if is.staged.NexusID > 0 {
-		if _, bg, err := s.creationGame(is.gameID); err == nil {
-			source = library.ModSource{Type: library.SourceNexus, URL: bg.NexusURL(is.staged.NexusID), Asset: is.staged.File}
+		if _, modding, err := s.deployedGame(is.gameID); err == nil && modding.Nexus != "" {
+			source = library.ModSource{Type: library.SourceNexus, URL: nexus.ModURL(modding.Nexus, is.staged.NexusID), Asset: is.staged.File}
 		}
 	}
 	p, err := s.lib.UpdateProfile(is.gameID, is.profileID, func(p *library.Profile) error {
@@ -315,7 +319,7 @@ func (s *CreationService) FinishInstall(session string, choices fomod.Choices) (
 			if i < 0 {
 				return fmt.Errorf("mod %q: %w", is.existing, library.ErrNotFound)
 			}
-			modDir := filepath.Join(profileDir, creation.ModsDir, is.existing)
+			modDir := filepath.Join(profileDir, deploy.ModsDir, is.existing)
 			if is.target == TargetReplace {
 				if err := os.RemoveAll(modDir); err != nil {
 					return err
@@ -339,12 +343,12 @@ func (s *CreationService) FinishInstall(session string, choices fomod.Choices) (
 			taken = append(taken, m.ID)
 		}
 		// Folders left by mods removed outside Hermit are taken too.
-		entries, _ := os.ReadDir(filepath.Join(profileDir, creation.ModsDir))
+		entries, _ := os.ReadDir(filepath.Join(profileDir, deploy.ModsDir))
 		for _, e := range entries {
 			taken = append(taken, e.Name())
 		}
 		id := uniqueModID(is.name, taken)
-		modDir := filepath.Join(profileDir, creation.ModsDir, id)
+		modDir := filepath.Join(profileDir, deploy.ModsDir, id)
 		if err := is.staged.Install(modDir, files); err != nil {
 			os.RemoveAll(modDir)
 			return err
@@ -374,14 +378,14 @@ func (s *CreationService) FinishInstall(session string, choices fomod.Choices) (
 }
 
 // CancelInstall throws away what PrepareInstall unpacked.
-func (s *CreationService) CancelInstall(session string) error {
+func (s *ModListService) CancelInstall(session string) error {
 	err := s.drop(session)
 	emit(InstallClosedEvent, map[string]string{"session": session})
 	return err
 }
 
 // drop forgets an install and removes what it unpacked.
-func (s *CreationService) drop(session string) error {
+func (s *ModListService) drop(session string) error {
 	s.mu.Lock()
 	is := s.sessions[session]
 	delete(s.sessions, session)
@@ -394,7 +398,7 @@ func (s *CreationService) drop(session string) error {
 
 // removeStale deletes what installs that never finished, cut short by a
 // closed window or Hermit quitting, left in a profile's staging folder.
-func (s *CreationService) removeStale(staging string) {
+func (s *ModListService) removeStale(staging string) {
 	entries, _ := os.ReadDir(staging)
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -405,7 +409,7 @@ func (s *CreationService) removeStale(staging string) {
 	}
 }
 
-func (s *CreationService) session(id string) (*installSession, error) {
+func (s *ModListService) session(id string) (*installSession, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	is := s.sessions[id]
@@ -440,7 +444,7 @@ func fomodNotes(v fomod.View) string {
 // have yet is switched on when the game next starts.
 func pluginStates(gamePath, profileDir string, profile library.Profile) fomod.Environment {
 	official := map[string]bool{}
-	if data, err := gameData(gamePath); err == nil {
+	if data, err := deploy.DataDir(gamePath, creation.Target); err == nil {
 		entries, _ := os.ReadDir(data)
 		for _, e := range entries {
 			official[strings.ToLower(e.Name())] = true
@@ -451,7 +455,7 @@ func pluginStates(gamePath, profileDir string, profile library.Profile) fomod.En
 		if !m.Enabled || m.Separator {
 			continue
 		}
-		entries, _ := os.ReadDir(filepath.Join(profileDir, creation.ModsDir, m.ID))
+		entries, _ := os.ReadDir(filepath.Join(profileDir, deploy.ModsDir, m.ID))
 		for _, e := range entries {
 			fromMods[strings.ToLower(e.Name())] = true
 		}

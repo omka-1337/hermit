@@ -100,9 +100,10 @@ export function ProfileDir(gameID: string, profileID: string): $CancellablePromi
 }
 
 /**
- * ProfileRootFiles lists the files the enabled mods of a Creation Engine
- * game's active profile put into the game folder while it runs, such as the
- * script extender's loader, as paths relative to the game folder.
+ * ProfileRootFiles lists the files the enabled mods of a game whose mods
+ * are deployed put into the game folder while it runs, such as a Creation
+ * Engine game's script extender's loader, as paths relative to the game
+ * folder.
  */
 export function ProfileRootFiles(gameID: string): $CancellablePromise<string[] | null> {
     return $Call.ByID(2202402963, gameID);

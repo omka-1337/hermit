@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Events } from "@wailsio/runtime";
-import { CreationService, errorMessage, PreparedMod, UnpackProgress } from "./api";
+import { ModListService, errorMessage, PreparedMod, UnpackProgress } from "./api";
 import DuplicateModModal from "./components/DuplicateModModal";
 
 // QueueStatus is what the status bar shows of a queue of installs.
@@ -63,9 +63,9 @@ export function useInstallQueue(onError: (message: string) => void) {
         go();
       }
     };
-    const offInstalled = Events.On("creation:installed", done);
-    const offClosed = Events.On("creation:install-closed", done);
-    const offUnpack = Events.On("creation:unpack", (ev) => {
+    const offInstalled = Events.On("modlist:installed", done);
+    const offClosed = Events.On("modlist:install-closed", done);
+    const offUnpack = Events.On("modlist:unpack", (ev) => {
       if (!q.current.unpacking) return;
       q.current.unpack = ev.data;
       show();
@@ -105,7 +105,7 @@ export function useInstallQueue(onError: (message: string) => void) {
       s.unpack = null;
       show();
       try {
-        const prepared = await CreationService.PrepareInstall(job.gameId, job.profileId, job.file);
+        const prepared = await ModListService.PrepareInstall(job.gameId, job.profileId, job.file);
         if (prepared.existing || prepared.fomod) {
           s.toAsk.push({ job, prepared });
           askAll();
@@ -114,7 +114,7 @@ export function useInstallQueue(onError: (message: string) => void) {
         s.action = `Installing ${prepared.name}`;
         s.unpack = null;
         show();
-        await CreationService.FinishInstall(prepared.session, null);
+        await ModListService.FinishInstall(prepared.session, null);
       } catch (err) {
         fail(job.name, err);
         if (job.fomod) s.fomods--;
@@ -137,7 +137,7 @@ export function useInstallQueue(onError: (message: string) => void) {
           const go = await new Promise<boolean>((answer) => setQuestion({ prepared, answer }));
           setQuestion(null);
           if (!go) {
-            await CreationService.CancelInstall(prepared.session);
+            await ModListService.CancelInstall(prepared.session);
             if (prepared.fomod) s.fomods--;
             finishOne();
             continue;
@@ -146,10 +146,10 @@ export function useInstallQueue(onError: (message: string) => void) {
         if (prepared.fomod) {
           s.fomodsOpened++;
           const closed = new Promise<void>((go) => waiting.current.set(prepared.session, go));
-          await CreationService.OpenFomod(prepared.session, s.fomodsOpened, s.fomods);
+          await ModListService.OpenFomod(prepared.session, s.fomodsOpened, s.fomods);
           await closed;
         } else {
-          await CreationService.FinishInstall(prepared.session, null);
+          await ModListService.FinishInstall(prepared.session, null);
         }
       } catch (err) {
         fail(job.name, err);
@@ -162,7 +162,7 @@ export function useInstallQueue(onError: (message: string) => void) {
   // add puts archives into the queue of the active profile of a game.
   const add = async (gameId: string, profileId: string, files: string[]) => {
     if (!files.length) return;
-    const fomods = await CreationService.CheckFomods(files);
+    const fomods = await ModListService.CheckFomods(files);
     const s = q.current;
     files.forEach((file, i) =>
       s.toUnpack.push({ file, name: baseName(file), gameId, profileId, fomod: !!fomods?.[i] }),
@@ -177,7 +177,7 @@ export function useInstallQueue(onError: (message: string) => void) {
     <DuplicateModModal
       prepared={question.prepared}
       onChoose={async (target, name) => {
-        await CreationService.ChooseTarget(question.prepared.session, target, name);
+        await ModListService.ChooseTarget(question.prepared.session, target, name);
         question.answer(true);
       }}
       onCancel={() => question.answer(false)}

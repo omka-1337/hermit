@@ -81,6 +81,10 @@ function engineName(game: Game): string {
       return "Unity · BepInEx";
     case Engine.EngineCreation:
       return "Creation Engine";
+    case Engine.EngineRED:
+      return game.engineVersion ? `REDengine ${game.engineVersion}` : "REDengine";
+    case Engine.EngineUnreal:
+      return game.engineVersion ? `Unreal Engine ${game.engineVersion}` : "Unreal Engine";
   }
   return "";
 }

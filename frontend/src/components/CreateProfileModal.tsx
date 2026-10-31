@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Engine, errorMessage, Game, Library } from "../api";
+import { deployed, errorMessage, Game, Library } from "../api";
 import ModpackInstallButton from "./browse/ModpackInstallButton";
 import PackageBrowser from "./browse/PackageBrowser";
 import { Button, ErrorText, inputClass, Modal } from "./ui";
@@ -14,7 +14,7 @@ type Props = {
 };
 
 // CreateProfileModal creates an empty profile or one from a Thunderstore
-// modpack; Creation Engine games have no modpacks there.
+// modpack; games whose mods are deployed have no modpacks there.
 export default function CreateProfileModal({ game, onClose, onCreated }: Props) {
   const [tab, setTab] = useState<Tab>("empty");
   const [name, setName] = useState("");
@@ -37,7 +37,7 @@ export default function CreateProfileModal({ game, onClose, onCreated }: Props) 
 
   const tabs: { id: Tab; label: string }[] = [
     { id: "empty", label: "Empty profile" },
-    ...(game.engine === Engine.EngineCreation ? [] : [{ id: "modpack" as const, label: "From modpack" }]),
+    ...(deployed(game.engine) ? [] : [{ id: "modpack" as const, label: "From modpack" }]),
   ];
 
   return (

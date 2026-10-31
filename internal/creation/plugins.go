@@ -2,6 +2,7 @@ package creation
 
 import (
 	"errors"
+	"hermit/internal/deploy"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -64,7 +65,7 @@ func WritePlugins(file string, list []Plugin) error {
 // compatibility data folder (compatdata/<appid>) reads plugins.txt from.
 func PrefixPluginsPath(compatData string, g Game) string {
 	dir := filepath.Join(prefixUser(compatData), "AppData", "Local", g.AppData)
-	if name, err := findFold(dir, PluginsFile); err == nil && name != "" {
+	if name, err := deploy.FindFold(dir, PluginsFile); err == nil && name != "" {
 		return filepath.Join(dir, name)
 	}
 	return filepath.Join(dir, "Plugins.txt")

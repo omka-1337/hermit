@@ -1,21 +1,12 @@
 package creation
 
-// Layout of a profile of a Creation Engine game:
+// A profile of a Creation Engine game is laid out as deploy has it, with
+// mods laid out as Data is and the game folder's files in their Root
+// folders, and with these beside its mods:
 //
-//	mods/<mod-id>/...       files that go into Data, as they are laid out there
-//	mods/<mod-id>/Root/...  files that go into the game folder itself
-//	overwrite/...           files the game and tools wrote into Data
-//	plugins.txt             the plugin list, "*" marking active plugins
-//	ini/                    the game's INI files, when the profile has its own
-//	downloads/              the archives of mods downloaded from Nexus Mods
-//
-// The Root folder follows MO2's Root Builder, so mods set up there come over
-// unchanged.
+//	plugins.txt  the plugin list, "*" marking active plugins
+//	ini/         the game's INI files, when the profile has its own
 const (
-	ModsDir      = "mods"
-	OverwriteDir = "overwrite"
-	PluginsFile  = "plugins.txt"
-	INIDir       = "ini"
-	DownloadsDir = "downloads"
-	RootDir      = "root"
+	PluginsFile = "plugins.txt"
+	INIDir      = "ini"
 )

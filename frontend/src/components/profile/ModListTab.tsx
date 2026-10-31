@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Browser } from "@wailsio/runtime";
-import { CreationService, confirmDanger, errorMessage, Mod } from "../../api";
+import { ModListService, confirmDanger, errorMessage, Mod } from "../../api";
 import ContextMenu, { MenuAnchor, MenuItem } from "../ContextMenu";
 import EditableName from "../EditableName";
 import ImportMO2Modal from "../ImportMO2Modal";
@@ -9,9 +9,9 @@ import { useRefresh } from "../../refresh";
 import { useProfile } from "./ProfileContext";
 import { useDragReorder } from "./useDragReorder";
 
-// CreationModsTab lists the mods of a Creation Engine profile in the order
-// they are deployed into Data: where two mods have the same file, the one
-// further down wins, as in Mod Organizer 2. Rows are dragged to change it; a
+// ModListTab lists the mods of a profile of a game whose mods are deployed,
+// in the order they are deployed into the game: where two mods have the same
+// file, the one further down wins, as in Mod Organizer 2. Rows are dragged to change it; a
 // folded separator takes its mods along. Separators head groups of the mods
 // after them and fold them away. A right click on a row adds a separator next
 // to it or removes the row.
@@ -23,7 +23,7 @@ const columns = "grid grid-cols-[1rem_2rem_3.25rem_minmax(0,1fr)_6rem_7rem_10rem
 
 const sourceLabels: Record<string, string> = { nexus: "Nexus", local: "Local", github: "GitHub", thunderstore: "Thunderstore" };
 
-export default function CreationModsTab() {
+export default function ModListTab() {
   const { game, profile, applyProfile, setEnabled } = useProfile();
   const [error, setError] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
@@ -51,7 +51,7 @@ export default function CreationModsTab() {
   useRefresh(() => setRescans((n) => n + 1));
   useEffect(() => {
     let current = true;
-    CreationService.Conflicts(game.id, profile.id)
+    ModListService.Conflicts(game.id, profile.id)
       .then((found) => current && setConflicts((found ?? {}) as Record<string, Record<string, number>>))
       .catch(console.error);
     return () => {
@@ -100,7 +100,7 @@ export default function CreationModsTab() {
     if (next.every((m, i) => m.id === mods[i].id)) return;
     const old = profile;
     applyProfile({ ...profile, mods: next });
-    CreationService.MoveMods(game.id, profile.id, ids, before ?? "")
+    ModListService.MoveMods(game.id, profile.id, ids, before ?? "")
       .then(applyProfile)
       .catch((err) => {
         applyProfile(old);
@@ -117,14 +117,14 @@ export default function CreationModsTab() {
     act(m.id, async () => {
       // A separator has no files, and its mods stay where they are.
       if (m.separator || (await confirmDanger("Remove mod", `Remove ${m.name} and its files from this profile?`, "Remove"))) {
-        applyProfile(await CreationService.RemoveMod(game.id, profile.id, m.id));
+        applyProfile(await ModListService.RemoveMod(game.id, profile.id, m.id));
       }
     });
 
   const addSeparator = (name: string, at: number) =>
     act("separator", async () => {
       setNaming(null);
-      if (name.trim()) applyProfile(await CreationService.AddSeparator(game.id, profile.id, name, at));
+      if (name.trim()) applyProfile(await ModListService.AddSeparator(game.id, profile.id, name, at));
     });
 
   // Below a folded separator is past the mods it hides.
@@ -151,7 +151,7 @@ export default function CreationModsTab() {
   );
 
   const rename = (m: Mod, name: string) =>
-    act(m.id, async () => applyProfile(await CreationService.RenameSeparator(game.id, profile.id, m.id, name)));
+    act(m.id, async () => applyProfile(await ModListService.RenameSeparator(game.id, profile.id, m.id, name)));
 
   const toggle = (id: string) =>
     setCollapsed((c) => {

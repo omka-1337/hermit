@@ -40,8 +40,8 @@ type Session struct {
 	// Modded records whether the game was started with BepInEx, so the
 	// session can be finished by a process that did not start it.
 	Modded bool `json:"modded"`
-	// Deployed is set for a Creation Engine game whose profile is deployed
-	// into Data; what was changed is in deploy.json.
+	// Deployed is set for a game whose mods are deployed, as those of the
+	// Creation Engine into Data; what was changed is in deploy.json.
 	Deployed bool `json:"deployed,omitempty"`
 	// Tool names the modding tool running instead of the game, if one is.
 	Tool string `json:"tool,omitempty"`

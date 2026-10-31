@@ -174,8 +174,8 @@ func (w *Wrapper) Prepare(gameID string, command, env []string, pid int, logOut 
 	}
 	modded := false
 	switch {
-	case game.Engine == library.EngineCreation:
-		if command, err = deployCreation(game, profile, profileDir, dataDir, command, env, tool); err != nil {
+	case game.Engine.Deployed():
+		if command, env, err = deployMods(game, profile, profileDir, dataDir, command, env, tool); err != nil {
 			return plan, err
 		}
 		session.Deployed, modded = true, true
@@ -211,13 +211,19 @@ func (w *Wrapper) Prepare(gameID string, command, env []string, pid int, logOut 
 	}
 	if game.Runtime == library.RuntimeProton && game.LaunchExecutable != "" && !tool {
 		exe := filepath.Join(game.Path, filepath.FromSlash(game.LaunchExecutable))
-		command = withExecutable(command, game.Path, exe, filepath.Base(game.Executable))
+		// Steam may start the game from a launcher of its own, as
+		// Cyberpunk 2077's REDprelauncher.
+		names := []string{filepath.Base(game.Executable)}
+		if modding, ok := game.Modding(); ok {
+			names = append(names, modding.Launchers...)
+		}
+		command = withExecutable(command, game.Path, exe, names...)
 	}
 	session.Modded = modded
 	if err := writeSession(dataDir, session); err != nil {
 		Unlink(game.Path, session.Links, profileDir)
 		if session.Deployed {
-			undeployCreation(game, dataDir)
+			undeployMods(game, dataDir)
 		}
 		if session.PPDB != "" {
 			removePPDBOverride(session.PPDB, "winhttp", "n,b")
@@ -253,7 +259,7 @@ func (w *Wrapper) Cleanup(gameID string) error {
 	if session.Deployed {
 		// The session stays while the mods are not out of the game folder,
 		// so they are not forgotten there.
-		if err := undeployCreation(game, dataDir); err != nil {
+		if err := undeployMods(game, dataDir); err != nil {
 			return fmt.Errorf("removing the mods from the game folder: %w", err)
 		}
 	} else if session.Modded {

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Window } from "@wailsio/runtime";
-import { CreationService, errorMessage, FomodView, PreparedMod } from "../api";
+import { ModListService, errorMessage, FomodView, PreparedMod } from "../api";
 
 // Choices are the options picked: per step, per group, the options' indices.
 type Choices = number[][][];
@@ -51,7 +51,7 @@ export default function FomodWindow({ session, position, total }: { session: str
   const [error, setError] = useState("");
 
   useEffect(() => {
-    Promise.all([CreationService.PreparedInfo(session), CreationService.FomodView(session, null)])
+    Promise.all([ModListService.PreparedInfo(session), ModListService.FomodView(session, null)])
       .then(([i, v]) => {
         setInfo(i);
         setView(normal(v));
@@ -79,7 +79,7 @@ export default function FomodWindow({ session, position, total }: { session: str
 
   useEffect(() => {
     if (!image || images[image] !== undefined) return;
-    CreationService.FomodImage(session, image)
+    ModListService.FomodImage(session, image)
       .then((src) => setImages((m) => ({ ...m, [image]: src })))
       .catch(() => setImages((m) => ({ ...m, [image]: "" })));
   }, [image, images, session]);
@@ -98,14 +98,14 @@ export default function FomodWindow({ session, position, total }: { session: str
       si === step.index ? (s ?? []).map((sel, gi) => (gi === g ? next : sel)) : s,
     );
     try {
-      setView(normal(await CreationService.FomodView(session, choices)));
+      setView(normal(await ModListService.FomodView(session, choices)));
     } catch (err) {
       setError(errorMessage(err));
     }
   };
 
   const cancel = () => {
-    CreationService.CancelInstall(session).catch(() => {});
+    ModListService.CancelInstall(session).catch(() => {});
   };
 
   const install = async () => {
@@ -113,7 +113,7 @@ export default function FomodWindow({ session, position, total }: { session: str
     setInstalling(true);
     setError("");
     try {
-      await CreationService.FinishInstall(session, view.choices);
+      await ModListService.FinishInstall(session, view.choices);
       Window.Close();
     } catch (err) {
       setInstalling(false);

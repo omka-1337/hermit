@@ -28,15 +28,18 @@ export interface Detection {
     "engine": Engine;
 
     /**
-     * EngineVersion is the Unity version, e.g. "2022.3.62f2", or "2" for
-     * Creation Engine 2; empty when it is not known.
+     * EngineVersion is the Unity version, e.g. "2022.3.62f2", "2" for
+     * Creation Engine 2, "4" for REDengine 4 or "3" for Unreal Engine 3;
+     * empty when it is not known.
      */
     "engineVersion": string;
     "runtime": Runtime;
     "backend": Backend;
 
     /**
-     * Executable is the game executable file name, e.g. "Valheim.exe".
+     * Executable is the game executable file name, e.g. "Valheim.exe", or
+     * its slash-separated path for a game that keeps it in a folder, as
+     * "bin/x64/Cyberpunk2077.exe".
      */
     "executable": string;
 }
@@ -57,6 +60,12 @@ export enum Engine {
      * the Creation Engine
      */
     EngineCreation = "creation",
+
+    /**
+     * CD Projekt Red's REDengine
+     */
+    EngineRED = "redengine",
+    EngineUnreal = "unreal",
 };
 
 /**

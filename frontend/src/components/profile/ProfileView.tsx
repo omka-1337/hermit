@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Events } from "@wailsio/runtime";
-import { CreationService, Engine, errorMessage, FolderService, Game, InstallService, Profile } from "../../api";
+import { deployed, Engine, errorMessage, FolderService, Game, InstallService, ModListService, Profile } from "../../api";
 import { useRefresh } from "../../refresh";
 import { packageLabel } from "../../format";
 import { PlayButton } from "../launch";
@@ -10,7 +10,7 @@ import { Button, ErrorText, useModalOpen } from "../ui";
 import { useGamepad } from "../../gamepad";
 import { usePageHints } from "../../screens/shell";
 import { useLayout } from "../../uimode";
-import CreationModsTab from "./CreationModsTab";
+import ModListTab from "./ModListTab";
 import BrowseTab from "./BrowseTab";
 import ConfigTab from "./ConfigTab";
 import InstalledTab from "./InstalledTab";
@@ -21,23 +21,19 @@ import { ProfileProvider } from "./ProfileContext";
 
 export type Tab = "installed" | "browse" | "config" | "tools" | "logs";
 
-// profileTabs are the pages of a profile. A Creation Engine game has neither
-// Thunderstore nor BepInEx: its profile is the list of its mods, and in the
-// desktop layout the tools its mods bring and the logs its script extender's
-// plugins wrote.
+// profileTabs are the pages of a profile. A game whose mods are deployed has
+// neither Thunderstore nor BepInEx: its profile is the list of its mods, and
+// in the desktop layout the tools its mods bring and, for a Creation Engine
+// game, the logs its script extender's plugins wrote.
 export function profileTabs(game: Game, profile: Profile | null, desktop = false): { id: Tab; label: string }[] {
   // Separators head groups of mods and are not mods themselves. The desktop
   // layout counts mods in its status bar instead.
   const modCount = desktop ? 0 : (profile?.mods?.filter((m) => !m.separator).length ?? 0);
-  return game.engine === Engine.EngineCreation
+  return deployed(game.engine)
     ? [
         { id: "installed", label: `Mods${modCount ? ` (${modCount})` : ""}` },
-        ...(desktop
-          ? [
-              { id: "tools" as const, label: "Tools" },
-              { id: "logs" as const, label: "Logs" },
-            ]
-          : []),
+        ...(desktop ? [{ id: "tools" as const, label: "Tools" }] : []),
+        ...(desktop && game.engine === Engine.EngineCreation ? [{ id: "logs" as const, label: "Logs" }] : []),
       ]
     : [
         { id: "installed", label: `Installed${modCount ? ` (${modCount})` : ""}` },
@@ -85,12 +81,13 @@ export default function ProfileView({
   const [error, setError] = useState("");
   const [exporting, setExporting] = useState(false);
 
-  // A refresh reads the profile again; a Creation Engine profile's list also
-  // takes in mod folders put in by hand and lets go of those removed.
+  // A refresh reads the profile again; the list of a game whose mods are
+  // deployed also takes in mod folders put in by hand and lets go of those
+  // removed.
   useRefresh(() => {
     const read =
-      game.engine === Engine.EngineCreation
-        ? CreationService.Rescan(game.id, profileId)
+      deployed(game.engine)
+        ? ModListService.Rescan(game.id, profileId)
         : InstallService.OpenProfile(game.id, profileId);
     read.then(setProfile).catch((err) => setError(errorMessage(err)));
   });
@@ -98,7 +95,7 @@ export default function ProfileView({
   // A mod installed from a FOMOD installer's window, or anywhere else.
   useEffect(
     () =>
-      Events.On("creation:installed", (ev) => {
+      Events.On("modlist:installed", (ev) => {
         if (ev.data?.gameId === game.id && ev.data?.profileId === profileId) {
           InstallService.OpenProfile(game.id, profileId).then(setProfile).catch(console.error);
         }
@@ -112,7 +109,7 @@ export default function ProfileView({
       .catch((err) => setError(errorMessage(err)));
   }, [game.id, profileId]);
 
-  const creation = game.engine === Engine.EngineCreation;
+  const modList = deployed(game.engine);
   const tabs = profileTabs(game, profile, embedded);
 
   const step = (by: number) =>
@@ -173,7 +170,7 @@ export default function ProfileView({
                 Open folder
               </Button>
             )}
-            {profile && !creation && (
+            {profile && !modList && (
               <Button variant="ghost" onClick={() => setExporting(true)}>
                 Export
               </Button>
@@ -193,9 +190,9 @@ export default function ProfileView({
         )}
         {profile && (
           <ProfileProvider game={game} profile={profile} onProfileChange={setProfile} onOpenProfile={onOpenProfile}>
-            {creation ? (
+            {modList ? (
               <div className="min-h-0 flex-1">
-                {tab === "logs" ? <LogsTab /> : tab === "tools" ? <ToolsTab /> : <CreationModsTab />}
+                {tab === "logs" ? <LogsTab /> : tab === "tools" ? <ToolsTab /> : <ModListTab />}
               </div>
             ) : (
               <>

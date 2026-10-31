@@ -72,7 +72,7 @@ export default function SettingsView() {
         </div>
       </section>
 
-      {/* Downloads from Nexus Mods are for the Creation Engine games of the desktop layout. */}
+      {/* Downloads from Nexus Mods are for the games whose mods are deployed, in the desktop layout. */}
       {layout === "desktop" && <NexusSettings />}
       {settings && (
         <section className="flex flex-col gap-3">

@@ -28,9 +28,23 @@ launching through Steam or, outside Steam, through PortProton.
 
 ## Other engines
 
-Games that do not use BepInEx — Cyberpunk 2077, The Witcher 3, Unreal Engine titles, Bethesda's games — each have
-their own mod layout, their own loaders and their own rules about load order. They are not supported, and when they
-are, they will need their own pages: nothing about them can be said in one line the way it can for BepInEx.
+Games that do not use BepInEx have mods that are files laid out as the game's own. For these Hermit keeps each mod
+in a folder of its own inside the profile, in an order that decides which of two mods with the same file wins, as
+Mod Organizer 2 does, and links their files into the game for the length of a session. Files the game writes into
+its folder meanwhile are kept in the profile's overwrite folder. Mods come from archives (zip, 7z, rar, with FOMOD
+installers) or from Nexus Mods' "Mod Manager Download" button.
+
+- Creation Engine: Skyrim (Special Edition, VR, Legendary), Fallout 4 (and VR), Starfield. Mods go into Data, those
+  in a mod's Root folder into the game folder; the plugin list and the INI files of the profile are given to the game
+  for the session, and the script extender starts in place of the launcher. Profiles can be imported from MO2. Used
+  in practice on Skyrim Special Edition.
+- REDengine 4: Cyberpunk 2077. Mods go into the game folder and may take the place of its files for the session;
+  DLLs mods put beside the game's executable, as Cyber Engine Tweaks' `version.dll` and RED4ext's `winmm.dll`, are
+  loaded through Wine's native overrides. Not tried with real mods yet.
+- Unreal Engine 3: Batman: Arkham Knight. Mods go into the game folder, packages taking the place of the game's own
+  in `BmGame/CookedPCConsole`, which are set aside and put back after the session. Not tried with real mods yet.
+
+The Witcher 3 (REDengine 3) and Unreal Engine 4 and 5 games are not supported.
 
 ## Old modpacks
 

@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
+	"hermit/internal/deploy"
 	"io"
 	"io/fs"
 	"os"
@@ -148,7 +149,7 @@ func (in MO2Instance) ReadProfile(name string) (MO2Profile, error) {
 			m.File = filepath.Base(windowsPath(f))
 		}
 		m.Comments = general["comments"]
-		if id, version, ok := ParseNexusFile(m.File); ok {
+		if id, version, ok := deploy.ParseNexusFile(m.File); ok {
 			if m.NexusID == 0 {
 				m.NexusID = id
 			}
@@ -211,10 +212,10 @@ func (in MO2Instance) ImportMO2(p MO2Profile, ids []string, profileDir, gameData
 	jobs := make([]copyJob, 0, len(p.Mods)+1)
 	for i, m := range p.Mods {
 		if !m.Separator {
-			jobs = append(jobs, copyJob{filepath.Join(in.modsDir, m.Folder), filepath.Join(profileDir, ModsDir, ids[i])})
+			jobs = append(jobs, copyJob{filepath.Join(in.modsDir, m.Folder), filepath.Join(profileDir, deploy.ModsDir, ids[i])})
 		}
 	}
-	jobs = append(jobs, copyJob{in.overwriteDir, filepath.Join(profileDir, OverwriteDir)})
+	jobs = append(jobs, copyJob{in.overwriteDir, filepath.Join(profileDir, deploy.OverwriteDir)})
 
 	if !sameFileSystem(in.modsDir, profileDir) {
 		var need uint64
@@ -259,34 +260,11 @@ func (in MO2Instance) ImportMO2(p MO2Profile, ids []string, profileDir, gameData
 
 	var plugins []Plugin
 	for _, pl := range p.Plugins {
-		if name, _ := findFold(gameData, pl.Name); name == "" {
+		if name, _ := deploy.FindFold(gameData, pl.Name); name == "" {
 			plugins = append(plugins, pl)
 		}
 	}
 	return WritePlugins(filepath.Join(profileDir, PluginsFile), plugins)
-}
-
-var (
-	// "SkyUI-12604-6-11-1778020881.zip": name, mod id, version with dashes
-	// for dots, upload time.
-	nexusFile = regexp.MustCompile(`^.+?-(\d+)-([0-9a-zA-Z][0-9a-zA-Z-]*?)-\d{9,11}\.\w+$`)
-	// "SkyUI 12604 6.11 2026-08-27T16-52Z s6Og0dG94.7z", as the Nexus Mods
-	// app names its downloads.
-	nexusAppFile = regexp.MustCompile(`^.+ (\d+) (\S+) \d{4}-\d{2}-\d{2}T\d{2}-\d{2}Z \w+\.\w+$`)
-)
-
-// ParseNexusFile reads the mod id and version from the name of an archive
-// downloaded from Nexus Mods.
-func ParseNexusFile(name string) (id int, version string, ok bool) {
-	if m := nexusAppFile.FindStringSubmatch(name); m != nil {
-		id, _ = strconv.Atoi(m[1])
-		return id, m[2], true
-	}
-	if m := nexusFile.FindStringSubmatch(name); m != nil {
-		id, _ = strconv.Atoi(m[1])
-		return id, strings.ReplaceAll(m[2], "-", "."), true
-	}
-	return 0, "", false
 }
 
 // NexusURL is the page of a mod on Nexus Mods.

@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"slices"
 	"testing"
+
+	"hermit/internal/deploy"
 )
 
 func TestParseNexusFile(t *testing.T) {
@@ -22,7 +24,7 @@ func TestParseNexusFile(t *testing.T) {
 		{"Unofficial Skyrim Special Edition Patch 266 4.3.9c 2026-09-05T22-22Z lNkz9LChN.7z", 266, "4.3.9c", true},
 		{"OStim Standalone 7.0.7z", 0, "", false},
 	} {
-		id, version, ok := ParseNexusFile(tc.name)
+		id, version, ok := deploy.ParseNexusFile(tc.name)
 		if id != tc.id || version != tc.version || ok != tc.ok {
 			t.Errorf("%s: got %d %q %v, want %d %q %v", tc.name, id, version, ok, tc.id, tc.version, tc.ok)
 		}

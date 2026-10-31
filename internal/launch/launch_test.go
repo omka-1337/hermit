@@ -391,6 +391,55 @@ func TestRunCreationEngineGame(t *testing.T) {
 	}
 }
 
+func TestRunREDengineGame(t *testing.T) {
+	tmp := t.TempDir()
+	lib, err := library.New(filepath.Join(tmp, "lib"), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gamePath := filepath.Join(tmp, "Cyberpunk 2077")
+	mkfile(t, filepath.Join(gamePath, "bin", "x64", "Cyberpunk2077.exe"))
+	mkfile(t, filepath.Join(gamePath, "REDprelauncher.exe"))
+	game, err := lib.AddGame("Cyberpunk 2077", gamePath)
+	if err != nil || game.Engine != library.EngineRED {
+		t.Fatalf("add game: %+v %v", game, err)
+	}
+	profileDir, _ := lib.ProfileDir(game.ID, game.ActiveProfile)
+	mkfile(t, filepath.Join(profileDir, "mods", "cet", "bin", "x64", "version.dll"))
+	mkfile(t, filepath.Join(profileDir, "mods", "cet", "bin", "x64", "plugins", "cyber_engine_tweaks.asi"))
+	mkfile(t, filepath.Join(profileDir, "mods", "outfit", "archive", "pc", "mod", "outfit.archive"))
+	if _, err := lib.UpdateProfile(game.ID, game.ActiveProfile, func(p *library.Profile) error {
+		p.Mods = []library.Mod{
+			{ID: "cet", Name: "Cyber Engine Tweaks", Enabled: true, Active: true},
+			{ID: "outfit", Name: "Outfit", Enabled: true, Active: true},
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("WINEDLLOVERRIDES", "")
+
+	report := filepath.Join(tmp, "report")
+	script := `test -L archive/pc/mod/outfit.archive && echo linked >> ` + report + `; echo "$WINEDLLOVERRIDES" >> ` + report +
+		`; echo log > bin/x64/plugins/cyber_engine_tweaks.log`
+	w := &Wrapper{Lib: lib, Installer: modinstall.NewInstaller(lib, nil, nil)}
+	t.Chdir(gamePath)
+	if code := w.Run([]string{"--game", game.ID, "--", "sh", "-c", script, "sh", filepath.Join(gamePath, "REDprelauncher.exe")}); code != 0 {
+		t.Errorf("exit code %d", code)
+	}
+	if data, _ := os.ReadFile(report); string(data) != "linked\nversion=n,b\n" {
+		t.Errorf("game saw %q", data)
+	}
+	for _, rel := range []string{"archive/pc/mod", "bin/x64/version.dll", "bin/x64/plugins"} {
+		if _, err := os.Lstat(filepath.Join(gamePath, rel)); err == nil {
+			t.Errorf("%s is still in the game folder", rel)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(profileDir, "overwrite", "bin", "x64", "plugins", "cyber_engine_tweaks.log")); err != nil {
+		t.Errorf("the log written during the session is not in overwrite: %v", err)
+	}
+}
+
 func TestWithExecutable(t *testing.T) {
 	game := "/games/Skyrim Special Edition"
 	steam := []string{"/steam/reaper", "SteamLaunch", "AppId=489830", "--", "/steam/proton", "waitforexitandrun", game + "/SkyrimSELauncher.exe"}

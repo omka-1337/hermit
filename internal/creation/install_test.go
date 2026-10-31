@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"slices"
 	"testing"
+
+	"hermit/internal/deploy"
 )
 
 func makeZip(t *testing.T, name string, files map[string]string) string {
@@ -49,7 +51,7 @@ func TestStageAndInstallPlainArchives(t *testing.T) {
 			[]string{"SKSE/Plugins/versionlib.bin"},
 		},
 	} {
-		staged, err := Stage(makeZip(t, tc.name, tc.files), t.TempDir(), nil)
+		staged, err := deploy.Stage(makeZip(t, tc.name, tc.files), t.TempDir(), Layout, nil)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -80,13 +82,13 @@ func TestStageFomodAndNames(t *testing.T) {
 		"Fancy/fomod/info.xml":         `<fomod><Name>Fancy</Name><Author>Someone</Author><Version>1.2.0</Version></fomod>`,
 		"Fancy/core/Fancy.esp":         "",
 	})
-	if has, err := HasFomod(file); err != nil || !has {
+	if has, err := deploy.HasFomod(file); err != nil || !has {
 		t.Errorf("HasFomod: %v %v", has, err)
 	}
-	if has, _ := HasFomod(makeZip(t, "plain.zip", map[string]string{"a/b/c/fomod/ModuleConfig.xml": ""})); has {
+	if has, _ := deploy.HasFomod(makeZip(t, "plain.zip", map[string]string{"a/b/c/fomod/ModuleConfig.xml": ""})); has {
 		t.Error("an installer deeper than Stage looks counted")
 	}
-	staged, err := Stage(file, t.TempDir(), nil)
+	staged, err := deploy.Stage(file, t.TempDir(), Layout, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -108,7 +110,7 @@ func TestStageFomodAndNames(t *testing.T) {
 		"Community Shaders 86492 1.9.1 2026-09-24T12-49Z lNkz9LIZ8.zip": "Community Shaders",
 		"OStim Standalone 7.0.7z":                                       "OStim Standalone 7.0",
 	} {
-		if got := NameFromFile(file); got != want {
+		if got := deploy.NameFromFile(file); got != want {
 			t.Errorf("%s: %q, want %q", file, got, want)
 		}
 	}

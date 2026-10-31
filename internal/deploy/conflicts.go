@@ -1,4 +1,4 @@
-package creation
+package deploy
 
 import "path/filepath"
 
@@ -6,10 +6,10 @@ import "path/filepath"
 // mod, the other mods it shares files with and how many. Which of two mods
 // wins is their order, so the answer holds however they are moved; it
 // changes only when mods are added or removed.
-func Conflicts(profileDir string, mods []string) (map[string]map[string]int, error) {
+func Conflicts(profileDir string, mods []string, t Target) (map[string]map[string]int, error) {
 	owners := map[string][]int{}
 	for i, id := range mods {
-		err := walkMod(filepath.Join(profileDir, ModsDir, id), func(key string, _ source) {
+		err := walkMod(filepath.Join(profileDir, ModsDir, id), t, func(key string, _ source) {
 			owners[key] = append(owners[key], i)
 		})
 		if err != nil {

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Dialogs, Events } from "@wailsio/runtime";
-import { confirmDanger, Download, DownloadService, Engine, errorMessage, Game, Library, Profile } from "../api";
+import { confirmDanger, deployed, Download, DownloadService, errorMessage, Game, Library, Profile } from "../api";
 import { useDownloads, useNexusSetup } from "../downloads";
 import { formatBytes } from "../format";
 import { QueueStatus, useInstallQueue } from "../installQueue";
@@ -72,8 +72,8 @@ export default function DesktopWorkspace({ games, selectedId, onSelect, onGamesC
     [gameId, loadProfiles],
   );
 
-  // A game without the page that was open, a Creation Engine game has no
-  // Browse, starts on its first one.
+  // A game without the page that was open, one whose mods are deployed has
+  // no Browse, starts on its first one.
   const tabIds = tabs.map((t) => t.id).join(" ");
   useEffect(() => {
     const ids = tabIds.split(" ") as Tab[];
@@ -82,14 +82,14 @@ export default function DesktopWorkspace({ games, selectedId, onSelect, onGamesC
 
   const changed = (g: Game) => onGamesChanged(g.id);
 
-  // File → Install from file: a Creation Engine game's archives, as many as are
-  // picked, join the queue of installs; other games add the file in the
-  // dialog the Installed page has for it.
+  // File → Install from file: the archives of a game whose mods are
+  // deployed, as many as are picked, join the queue of installs; other games
+  // add the file in the dialog the Installed page has for it.
   useEffect(() => {
     const install = async () => {
       if (!game) return;
       setPage("profile");
-      if (game.engine !== Engine.EngineCreation) {
+      if (!deployed(game.engine)) {
         setTab("installed");
         setAddRequest((n) => n + 1);
         return;
@@ -125,7 +125,7 @@ export default function DesktopWorkspace({ games, selectedId, onSelect, onGamesC
   // A mod installed from a FOMOD installer's window changes the profile's count.
   useEffect(
     () =>
-      Events.On("creation:installed", (ev) => {
+      Events.On("modlist:installed", (ev) => {
         if (ev.data?.gameId === gameId) loadProfiles().catch(console.error);
       }),
     [gameId, loadProfiles],
@@ -321,7 +321,7 @@ export default function DesktopWorkspace({ games, selectedId, onSelect, onGamesC
           )}
         </main>
       </div>
-      {game?.engine === Engine.EngineCreation && !elsewhere && nexus.account && nexus.handler && !nexus.ready && (
+      {game && deployed(game.engine) && !elsewhere && nexus.account && nexus.handler && !nexus.ready && (
         <div className="flex shrink-0 items-center gap-3 border-t border-amber-500/30 bg-amber-500/5 px-3 py-1.5 text-xs text-amber-300">
           <span className="flex-1">
             Nexus Mods downloads are not set up:{" "}

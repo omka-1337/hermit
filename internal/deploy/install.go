@@ -1,4 +1,4 @@
-package creation
+package deploy
 
 import (
 	"crypto/rand"
@@ -7,17 +7,26 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 
 	"hermit/internal/archive"
 	"hermit/internal/fomod"
 )
 
-// StagingDir is the folder in a profile archives are unpacked into before
-// they are installed: on the profile's disk, so their files move into the
-// mod's folder without being copied.
-const StagingDir = ".staging"
+// Part is a file or folder of an unpacked archive and where it goes in a
+// mod's folder, a slash-separated path, "" for the folder itself.
+type Part struct {
+	From string
+	To   string
+}
+
+// Layout works out where the files of an archive unpacked into dir go in a
+// mod's folder. unsure is set when nothing in it looked like the game's
+// files: it is then installed as it is.
+type Layout func(dir string) (parts []Part, unsure bool)
 
 // Staged is a mod archive unpacked and looked at, ready to be installed.
 type Staged struct {
@@ -28,12 +37,8 @@ type Staged struct {
 	// the folder holding its fomod folder, the one its paths start from.
 	Fomod     *fomod.Config
 	FomodRoot string
-	// DataRoot is the folder of a plain archive laid out as Data is, and
-	// GameRoot one whose files go into the game folder itself, if any.
-	DataRoot string
-	GameRoot []string
-	// Unsure is set when nothing in the archive looked like Data: its files
-	// are installed as they are.
+	// Parts are where the files of a plain archive go.
+	Parts  []Part
 	Unsure bool
 	// Name, Version and Author come from the installer or the file name.
 	Name, Version, Author string
@@ -41,8 +46,8 @@ type Staged struct {
 }
 
 // Stage unpacks an archive into a new folder of stagingParent and works out
-// how it is laid out.
-func Stage(file, stagingParent string, progress func(done, total int64)) (*Staged, error) {
+// with layout how it is laid out.
+func Stage(file, stagingParent string, layout Layout, progress func(done, total int64)) (*Staged, error) {
 	id := make([]byte, 6)
 	rand.Read(id)
 	dir := filepath.Join(stagingParent, hex.EncodeToString(id))
@@ -68,7 +73,7 @@ func Stage(file, stagingParent string, progress func(done, total int64)) (*Stage
 		s.Author = cfg.Info.Author
 		return s, nil
 	}
-	s.DataRoot, s.GameRoot, s.Unsure = layout(dir)
+	s.Parts, s.Unsure = layout(dir)
 	return s, nil
 }
 
@@ -76,18 +81,19 @@ func Stage(file, stagingParent string, progress func(done, total int64)) (*Stage
 func (s *Staged) Remove() error { return os.RemoveAll(s.Dir) }
 
 // Install puts the mod's files into modDir: those a FOMOD installer picked
-// with the options in files, or a plain archive's, its game folder files
-// under Root. Files modDir has already are replaced and the rest kept, so
+// with the options in files, or a plain archive's where its layout puts
+// them. Files modDir has already are replaced and the rest kept, so
 // installing into a mod's folder merges the two.
 func (s *Staged) Install(modDir string, files []fomod.File) error {
 	if s.Fomod != nil {
 		return fomod.Install(s.FomodRoot, files, modDir)
 	}
-	if err := mergeTree(s.DataRoot, modDir); err != nil {
-		return err
-	}
-	for _, name := range s.GameRoot {
-		if err := mergeTree(filepath.Join(filepath.Dir(s.DataRoot), name), filepath.Join(modDir, "Root", name)); err != nil {
+	for _, p := range s.Parts {
+		to := modDir
+		if p.To != "" {
+			to = foldJoin(modDir, p.To)
+		}
+		if err := mergeTree(p.From, to); err != nil {
 			return err
 		}
 	}
@@ -116,75 +122,99 @@ func fomodRoot(dir string) string {
 	if hasFomod(dir) {
 		return dir
 	}
-	if only := onlyFolder(dir); only != "" && hasFomod(only) {
+	if only := OnlyFolder(dir); only != "" && hasFomod(only) {
 		return only
 	}
 	return ""
 }
 
 func hasFomod(dir string) bool {
-	name, _ := findFold(dir, "fomod")
+	name, _ := FindFold(dir, "fomod")
 	if name == "" {
 		return false
 	}
-	config, _ := findFold(filepath.Join(dir, name), "ModuleConfig.xml")
+	config, _ := FindFold(filepath.Join(dir, name), "ModuleConfig.xml")
 	return config != ""
 }
 
-// dataFolders are folders found at the top of Data, by which a folder of an
-// archive is known to be laid out as Data is.
-var dataFolders = []string{
-	"meshes", "textures", "scripts", "interface", "sound", "music", "skse", "f4se", "sfse", "seq", "strings",
-	"video", "materials", "lodsettings", "grass", "shadersfx", "calientetools", "nemesis_engine", "netscriptframework",
-	"dyndolod", "source", "lightplacer", "pbrnifpatcher", "pbrtexturesets", "terrain", "vis", "facegen", "distantlod",
-	"lod", "shaders", "platform", "tools",
+// Shape is how the archives of a game's mods are laid out, for the games
+// whose archives start from the game folder.
+type Shape struct {
+	// Folders are folders at the top of the game folder: an archive's
+	// folder holding one of them is laid out as the game folder is.
+	Folders []string
+	// Loose are the folders files are put in that an archive has at its
+	// top, or at the top of the folders it is wrapped in, by extension.
+	Loose map[string]string
+	// Within are folders deeper in the game folder an archive can start
+	// from, such as CookedPCConsole for BmGame/CookedPCConsole.
+	Within map[string]string
 }
 
-// layout works out where an archive's Data starts. An explicit Data folder
-// has it, and what is beside it goes into the game folder, as with SKSE;
-// otherwise the folder with Data's folders or with plugins is it, looked
-// for through folders an archive is wrapped in.
-func layout(dir string) (dataRoot string, gameRoot []string, unsure bool) {
+// Layout is a Layout for archives of this shape. An archive is laid out as
+// the game folder when it, or the folders it is wrapped in, holds one of
+// the shape's Folders; otherwise its Within folders and Loose files go
+// where they belong.
+func (sh Shape) Layout(dir string) ([]Part, bool) {
 	for {
 		entries, err := os.ReadDir(dir)
 		if err != nil {
-			return dir, nil, true
+			return []Part{{From: dir}}, true
 		}
 		for _, e := range entries {
-			if e.IsDir() && strings.EqualFold(e.Name(), "Data") {
-				for _, other := range entries {
-					if other.Name() != e.Name() && !strings.EqualFold(other.Name(), "src") {
-						gameRoot = append(gameRoot, other.Name())
-					}
+			if e.IsDir() && slices.ContainsFunc(sh.Folders, func(f string) bool { return strings.EqualFold(f, e.Name()) }) {
+				return []Part{{From: dir}}, false
+			}
+		}
+		var parts []Part
+		known := false
+		for _, e := range entries {
+			from := filepath.Join(dir, e.Name())
+			if e.IsDir() {
+				if to, ok := foldLookup(sh.Within, e.Name()); ok {
+					parts = append(parts, Part{From: from, To: to})
+					known = true
+					continue
 				}
-				return filepath.Join(dir, e.Name()), gameRoot, false
+			} else if to, ok := foldLookup(sh.Loose, filepath.Ext(e.Name())); ok {
+				parts = append(parts, Part{From: from, To: path(to, e.Name())})
+				known = true
+				continue
+			} else if isDocument(e.Name()) {
+				continue
 			}
+			parts = append(parts, Part{From: from, To: e.Name()})
 		}
-		for _, e := range entries {
-			name := strings.ToLower(e.Name())
-			if (e.IsDir() && slices.Contains(dataFolders, name)) || (!e.IsDir() && isDataFile(name)) {
-				return dir, nil, false
-			}
+		if known {
+			return parts, false
 		}
-		only := onlyFolder(dir)
+		only := OnlyFolder(dir)
 		if only == "" {
-			return dir, nil, true
+			return []Part{{From: dir}}, true
 		}
 		dir = only
 	}
 }
 
-func isDataFile(name string) bool {
-	switch filepath.Ext(name) {
-	case ".esp", ".esm", ".esl", ".bsa", ".ba2":
-		return true
+func foldLookup(m map[string]string, key string) (string, bool) {
+	for k, v := range m {
+		if strings.EqualFold(k, key) {
+			return v, true
+		}
 	}
-	return false
+	return "", false
 }
 
-// onlyFolder is the one folder dir has, when everything else in it is
+func path(dir, name string) string {
+	if dir == "" {
+		return name
+	}
+	return dir + "/" + name
+}
+
+// OnlyFolder is the one folder dir has, when everything else in it is
 // documentation; "" otherwise.
-func onlyFolder(dir string) string {
+func OnlyFolder(dir string) string {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return ""
@@ -198,13 +228,21 @@ func onlyFolder(dir string) string {
 			only = filepath.Join(dir, e.Name())
 			continue
 		}
-		switch strings.ToLower(filepath.Ext(e.Name())) {
-		case ".txt", ".md", ".pdf", ".url", ".html", ".htm", ".rtf", ".jpg", ".jpeg", ".png":
-		default:
+		if !isDocument(e.Name()) {
 			return ""
 		}
 	}
 	return only
+}
+
+// isDocument reports whether a file of an archive is there to be read, not
+// to be installed.
+func isDocument(name string) bool {
+	switch strings.ToLower(filepath.Ext(name)) {
+	case ".txt", ".md", ".pdf", ".url", ".html", ".htm", ".rtf", ".jpg", ".jpeg", ".png":
+		return true
+	}
+	return false
 }
 
 // mergeTree moves the files of from, a folder or a file, to the same places
@@ -226,7 +264,7 @@ func mergeTree(from, to string) error {
 		if err := os.Remove(target); err != nil && !errors.Is(err, fs.ErrNotExist) {
 			return err
 		}
-		return moveFile(p, target)
+		return MoveFile(p, target)
 	})
 }
 
@@ -235,12 +273,35 @@ func mergeTree(from, to string) error {
 func foldJoin(base, rel string) string {
 	target := base
 	for _, part := range strings.Split(rel, "/") {
-		if name, _ := findFold(target, part); name != "" {
+		if name, _ := FindFold(target, part); name != "" {
 			part = name
 		}
 		target = filepath.Join(target, part)
 	}
 	return target
+}
+
+var (
+	// "SkyUI-12604-6-11-1778020881.zip": name, mod id, version with dashes
+	// for dots, upload time.
+	nexusFile = regexp.MustCompile(`^.+?-(\d+)-([0-9a-zA-Z][0-9a-zA-Z-]*?)-\d{9,11}\.\w+$`)
+	// "SkyUI 12604 6.11 2026-08-27T16-52Z s6Og0dG94.7z", as the Nexus Mods
+	// app names its downloads.
+	nexusAppFile = regexp.MustCompile(`^.+ (\d+) (\S+) \d{4}-\d{2}-\d{2}T\d{2}-\d{2}Z \w+\.\w+$`)
+)
+
+// ParseNexusFile reads the mod id and version from the name of an archive
+// downloaded from Nexus Mods.
+func ParseNexusFile(name string) (id int, version string, ok bool) {
+	if m := nexusAppFile.FindStringSubmatch(name); m != nil {
+		id, _ = strconv.Atoi(m[1])
+		return id, m[2], true
+	}
+	if m := nexusFile.FindStringSubmatch(name); m != nil {
+		id, _ = strconv.Atoi(m[1])
+		return id, strings.ReplaceAll(m[2], "-", "."), true
+	}
+	return 0, "", false
 }
 
 // NameFromFile is a mod's name as the name of the archive it came in gives

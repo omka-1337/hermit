@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Engine, errorMessage, FolderService, Game, Library, Profile } from "../../api";
+import { deployed, Engine, errorMessage, FolderService, Game, Library, Profile } from "../../api";
 import { packageLabel } from "../../format";
 import ContextMenu, { anchorBelow, MenuAnchor, MenuDivider, MenuItem } from "../ContextMenu";
 import CreateProfileModal from "../CreateProfileModal";
@@ -32,6 +32,9 @@ export default function ProfileSwitcher({ game, profiles, onGameChanged, reload,
   const [exporting, setExporting] = useState(false);
   const { moving, setActive, copy, rename, move, moveTo, remove } = useProfileActions(game, reload, onGameChanged, onError);
   const creation = game.engine === Engine.EngineCreation;
+  // Profiles of other games whose mods are deployed are neither imported
+  // nor exported yet.
+  const modList = deployed(game.engine);
   const current = profiles.find((p) => p.id === game.activeProfile) ?? null;
   const folder = current ? game.profileDirs?.[current.id] : undefined;
 
@@ -120,7 +123,9 @@ export default function ProfileSwitcher({ game, profiles, onGameChanged, reload,
             <PlusIcon />
             New profile…
           </MenuItem>
-          <MenuItem onClick={pick(() => setImporting(true))}>{creation ? "Import from MO2…" : "Import…"}</MenuItem>
+          {(creation || !modList) && (
+            <MenuItem onClick={pick(() => setImporting(true))}>{creation ? "Import from MO2…" : "Import…"}</MenuItem>
+          )}
         </ContextMenu>
       )}
 
@@ -147,7 +152,7 @@ export default function ProfileSwitcher({ game, profiles, onGameChanged, reload,
           >
             Open folder
           </MenuItem>
-          {!creation && <MenuItem onClick={pick(() => setExporting(true))}>Export…</MenuItem>}
+          {!modList && <MenuItem onClick={pick(() => setExporting(true))}>Export…</MenuItem>}
           <MenuDivider />
           <MenuItem
             danger
@@ -180,7 +185,7 @@ export default function ProfileSwitcher({ game, profiles, onGameChanged, reload,
           }}
         />
       )}
-      {importing && !creation && (
+      {importing && !modList && (
         <ImportModal
           game={game}
           onClose={() => {

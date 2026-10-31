@@ -207,7 +207,8 @@ export interface PreparedMod {
     "image": string;
 
     /**
-     * Unsure is set when nothing in a plain archive looked like Data.
+     * Unsure is set when nothing in a plain archive looked like the game's
+     * files.
      */
     "unsure": boolean;
 
@@ -251,12 +252,13 @@ export interface SteamSetup {
 
 /**
  * Tool is a modding tool a mod of the profile brings, such as Pandora or
- * BodySlide: a program run with the profile's mods in Data.
+ * BodySlide: a program run with the profile's mods deployed.
  */
 export interface Tool {
     /**
-     * Path is where the tool is in Data while the profile is deployed,
-     * slash-separated.
+     * Path is where the tool is while the profile is deployed,
+     * slash-separated from the folder the game's mods are laid out as, Data
+     * for the Creation Engine.
      */
     "path": string;
     "name": string;

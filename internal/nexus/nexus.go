@@ -178,3 +178,9 @@ func (c *Client) get(ctx context.Context, path string, v any) error {
 	}
 	return json.Unmarshal(body, v)
 }
+
+// ModURL is the page of a mod on Nexus Mods, of the game whose part of
+// nexusmods.com is game.
+func ModURL(game string, id int) string {
+	return fmt.Sprintf("https://www.nexusmods.com/%s/mods/%d", game, id)
+}

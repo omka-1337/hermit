@@ -2,6 +2,7 @@ package creation
 
 import (
 	"errors"
+	"hermit/internal/deploy"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -40,7 +41,7 @@ func (s *State) swapINIs(profileDir, myGames string) error {
 			return err
 		}
 		// The game's file in whatever letter case it has.
-		name, err := findFold(myGames, e.Name())
+		name, err := deploy.FindFold(myGames, e.Name())
 		if err != nil {
 			return err
 		}

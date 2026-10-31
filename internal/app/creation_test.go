@@ -46,7 +46,7 @@ func TestImportMO2AndOrderMods(t *testing.T) {
 		"mods/Patch/Patch.esp":         "patch",
 	})
 
-	s := NewCreationService(lib, nil)
+	s, ml := NewCreationService(lib), NewModListService(lib, nil)
 	p, err := s.ImportMO2(game.ID, game.ActiveProfile, mo2, "Default")
 	if err != nil {
 		t.Fatal(err)
@@ -64,19 +64,19 @@ func TestImportMO2AndOrderMods(t *testing.T) {
 	if sep := p.Mods[1]; !sep.Separator || sep.Name != "PATCHES" || sep.Enabled {
 		t.Errorf("separator: %+v", sep)
 	}
-	if p, err = s.RemoveMod(game.ID, game.ActiveProfile, "patches-separator"); err != nil {
+	if p, err = ml.RemoveMod(game.ID, game.ActiveProfile, "patches-separator"); err != nil {
 		t.Fatal(err)
 	}
-	if p, err = s.AddSeparator(game.ID, game.ActiveProfile, "Patches", 1); err != nil || p.Mods[1].ID != "patches-separator" {
+	if p, err = ml.AddSeparator(game.ID, game.ActiveProfile, "Patches", 1); err != nil || p.Mods[1].ID != "patches-separator" {
 		t.Fatalf("added separator: %v %v", ids(p), err)
 	}
-	if p, err = s.RenameSeparator(game.ID, game.ActiveProfile, "patches-separator", "Fixes"); err != nil || p.Mods[1].Name != "Fixes" {
+	if p, err = ml.RenameSeparator(game.ID, game.ActiveProfile, "patches-separator", "Fixes"); err != nil || p.Mods[1].Name != "Fixes" {
 		t.Fatalf("renamed separator: %+v %v", p.Mods[1], err)
 	}
-	if _, err := s.RenameSeparator(game.ID, game.ActiveProfile, "patch", "Not a separator"); err == nil {
+	if _, err := ml.RenameSeparator(game.ID, game.ActiveProfile, "patch", "Not a separator"); err == nil {
 		t.Error("renamed a mod as a separator")
 	}
-	if p, err = s.RemoveMod(game.ID, game.ActiveProfile, "patches-separator"); err != nil {
+	if p, err = ml.RemoveMod(game.ID, game.ActiveProfile, "patches-separator"); err != nil {
 		t.Fatal(err)
 	}
 	ui := p.Mods[0]
@@ -88,20 +88,20 @@ func TestImportMO2AndOrderMods(t *testing.T) {
 		t.Error("imported into a profile that has mods")
 	}
 
-	if p, err = s.MoveMods(game.ID, game.ActiveProfile, []string{"patch"}, "sky-ui"); err != nil || !slices.Equal(ids(p), []string{"patch", "sky-ui"}) {
+	if p, err = ml.MoveMods(game.ID, game.ActiveProfile, []string{"patch"}, "sky-ui"); err != nil || !slices.Equal(ids(p), []string{"patch", "sky-ui"}) {
 		t.Fatalf("after moving: %v %v", ids(p), err)
 	}
-	if p, err = s.MoveMods(game.ID, game.ActiveProfile, []string{"patch"}, ""); err != nil || !slices.Equal(ids(p), []string{"sky-ui", "patch"}) {
+	if p, err = ml.MoveMods(game.ID, game.ActiveProfile, []string{"patch"}, ""); err != nil || !slices.Equal(ids(p), []string{"sky-ui", "patch"}) {
 		t.Fatalf("after moving to the end: %v %v", ids(p), err)
 	}
-	if p, err = s.MoveMods(game.ID, game.ActiveProfile, []string{"patch"}, "sky-ui"); err != nil {
+	if p, err = ml.MoveMods(game.ID, game.ActiveProfile, []string{"patch"}, "sky-ui"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.MoveMods(game.ID, game.ActiveProfile, []string{"patch"}, "patch"); err == nil {
+	if _, err := ml.MoveMods(game.ID, game.ActiveProfile, []string{"patch"}, "patch"); err == nil {
 		t.Error("moved a mod before itself")
 	}
 	profileDir, _ := lib.ProfileDir(game.ID, game.ActiveProfile)
-	if p, err = s.RemoveMod(game.ID, game.ActiveProfile, "patch"); err != nil || !slices.Equal(ids(p), []string{"sky-ui"}) {
+	if p, err = ml.RemoveMod(game.ID, game.ActiveProfile, "patch"); err != nil || !slices.Equal(ids(p), []string{"sky-ui"}) {
 		t.Fatalf("after removing: %v %v", ids(p), err)
 	}
 	if _, err := os.Stat(filepath.Join(profileDir, "mods", "patch")); !os.IsNotExist(err) {
@@ -127,7 +127,7 @@ func TestImportMO2AsProfile(t *testing.T) {
 		"profiles/Default/modlist.txt": "+SkyUI\r\n",
 		"mods/SkyUI/SkyUI_SE.esp":      "ui",
 	})
-	s := NewCreationService(lib, nil)
+	s := NewCreationService(lib)
 
 	location := filepath.Join(tmp, "Hermit")
 	if err := os.Mkdir(location, 0o755); err != nil {
@@ -183,7 +183,7 @@ func TestTools(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	tools, err := NewCreationService(lib, nil).Tools(game.ID)
+	tools, err := NewModListService(lib, nil).Tools(game.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -225,7 +225,7 @@ func TestInstallArchives(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := NewCreationService(lib, nil)
+	s := NewModListService(lib, nil)
 
 	plain := zipFile(t, "SkyUI-12604-6-11-1778020881.zip", map[string]string{"SkyUI/SkyUI_SE.esp": "ui"})
 	prepared, err := s.PrepareInstall(game.ID, game.ActiveProfile, plain)
@@ -297,7 +297,7 @@ func TestInstallOverAModOfTheSameName(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := NewCreationService(lib, nil)
+	s := NewModListService(lib, nil)
 	profileDir, _ := lib.ProfileDir(game.ID, game.ActiveProfile)
 	install := func(file string, target, name string) (library.Profile, error) {
 		t.Helper()
@@ -398,7 +398,7 @@ func TestRescan(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	p, err := NewCreationService(lib, nil).Rescan(game.ID, game.ActiveProfile)
+	p, err := NewModListService(lib, nil).Rescan(game.ID, game.ActiveProfile)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -17,6 +17,7 @@ package library
 import (
 	"errors"
 	"fmt"
+	"hermit/internal/deploy"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -26,7 +27,6 @@ import (
 	"sync"
 	"syscall"
 
-	"hermit/internal/creation"
 	"hermit/internal/steam"
 )
 
@@ -203,7 +203,7 @@ func (l *Library) inspect(path string) (GameCandidate, error) {
 		c.Name = app.Name
 		c.SteamAppID = app.AppID
 	} else if exe := c.Detection.Executable; exe != "" {
-		c.Name = strings.TrimSuffix(exe, filepath.Ext(exe))
+		c.Name = strings.TrimSuffix(filepath.Base(exe), filepath.Ext(exe))
 	} else {
 		c.Name = filepath.Base(path)
 	}
@@ -304,9 +304,10 @@ func (l *Library) SetLaunchExecutable(id, exe string) (Game, error) {
 	return g, l.saveGame(g)
 }
 
-// ProfileRootFiles lists the files the enabled mods of a Creation Engine
-// game's active profile put into the game folder while it runs, such as the
-// script extender's loader, as paths relative to the game folder.
+// ProfileRootFiles lists the files the enabled mods of a game whose mods
+// are deployed put into the game folder while it runs, such as a Creation
+// Engine game's script extender's loader, as paths relative to the game
+// folder.
 func (l *Library) ProfileRootFiles(gameID string) ([]string, error) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -319,7 +320,8 @@ func (l *Library) ProfileRootFiles(gameID string) ([]string, error) {
 }
 
 func (l *Library) profileRootFiles(g Game) []string {
-	if g.Engine != EngineCreation {
+	modding, ok := g.Modding()
+	if !ok {
 		return nil
 	}
 	p, err := l.loadProfile(g.ID, g.ActiveProfile)
@@ -328,21 +330,30 @@ func (l *Library) profileRootFiles(g Game) []string {
 	}
 	dir := l.profileDir(g.ID, g.ActiveProfile)
 	var files []string
+	seen := map[string]bool{}
 	for _, m := range p.Mods {
 		if !m.Enabled || m.Separator {
 			continue
 		}
-		modDir := filepath.Join(dir, creation.ModsDir, m.ID)
-		entries, _ := os.ReadDir(modDir)
-		for _, e := range entries {
-			if !e.IsDir() || !strings.EqualFold(e.Name(), creation.RootDir) {
-				continue
+		modDir := filepath.Join(dir, deploy.ModsDir, m.ID)
+		// With a Data folder, the mod's Root folder has what goes into the
+		// game folder; otherwise all of the mod goes there.
+		roots := []string{modDir}
+		if modding.Target.Data != "" {
+			roots = nil
+			entries, _ := os.ReadDir(modDir)
+			for _, e := range entries {
+				if e.IsDir() && strings.EqualFold(e.Name(), deploy.RootDir) {
+					roots = append(roots, filepath.Join(modDir, e.Name()))
+				}
 			}
-			root := filepath.Join(modDir, e.Name())
+		}
+		for _, root := range roots {
 			filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
 				if err == nil && !d.IsDir() {
 					rel, _ := filepath.Rel(root, p)
-					if rel = filepath.ToSlash(rel); !slices.Contains(files, rel) {
+					if rel = filepath.ToSlash(rel); !seen[rel] {
+						seen[rel] = true
 						files = append(files, rel)
 					}
 				}
@@ -692,8 +703,8 @@ func (l *Library) createProfile(gameID string, engine Engine, name string) (Prof
 	}
 	dir := l.profileDir(gameID, p.ID)
 	subs := []string{"BepInEx/plugins", "BepInEx/patchers", "BepInEx/config"}
-	if engine == EngineCreation {
-		subs = []string{creation.ModsDir}
+	if engine.Deployed() {
+		subs = []string{deploy.ModsDir}
 	}
 	for _, sub := range subs {
 		if err := os.MkdirAll(filepath.Join(dir, filepath.FromSlash(sub)), 0o755); err != nil {

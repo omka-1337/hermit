@@ -1,6 +1,7 @@
 import { CancelError } from "@wailsio/runtime";
 import { ask } from "./confirmhost";
 
+import { Engine } from "../bindings/hermit/internal/library";
 export { Backend, Engine, Library, Runtime } from "../bindings/hermit/internal/library";
 export type { Game, GameCandidate, Mod, Profile } from "../bindings/hermit/internal/library";
 export { Store as SettingsStore } from "../bindings/hermit/internal/settings";
@@ -8,6 +9,7 @@ export { UIMode, BrowseView } from "../bindings/hermit/internal/settings";
 export type { Settings } from "../bindings/hermit/internal/settings";
 export {
   CreationService,
+  ModListService,
   BrowseService,
   DownloadService,
   CacheService,
@@ -52,6 +54,13 @@ export type {
 export type { AppInfo, BepInExBuild, LoaderStatus, SteamSetup, Update } from "../bindings/hermit/internal/app";
 
 // isCancelled reports whether err comes from cancelling a CancellablePromise.
+// deployed tells the engines whose mods are files laid out as the game's,
+// linked into it for each session: their profiles are an ordered list of
+// mods, as in Mod Organizer 2, rather than BepInEx plugins.
+export function deployed(engine: Engine): boolean {
+  return engine === Engine.EngineCreation || engine === Engine.EngineRED || engine === Engine.EngineUnreal;
+}
+
 export function isCancelled(err: unknown): boolean {
   return err instanceof CancelError;
 }

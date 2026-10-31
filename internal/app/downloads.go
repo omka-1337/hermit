@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"hermit/internal/deploy"
 	"io"
 	"net/http"
 	"os"
@@ -16,7 +17,6 @@ import (
 
 	"github.com/adrg/xdg"
 
-	"hermit/internal/creation"
 	"hermit/internal/library"
 	"hermit/internal/nexus"
 	"hermit/internal/platform"
@@ -222,21 +222,20 @@ func (s *DownloadService) HandleNXM(link string) error {
 	return nil
 }
 
-// gameFor finds the Creation Engine game of Hermit's a part of Nexus Mods is for.
+// gameFor finds the game of Hermit's a part of Nexus Mods is for, among those
+// whose mods are deployed.
 func (s *DownloadService) gameFor(domain string) (library.Game, error) {
 	games, err := s.lib.ListGames()
 	if err != nil {
 		return library.Game{}, err
 	}
 	for _, g := range games {
-		if bg, ok := creation.Find(g.Executable); ok && g.Engine == library.EngineCreation && strings.EqualFold(bg.Nexus, domain) {
+		if m, ok := g.Modding(); ok && strings.EqualFold(m.Nexus, domain) {
 			return g, nil
 		}
 	}
-	for _, bg := range creation.Games {
-		if strings.EqualFold(bg.Nexus, domain) {
-			return library.Game{}, fmt.Errorf("the mod is for %s, which is not added to Hermit; add the game first", bg.MO2Name)
-		}
+	if name, ok := library.NexusGame(domain); ok {
+		return library.Game{}, fmt.Errorf("the mod is for %s, which is not added to Hermit; add the game first", name)
 	}
 	return library.Game{}, fmt.Errorf("the mod is for a game Hermit cannot install mods from Nexus Mods into (%s)", domain)
 }
@@ -349,7 +348,7 @@ func (s *DownloadService) download(ctx context.Context, d *Download) error {
 	if err != nil {
 		return err
 	}
-	dir := filepath.Join(profileDir, creation.DownloadsDir)
+	dir := filepath.Join(profileDir, deploy.DownloadsDir)
 	target := filepath.Join(dir, d.FileName)
 	// Downloaded before: the profile keeps the archives of its mods.
 	if fi, err := os.Stat(target); err == nil && fi.Size() == file.Size {

@@ -43,7 +43,7 @@ Built with [Wails v3](https://v3.wails.io): Go and React with TypeScript.
 
 ## Screenshots
 
-![A game and its profiles on the desktop](docs/screenshots/desktop-gamescreen.png)
+![Skyrim's mods in their load order, grouped under separators](docs/screenshots/desktop-gamescreen.png)
 
 <details>
 <summary>More screenshots</summary>

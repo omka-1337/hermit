@@ -81,7 +81,7 @@ function App() {
   }
   return (
     <UIModeProvider settings={state.settings} steamDeck={state.steamDeck}>
-      <WindowFrame>{screen}</WindowFrame>
+      <WindowFrame menus={!state.setup}>{screen}</WindowFrame>
       <ConfirmHost />
     </UIModeProvider>
   );

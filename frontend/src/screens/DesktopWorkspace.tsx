@@ -254,7 +254,7 @@ export default function DesktopWorkspace({ games, selectedId, onSelect, onGamesC
             >
               <DownloadIcon />
               {active.length > 0 && (
-                <span className="absolute -right-1.5 -top-1.5 min-w-4 rounded-full bg-indigo-500 px-1 text-center text-[10px] leading-4 font-medium text-white tabular-nums">
+                <span className="absolute -right-1.5 -top-1.5 min-w-4 rounded-full bg-accent-500 px-1 text-center text-[10px] leading-4 font-semibold text-zinc-950 tabular-nums">
                   {active.length}
                 </span>
               )}
@@ -423,7 +423,7 @@ function StatusBar({ profile, queue, downloads }: { profile: Profile | null; que
             {queue.unpack?.total ? ` · ${Math.round((queue.unpack.done / queue.unpack.total) * 100)}%` : ""}
           </span>
           <span className="h-1.5 w-40 shrink-0 overflow-hidden rounded-full bg-zinc-800">
-            <span className="block h-full bg-indigo-500 transition-[width]" style={{ width: `${Math.round(share * 100)}%` }} />
+            <span className="block h-full bg-accent-500 transition-[width]" style={{ width: `${Math.round(share * 100)}%` }} />
           </span>
           <span className="shrink-0 font-medium text-zinc-300 tabular-nums">
             {queue.finished}/{queue.total}

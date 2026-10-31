@@ -139,7 +139,7 @@ export default function ProfileView({
             <span className="text-xs text-zinc-500">{game.name}</span>
             <span className="truncate text-lg font-semibold">{profile?.name ?? "…"}</span>
             {profile?.modpack && (
-              <span className="truncate text-xs text-indigo-400">Modpack {packageLabel(profile.modpack)}</span>
+              <span className="truncate text-xs text-accent-400">Modpack {packageLabel(profile.modpack)}</span>
             )}
           </div>
           <nav className="ml-6 flex gap-1 self-end" title={deck ? "LT / RT switch tabs" : undefined}>
@@ -149,7 +149,7 @@ export default function ProfileView({
                 onClick={() => setTab(t.id)}
                 className={`border-b-2 px-3 pb-3 text-sm ${
                   tab === t.id
-                    ? "border-indigo-500 text-zinc-100"
+                    ? "border-accent-500 text-zinc-100"
                     : "border-transparent text-zinc-400 hover:text-zinc-200"
                 }`}
               >
@@ -159,7 +159,7 @@ export default function ProfileView({
           </nav>
           <div className="ml-auto flex items-center gap-3 self-center pb-3">
             {game.activeProfile === profileId && (
-              <span className="text-xs font-medium text-indigo-400">Active profile</span>
+              <span className="text-xs font-medium text-accent-400">Active profile</span>
             )}
             {profile && (
               <Button

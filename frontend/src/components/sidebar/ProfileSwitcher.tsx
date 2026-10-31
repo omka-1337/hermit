@@ -82,7 +82,7 @@ export default function ProfileSwitcher({ game, profiles, onGameChanged, reload,
               {moving === current?.id ? (
                 <span className="text-xs text-zinc-500">Moving…</span>
               ) : current?.modpack ? (
-                <span className="truncate text-xs text-indigo-400">Modpack {packageLabel(current.modpack)}</span>
+                <span className="truncate text-xs text-accent-400">Modpack {packageLabel(current.modpack)}</span>
               ) : (
                 folder && (
                   <span className="truncate text-xs text-zinc-500" title={folder}>

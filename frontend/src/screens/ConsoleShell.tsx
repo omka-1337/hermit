@@ -190,7 +190,7 @@ function GameBar({ entries, index, compact, onPick }: GameBarProps) {
             const active = i === index;
             const tile = `flex shrink-0 flex-col items-center justify-center gap-1 rounded-xl text-xs transition-all duration-200 ${
               compact ? "h-11 w-11 px-0" : "h-[5rem] w-28 px-2"
-            } ${active ? "bg-zinc-800 text-white ring-2 ring-indigo-500" : "text-zinc-400 opacity-70"}`;
+            } ${active ? "bg-zinc-800 text-white ring-2 ring-accent-500" : "text-zinc-400 opacity-70"}`;
             if (entry.kind === "game") {
               return (
                 <button key={entry.game.id} onClick={() => onPick(i)} className={tile} title={entry.game.name}>

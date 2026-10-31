@@ -1,5 +1,15 @@
 @import "tailwindcss";
 
+/* The accent is the teal of the hermit crab in Hermit's icon, 500 being the
+   crab's own. Text on it is dark, as the crab's outlines are. */
+@theme {
+  --color-accent-300: #8fdccf;
+  --color-accent-400: #62c9b8;
+  --color-accent-500: #43b5a4;
+  --color-accent-600: #34968a;
+  --color-accent-700: #2a776e;
+}
+
 html,
 body,
 #root {
@@ -79,7 +89,7 @@ select option {
 .markdown h3,
 .markdown h4 { @apply mt-4 mb-2 font-semibold text-zinc-100; }
 .markdown p { @apply my-2; }
-.markdown a { @apply text-indigo-400 hover:underline; }
+.markdown a { @apply text-accent-400 hover:underline; }
 .markdown ul { @apply my-2 list-disc pl-5; }
 .markdown ol { @apply my-2 list-decimal pl-5; }
 .markdown code { @apply rounded bg-zinc-800 px-1 py-0.5 text-xs; }

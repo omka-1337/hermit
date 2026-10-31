@@ -269,7 +269,7 @@ export default function ModListTab() {
               }
               className={`${columns} cursor-default border-l-2 py-2 ${drag?.ids.includes(m.id) ? "opacity-40" : ""} ${
                 m.id === selected
-                  ? "border-indigo-500 bg-indigo-500/15"
+                  ? "border-accent-500 bg-accent-500/15"
                   : rel === "replaced"
                     ? "border-emerald-500 bg-emerald-500/10"
                     : rel === "replaces"
@@ -305,7 +305,7 @@ export default function ModListTab() {
                   <button
                     title={m.source.url}
                     onClick={() => Browser.OpenURL(m.source.url!)}
-                    className="text-indigo-400 hover:text-indigo-300 hover:underline"
+                    className="text-accent-400 hover:text-accent-300 hover:underline"
                   >
                     Nexus
                   </button>
@@ -321,7 +321,7 @@ export default function ModListTab() {
       </ul>
       {drag && (
         <>
-          <div className="pointer-events-none absolute right-6 left-6 h-0.5 bg-indigo-500" style={{ top: drag.line - 1 }} />
+          <div className="pointer-events-none absolute right-6 left-6 h-0.5 bg-accent-500" style={{ top: drag.line - 1 }} />
           <div
             className="pointer-events-none fixed z-50 max-w-xs truncate rounded-md border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-sm shadow-xl"
             style={{ left: drag.x + 14, top: drag.y - 14 }}

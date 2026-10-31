@@ -80,7 +80,7 @@ export default function SettingsView() {
           <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-zinc-800 px-4 py-3">
             <input
               type="checkbox"
-              className="mt-1 accent-indigo-500"
+              className="mt-1 accent-accent-500"
               checked={settings.allowNsfw}
               onChange={(e) => update({ allowNsfw: e.target.checked })}
             />
@@ -127,13 +127,13 @@ export default function SettingsView() {
           <p className="text-xs text-zinc-500">
             Copyright (C) 2026 Omka. Free software under the{" "}
             <button
-              className="text-indigo-400 hover:underline"
+              className="text-accent-400 hover:underline"
               onClick={() => Browser.OpenURL("https://www.gnu.org/licenses/gpl-3.0.html")}
             >
               GNU GPL v3
             </button>{" "}
             or later, with no warranty. Source:{" "}
-            <button className="text-indigo-400 hover:underline" onClick={() => Browser.OpenURL(info.repository)}>
+            <button className="text-accent-400 hover:underline" onClick={() => Browser.OpenURL(info.repository)}>
               {info.repository.replace("https://", "")}
             </button>
           </p>

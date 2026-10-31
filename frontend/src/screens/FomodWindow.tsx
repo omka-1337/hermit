@@ -179,12 +179,12 @@ export default function FomodWindow({ session, position, total }: { session: str
                             onMouseEnter={() => setFocus({ group: g, plugin: i })}
                             onClick={() => toggle(g, i)}
                             className={`flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm disabled:opacity-40 ${
-                              p.selected ? "bg-indigo-500/15 text-zinc-100" : "text-zinc-300 hover:bg-zinc-800/60"
+                              p.selected ? "bg-accent-500/15 text-zinc-100" : "text-zinc-300 hover:bg-zinc-800/60"
                             } ${locked ? "cursor-default" : ""}`}
                           >
                             <span
                               className={`flex h-4 w-4 shrink-0 items-center justify-center border ${radio ? "rounded-full" : "rounded"} ${
-                                p.selected ? "border-indigo-400 bg-indigo-500" : "border-zinc-600"
+                                p.selected ? "border-accent-400 bg-accent-500" : "border-zinc-600"
                               }`}
                             >
                               {p.selected && <span className={`h-1.5 w-1.5 bg-white ${radio ? "rounded-full" : "rounded-sm"}`} />}
@@ -193,7 +193,7 @@ export default function FomodWindow({ session, position, total }: { session: str
                             {p.type !== "Optional" && (
                               <span
                                 className={`shrink-0 text-xs ${
-                                  p.type === "Recommended" ? "text-emerald-400" : p.type === "Required" ? "text-indigo-300" : "text-zinc-500"
+                                  p.type === "Recommended" ? "text-emerald-400" : p.type === "Required" ? "text-accent-300" : "text-zinc-500"
                                 }`}
                               >
                                 {p.type === "NotUsable" ? "Not usable" : p.type === "CouldBeUsable" ? "Could be usable" : p.type}

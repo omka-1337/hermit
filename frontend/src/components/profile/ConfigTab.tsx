@@ -304,7 +304,7 @@ function EntryRow({ entry, value, onChange }: { entry: Entry; value: string; onC
               key={o}
               onClick={() => onChange((on ? chosen.filter((c) => c !== o) : [...chosen, o]).join(", "))}
               className={`rounded px-2 py-0.5 text-xs ${
-                on ? "bg-indigo-600 text-white" : "bg-zinc-800 text-zinc-400 hover:text-zinc-200"
+                on ? "bg-accent-500 text-zinc-950" : "bg-zinc-800 text-zinc-400 hover:text-zinc-200"
               }`}
             >
               {o}

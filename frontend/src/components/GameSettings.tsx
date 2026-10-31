@@ -87,7 +87,7 @@ export default function GameSettings({ game, onRemove, onRenamed, align = "right
       >
         <GearIcon />
         {/* A dot says the game does not start from its own executable. */}
-        {custom && <span className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-indigo-400" />}
+        {custom && <span className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-accent-400" />}
       </button>
       {open && (
         <div

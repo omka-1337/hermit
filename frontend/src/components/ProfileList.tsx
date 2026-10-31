@@ -63,7 +63,7 @@ export default function ProfileList({
                 <span
                   aria-hidden
                   title="Active profile"
-                  className="absolute inset-y-2 -left-1.5 w-3 rounded-md bg-indigo-500"
+                  className="absolute inset-y-2 -left-1.5 w-3 rounded-md bg-accent-500"
                 />
               )}
               <div
@@ -94,7 +94,7 @@ export default function ProfileList({
                     <span className="flex min-w-0 flex-col">
                       <span className="truncate text-sm font-medium">{p.name}</span>
                       {p.modpack && (
-                        <span className="truncate text-xs text-indigo-400">Modpack {packageLabel(p.modpack)}</span>
+                        <span className="truncate text-xs text-accent-400">Modpack {packageLabel(p.modpack)}</span>
                       )}
                       {folder && (
                         <span className="truncate text-xs text-zinc-500" title={folder}>

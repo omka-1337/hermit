@@ -48,7 +48,7 @@ export default function CreateProfileModal({ game, onClose, onCreated }: Props) 
             key={t.id}
             onClick={() => setTab(t.id)}
             className={`-mb-px border-b-2 px-3 pb-2 text-sm ${
-              tab === t.id ? "border-indigo-500 text-zinc-100" : "border-transparent text-zinc-400 hover:text-zinc-200"
+              tab === t.id ? "border-accent-500 text-zinc-100" : "border-transparent text-zinc-400 hover:text-zinc-200"
             }`}
           >
             {t.label}

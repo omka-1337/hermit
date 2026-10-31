@@ -66,7 +66,7 @@ function DownloadRow({ d }: { d: Download }) {
         </span>
         {d.status === "downloading" && (
           <span className="mt-1 h-1.5 overflow-hidden rounded-full bg-zinc-800">
-            <span className="block h-full bg-indigo-500 transition-[width]" style={{ width: `${Math.round(share * 100)}%` }} />
+            <span className="block h-full bg-accent-500 transition-[width]" style={{ width: `${Math.round(share * 100)}%` }} />
           </span>
         )}
         {d.error && <span className="text-xs text-red-400">{d.error}</span>}

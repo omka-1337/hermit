@@ -10,7 +10,7 @@ export { useModalOpen };
 type Variant = "primary" | "secondary" | "ghost" | "danger";
 
 const variants: Record<Variant, string> = {
-  primary: "bg-indigo-600 text-white hover:bg-indigo-500",
+  primary: "bg-accent-500 text-zinc-950 hover:bg-accent-400",
   secondary: "bg-zinc-800 text-zinc-100 hover:bg-zinc-700",
   ghost: "text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100",
   danger: "text-red-400 hover:bg-red-500/10",
@@ -40,7 +40,7 @@ export function Spinner({ className = "" }: { className?: string }) {
 }
 
 export const inputClass =
-  "w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-sm outline-none focus:border-indigo-500 select-text";
+  "w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-sm outline-none focus:border-accent-500 select-text";
 
 const runtimeLabels: Partial<Record<Runtime, string>> = {
   [Runtime.RuntimeNative]: "Linux native",
@@ -117,7 +117,7 @@ export function Toggle({ checked, disabled, title, first, onChange }: ToggleProp
       onClick={() => onChange(!checked)}
       className={`relative shrink-0 rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
         deck ? "h-7 w-12" : "h-5 w-9"
-      } ${checked ? "bg-indigo-600" : "bg-zinc-700"}`}
+      } ${checked ? "bg-accent-500" : "bg-zinc-700"}`}
     >
       <span
         className={`absolute rounded-full bg-white transition-transform ${

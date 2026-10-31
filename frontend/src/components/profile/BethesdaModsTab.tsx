@@ -17,8 +17,8 @@ import { useDragReorder } from "./useDragReorder";
 // Clicking a mod shows its conflicts: in green the mods whose files it
 // replaces, in red the ones replacing its files.
 // columns lay out the header and every mod row alike: the grip, the place in
-// the order, Active, Name, Source and Author.
-const columns = "grid grid-cols-[1rem_2rem_3.25rem_minmax(0,1fr)_7rem_10rem] items-center gap-x-3";
+// the order, Active, Name, Version, Source and Author.
+const columns = "grid grid-cols-[1rem_2rem_3.25rem_minmax(0,1fr)_6rem_7rem_10rem] items-center gap-x-3";
 
 const sourceLabels: Record<string, string> = { nexus: "Nexus", local: "Local", github: "GitHub", thunderstore: "Thunderstore" };
 
@@ -213,6 +213,7 @@ export default function BethesdaModsTab() {
         <span className="text-right">#</span>
         <span>Active</span>
         <span>Name</span>
+        <span>Version</span>
         <span>Source</span>
         <span>Author</span>
       </div>
@@ -284,7 +285,6 @@ export default function BethesdaModsTab() {
               <div className={`flex min-w-0 flex-col ${m.enabled ? "" : "opacity-50"}`}>
                 <span className="flex min-w-0 items-center gap-2 text-sm font-medium">
                   <span className="truncate">{m.name}</span>
-                  {m.version && <span className="shrink-0 font-normal text-zinc-500">{m.version}</span>}
                   {busy === m.id && <Spinner />}
                 </span>
                 {m.notes && (
@@ -293,6 +293,9 @@ export default function BethesdaModsTab() {
                   </span>
                 )}
               </div>
+              <span className={`truncate text-sm text-zinc-400 ${m.enabled ? "" : "opacity-50"}`} title={m.version}>
+                {m.version}
+              </span>
               <span className={`truncate text-sm ${m.enabled ? "" : "opacity-50"}`}>
                 {m.source.type === "nexus" ? (
                   <button

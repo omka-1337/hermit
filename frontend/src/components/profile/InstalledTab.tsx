@@ -9,8 +9,8 @@ import { dependantsOf, dependencyLabel, thunderstoreIconURL, useProfile } from "
 import { useLayout } from "../../uimode";
 
 // columns lay out the header and the mod rows of the desktop layout alike:
-// Active, Name, Source, Author and what can be done to the mod.
-const columns = "grid grid-cols-[3.25rem_minmax(0,1fr)_7rem_10rem_auto] items-center gap-x-3";
+// Active, Name, Version, Source, Author and what can be done to the mod.
+const columns = "grid grid-cols-[3.25rem_minmax(0,1fr)_7rem_7rem_10rem_auto] items-center gap-x-3";
 
 const sourceLabels: Record<string, string> = { thunderstore: "Thunderstore", github: "GitHub", local: "Local" };
 
@@ -137,6 +137,7 @@ export default function InstalledTab({ onBrowse }: { onBrowse: () => void }) {
         >
           <span>Active</span>
           <span>Name</span>
+          <span>Version</span>
           <span>Source</span>
           <span>Author</span>
           <span />
@@ -209,13 +210,11 @@ export default function InstalledTab({ onBrowse }: { onBrowse: () => void }) {
                 <div className={`flex min-w-0 items-center gap-3 ${m.active ? "" : "opacity-50"}`}>
                   {icon}
                   <div className="flex min-w-0 flex-col">
-                    <span className="flex min-w-0 items-center gap-2 text-sm font-medium">
-                      <span className="truncate">{m.name}</span>
-                      {version}
-                    </span>
+                    <span className="truncate text-sm font-medium">{m.name}</span>
                     {details}
                   </div>
                 </div>
+                <span className={`truncate ${m.active ? "" : "opacity-50"}`}>{version}</span>
                 <span className={`truncate text-sm text-zinc-400 ${m.active ? "" : "opacity-50"}`}>
                   {sourceLabels[m.source.type] ?? ""}
                 </span>

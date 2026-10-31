@@ -13,12 +13,15 @@ import (
 // The command line exists for the launch wrapper. "run" starts a game itself;
 // "prepare" and "cleanup" do the same work in two steps, for a caller that has
 // to start the game on its own — a Flatpak build cannot start it from inside
-// the sandbox, so a small script on the host does that part.
+// the sandbox, so a small script on the host does that part. "install" puts
+// mod archives into a Bethesda game's profile.
 const cliUsage = `usage:
   hermit run     [--game <id>] -- <command...>   start a game with its active profile
   hermit prepare [--game <id>] [--appid <n>] [--pid <n>] -- <command...>
                                                  link the profile, print shell code to apply
   hermit cleanup --game <id>                     end the session: write the report, remove links
+  hermit install [--game <id>] [--profile <id>] [--choose "[Step/]Group=Option"]... [--defaults] <archive>...
+                                                 install mod archives, FOMOD installers included
   hermit --setup                                 open the first-run window again`
 
 // runCLI handles a command line invocation and reports whether it did.
@@ -33,6 +36,8 @@ func runCLI(args []string) (code int, handled bool) {
 		return prepareCommand(args[1:]), true
 	case "cleanup":
 		return cleanupCommand(args[1:]), true
+	case "install":
+		return installCommand(args[1:]), true
 	case "-h", "--help", "help":
 		fmt.Println(cliUsage)
 		return 0, true

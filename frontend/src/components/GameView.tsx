@@ -8,7 +8,7 @@ import { onModpackSettled } from "../modpackInstalls";
 import ProfileList from "./ProfileList";
 import { LaunchSetup, PlayButton } from "./launch";
 import { ImportModal } from "./share";
-import { BackendBadge, Button, ErrorText, RuntimeBadge } from "./ui";
+import { BackendBadge, Button, EngineBadge, ErrorText, RuntimeBadge } from "./ui";
 
 type Props = {
   game: Game;
@@ -81,6 +81,7 @@ export default function GameView({ game, onChanged, onRemoved, onOpenProfile }: 
             onSave={(name) => run(async () => onChanged(await Library.RenameGame(game.id, name)))}
           />
           <div className="flex items-center gap-2 text-sm text-zinc-500">
+            <EngineBadge engine={game.engine} version={game.engineVersion} />
             <RuntimeBadge runtime={game.runtime} />
             <BackendBadge backend={game.backend} />
             <span className="min-w-0 truncate select-text">{game.path}</span>

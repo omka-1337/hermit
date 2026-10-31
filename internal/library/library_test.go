@@ -190,34 +190,67 @@ func TestDetectGame(t *testing.T) {
 	}{
 		{
 			[]string{"Game_Data/Managed/", "Game.exe", "UnityPlayer.dll", "UnityCrashHandler64.exe"},
-			Detection{Unity: true, Runtime: RuntimeProton, Backend: BackendMono, Executable: "Game.exe"},
+			Detection{Unity: true, Engine: EngineUnity, Runtime: RuntimeProton, Backend: BackendMono, Executable: "Game.exe"},
 		},
 		{
 			[]string{"Game_Data/il2cpp_data/", "Game.exe", "GameAssembly.dll", "UnityPlayer.dll"},
-			Detection{Unity: true, Runtime: RuntimeProton, Backend: BackendIL2CPP, Executable: "Game.exe"},
+			Detection{Unity: true, Engine: EngineUnity, Runtime: RuntimeProton, Backend: BackendIL2CPP, Executable: "Game.exe"},
 		},
 		{
 			[]string{"Game_Data/Managed/", "Game.x86_64", "UnityPlayer.so"},
-			Detection{Unity: true, Runtime: RuntimeNative, Backend: BackendMono, Executable: "Game.x86_64"},
+			Detection{Unity: true, Engine: EngineUnity, Runtime: RuntimeNative, Backend: BackendMono, Executable: "Game.x86_64"},
 		},
 		{
 			// Old Unity without UnityPlayer.dll.
 			[]string{"Old_Data/Managed/", "Old.exe"},
-			Detection{Unity: true, Runtime: RuntimeProton, Backend: BackendMono, Executable: "Old.exe"},
+			Detection{Unity: true, Engine: EngineUnity, Runtime: RuntimeProton, Backend: BackendMono, Executable: "Old.exe"},
 		},
 		{
 			// A _Data folder alone is not enough.
 			[]string{"Other_Data/", "Other.exe"},
-			Detection{Runtime: RuntimeUnknown, Backend: BackendUnknown},
+			Detection{Engine: EngineUnknown, Runtime: RuntimeUnknown, Backend: BackendUnknown},
 		},
 		{
 			[]string{"readme.txt"},
-			Detection{Runtime: RuntimeUnknown, Backend: BackendUnknown},
+			Detection{Engine: EngineUnknown, Runtime: RuntimeUnknown, Backend: BackendUnknown},
+		},
+		{
+			[]string{"data/", "data/skyrim.ESM", "SkyrimSE.exe", "SkyrimSELauncher.exe"},
+			Detection{Engine: EngineCreation, Runtime: RuntimeProton, Backend: BackendUnknown, Executable: "SkyrimSE.exe"},
+		},
+		{
+			// The executable alone is not Skyrim.
+			[]string{"Data/", "SkyrimSE.exe"},
+			Detection{Engine: EngineUnknown, Runtime: RuntimeUnknown, Backend: BackendUnknown},
 		},
 	}
 	for _, tc := range cases {
 		if got := DetectGame(fakeGame(t, tc.files...)); got != tc.want {
 			t.Errorf("%v:\n got  %+v\n want %+v", tc.files, got, tc.want)
+		}
+	}
+}
+
+func TestDetectUnityVersion(t *testing.T) {
+	// The start of Lethal Company's globalgamemanagers.
+	serialized := append(make([]byte, 0x30), "2022.3.62f2\x00\x13\x00\x00\x00"...)
+	// A build packed into data.unity3d starts with a bundle header instead.
+	bundle := []byte("UnityFS\x00\x00\x00\x00\x085.x.x\x006000.0.67f1\x00")
+	for _, tc := range []struct {
+		file string
+		head []byte
+		want string
+	}{
+		{"globalgamemanagers", serialized, "2022.3.62f2"},
+		{"data.unity3d", bundle, "6000.0.67f1"},
+		{"globalgamemanagers", []byte("no version here"), ""},
+	} {
+		dir := fakeGame(t, "Game_Data/Managed/", "Game.exe", "UnityPlayer.dll")
+		if err := os.WriteFile(filepath.Join(dir, "Game_Data", tc.file), tc.head, 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if got := DetectGame(dir).EngineVersion; got != tc.want {
+			t.Errorf("%s: got %q, want %q", tc.file, got, tc.want)
 		}
 	}
 }

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Dialogs } from "@wailsio/runtime";
 import { errorMessage, Game, GameCandidate, Library } from "../api";
-import { BackendBadge, Button, ErrorText, inputClass, RuntimeBadge } from "./ui";
+import { BackendBadge, Button, EngineBadge, ErrorText, inputClass, RuntimeBadge } from "./ui";
 
 type Props = {
   onAdded: (game: Game) => void;
@@ -69,7 +69,8 @@ export default function AddGameForm({ onAdded, extraActions }: Props) {
           </label>
           {candidate.detection.unity ? (
             <div className="flex items-center gap-2 text-sm text-zinc-400">
-              Detected: <RuntimeBadge runtime={candidate.detection.runtime} />
+              Detected: <EngineBadge engine={candidate.detection.engine} version={candidate.detection.engineVersion} />
+              <RuntimeBadge runtime={candidate.detection.runtime} />
               <BackendBadge backend={candidate.detection.backend} />
             </div>
           ) : (

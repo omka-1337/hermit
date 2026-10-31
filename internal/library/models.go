@@ -23,14 +23,18 @@ const (
 // Game is stored in games/<id>/game.json. It holds everything machine-specific
 // (paths, runtime); profiles must stay portable.
 type Game struct {
-	ID            string  `json:"id"`
-	Name          string  `json:"name"`
-	Path          string  `json:"path"`
-	Runtime       Runtime `json:"runtime"`
-	Backend       Backend `json:"backend"`
-	Executable    string  `json:"executable"`
-	SteamAppID    string  `json:"steamAppId,omitempty"`
-	ActiveProfile string  `json:"activeProfile"`
+	ID      string  `json:"id"`
+	Name    string  `json:"name"`
+	Path    string  `json:"path"`
+	Runtime Runtime `json:"runtime"`
+	Backend Backend `json:"backend"`
+	Engine  Engine  `json:"engine"`
+	// EngineVersion is as in Detection; it changes when a game update moves
+	// the game to a newer Unity.
+	EngineVersion string `json:"engineVersion"`
+	Executable    string `json:"executable"`
+	SteamAppID    string `json:"steamAppId,omitempty"`
+	ActiveProfile string `json:"activeProfile"`
 	// LaunchExecutable is the file Hermit starts the game from when it
 	// starts it itself, relative to Path; empty means Executable. It is kept
 	// apart from Executable, which identifies the game (Thunderstore finds

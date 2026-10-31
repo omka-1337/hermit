@@ -110,6 +110,16 @@ func (l *Library) ListGames() ([]Game, error) {
 		if err != nil {
 			return nil, err
 		}
+		// The engine is read again each time the games are listed: an
+		// update can move a game to a newer Unity, and games added before
+		// engines were recognised have none recorded. A game whose folder is
+		// gone keeps what it had.
+		if d := DetectGame(g.Path); d.Engine != EngineUnknown && (d.Engine != g.Engine || d.EngineVersion != g.EngineVersion) {
+			g.Engine, g.EngineVersion = d.Engine, d.EngineVersion
+			if err := l.saveGame(g); err != nil {
+				return nil, err
+			}
+		}
 		games = append(games, g)
 	}
 	sort.Slice(games, func(i, j int) bool { return games[i].Name < games[j].Name })
@@ -221,13 +231,15 @@ func (l *Library) AddGame(name, path string) (Game, error) {
 	}
 
 	g := Game{
-		ID:         uniqueID(slugify(name, "game"), ids),
-		Name:       name,
-		Path:       c.Path,
-		Runtime:    c.Detection.Runtime,
-		Backend:    c.Detection.Backend,
-		Executable: c.Detection.Executable,
-		SteamAppID: c.SteamAppID,
+		ID:            uniqueID(slugify(name, "game"), ids),
+		Name:          name,
+		Path:          c.Path,
+		Runtime:       c.Detection.Runtime,
+		Backend:       c.Detection.Backend,
+		Engine:        c.Detection.Engine,
+		EngineVersion: c.Detection.EngineVersion,
+		Executable:    c.Detection.Executable,
+		SteamAppID:    c.SteamAppID,
 	}
 	p, err := l.createProfile(g.ID, DefaultProfileName)
 	if err != nil {

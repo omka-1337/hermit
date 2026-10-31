@@ -8,6 +8,7 @@ export {
 
 export {
     Backend,
+    Engine,
     ModSourceType,
     Runtime
 } from "./models.js";

@@ -1,5 +1,5 @@
 import { useEffect, useRef, type ButtonHTMLAttributes, type ReactNode } from "react";
-import { Backend, Runtime } from "../api";
+import { Backend, Engine, Runtime } from "../api";
 import { clickFocused, focusFirst, moveFocus } from "../focus";
 import { useGamepad } from "../gamepad";
 import { useModalLayer, useModalOpen } from "../modals";
@@ -50,6 +50,34 @@ const runtimeLabels: Partial<Record<Runtime, string>> = {
 
 export function RuntimeBadge({ runtime }: { runtime: Runtime }) {
   return <span className="shrink-0 rounded bg-zinc-800 px-2 py-0.5 text-xs whitespace-nowrap text-zinc-300">{runtimeLabels[runtime] ?? runtimeLabels[Runtime.RuntimeUnknown]}</span>;
+}
+
+// engineLabel names an engine the way players do: Unity 6 rather than
+// 6000.0, and the release line, like 2022.3, for older Unity.
+function engineLabel(engine: Engine, version: string): string | null {
+  switch (engine) {
+    case Engine.EngineUnity: {
+      const [major, minor] = version.split(".").map(Number);
+      if (!major) return "Unity";
+      if (major >= 6000) return minor ? `Unity 6.${minor}` : "Unity 6";
+      return `Unity ${major}.${minor}`;
+    }
+    case Engine.EngineCreation:
+      return version ? `Creation Engine ${version}` : "Creation Engine";
+  }
+  return null;
+}
+
+export function EngineBadge({ engine, version }: { engine: Engine; version: string }) {
+  const label = engineLabel(engine, version);
+  return label ? (
+    <span
+      title={engine === Engine.EngineUnity && version ? `Unity ${version}` : undefined}
+      className="shrink-0 rounded bg-zinc-800 px-2 py-0.5 text-xs whitespace-nowrap text-zinc-300"
+    >
+      {label}
+    </span>
+  ) : null;
 }
 
 const backendLabels: Partial<Record<Backend, string>> = {

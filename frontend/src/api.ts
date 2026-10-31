@@ -1,7 +1,7 @@
 import { CancelError } from "@wailsio/runtime";
 import { ask } from "./confirmhost";
 
-export { Backend, Library, Runtime } from "../bindings/hermit/internal/library";
+export { Backend, Engine, Library, Runtime } from "../bindings/hermit/internal/library";
 export type { Game, GameCandidate, Mod, Profile } from "../bindings/hermit/internal/library";
 export { Store as SettingsStore } from "../bindings/hermit/internal/settings";
 export { UIMode, BrowseView } from "../bindings/hermit/internal/settings";

@@ -25,6 +25,13 @@ export enum Backend {
  */
 export interface Detection {
     "unity": boolean;
+    "engine": Engine;
+
+    /**
+     * EngineVersion is the Unity version, e.g. "2022.3.62f2", or "2" for
+     * Creation Engine 2; empty when it is not known.
+     */
+    "engineVersion": string;
     "runtime": Runtime;
     "backend": Backend;
 
@@ -33,6 +40,24 @@ export interface Detection {
      */
     "executable": string;
 }
+
+/**
+ * Engine is what a game is built on; it decides how the game is modded.
+ */
+export enum Engine {
+    /**
+     * The Go zero value for the underlying type of the enum.
+     */
+    $zero = "",
+
+    EngineUnknown = "unknown",
+    EngineUnity = "unity",
+
+    /**
+     * Bethesda's Creation Engine
+     */
+    EngineCreation = "creation",
+};
 
 /**
  * Game is stored in games/<id>/game.json. It holds everything machine-specific
@@ -44,6 +69,13 @@ export interface Game {
     "path": string;
     "runtime": Runtime;
     "backend": Backend;
+    "engine": Engine;
+
+    /**
+     * EngineVersion is as in Detection; it changes when a game update moves
+     * the game to a newer Unity.
+     */
+    "engineVersion": string;
     "executable": string;
     "steamAppId"?: string;
     "activeProfile": string;

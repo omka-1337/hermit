@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { errorMessage, Game, LaunchService, Library } from "../api";
+import { Engine, errorMessage, Game, LaunchService, Library, Runtime } from "../api";
 import { useLaunchInfo } from "./launch";
 import { Button, ErrorText, inputClass } from "./ui";
 
@@ -16,20 +16,25 @@ export default function GameSettings({ game, onRemove }: Props) {
   const box = useRef<HTMLDivElement>(null);
   const { info } = useLaunchInfo(game.id);
   const [executables, setExecutables] = useState<string[]>([]);
-  const [chosen, setChosen] = useState(game.launchExecutable || game.executable);
+  // A Creation Engine game starts through its script extender unless a file
+  // is picked, so its default is not its own executable.
+  const creation = game.engine === Engine.EngineCreation;
+  const fallback = creation ? "" : game.executable;
+  const [chosen, setChosen] = useState(game.launchExecutable || fallback);
   const [error, setError] = useState("");
 
-  // Only a game Hermit starts itself can be started from another file.
-  const startsItself = !!info?.external && !!info.portProton;
+  // A game that runs through Wine can be started from another file, whether
+  // Hermit starts it or Steam does through the launch options.
+  const choosable = !!info?.supported && game.runtime === Runtime.RuntimeProton;
 
   useEffect(() => {
-    if (!startsItself) return;
+    if (!choosable) return;
     LaunchService.ListExecutables(game.id)
       .then((list) => setExecutables(list ?? []))
       .catch(() => setExecutables([]));
-  }, [game.id, startsItself]);
+  }, [game.id, choosable]);
 
-  useEffect(() => setChosen(game.launchExecutable || game.executable), [game.launchExecutable, game.executable]);
+  useEffect(() => setChosen(game.launchExecutable || fallback), [game.launchExecutable, fallback]);
 
   // Close on a click anywhere else, or Escape.
   useEffect(() => {
@@ -58,8 +63,8 @@ export default function GameSettings({ game, onRemove }: Props) {
     }
   };
 
-  const pickExecutable = startsItself && executables.length > 1;
-  const custom = pickExecutable && chosen !== game.executable;
+  const pickExecutable = choosable && executables.length > (creation ? 0 : 1);
+  const custom = pickExecutable && chosen !== fallback;
 
   return (
     <div ref={box} className="relative flex">
@@ -81,6 +86,7 @@ export default function GameSettings({ game, onRemove }: Props) {
             <label className="flex flex-col gap-1.5 text-sm">
               <span className="text-zinc-400">Start the game from</span>
               <select className={inputClass} value={chosen} onChange={(e) => choose(e.target.value)}>
+                {creation && <option value="">Automatic: the script extender when it is installed</option>}
                 {executables.map((exe) => (
                   <option key={exe} value={exe}>
                     {exe === game.executable ? `${exe} (the game)` : exe}
@@ -88,7 +94,10 @@ export default function GameSettings({ game, onRemove }: Props) {
                 ))}
               </select>
               <span className="text-xs text-zinc-500">
-                Some mods ship a launcher the game has to be started through; pick it here.
+                {creation
+                  ? "Automatic starts SKSE, F4SE or SFSE when the game folder or a mod has it, and the game as Steam starts it otherwise."
+                  : "Some mods ship a launcher the game has to be started through; pick it here."}
+                {!info?.external && " Steam starts it too, through the launch options."}
               </span>
             </label>
           )}

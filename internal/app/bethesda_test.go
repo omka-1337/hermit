@@ -36,7 +36,7 @@ func TestImportMO2AndOrderMods(t *testing.T) {
 	}
 	mo2 := filepath.Join(tmp, "MO2")
 	writeFiles(t, mo2, map[string]string{
-		"ModOrganizer.ini":            "[General]\ngameName=Skyrim Special Edition\nselected_profile=@ByteArray(Default)\n",
+		"ModOrganizer.ini":             "[General]\ngameName=Skyrim Special Edition\nselected_profile=@ByteArray(Default)\n",
 		"profiles/Default/modlist.txt": "+Patch\r\n+Sky UI\r\n",
 		"profiles/Default/plugins.txt": "*SkyUI_SE.esp\r\n",
 		"mods/Sky UI/SkyUI_SE.esp":     "ui",

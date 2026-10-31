@@ -272,7 +272,8 @@ func (l *Library) RenameGame(id, name string) (Game, error) {
 }
 
 // SetLaunchExecutable chooses the file a game is started from; "" goes back to
-// the game's own executable. The path is relative to the game folder and must
+// the game's own executable, or for a Creation Engine game to its script
+// extender when it has one. The path is relative to the game folder and must
 // name a file inside it.
 func (l *Library) SetLaunchExecutable(id, exe string) (Game, error) {
 	l.mu.Lock()
@@ -282,7 +283,9 @@ func (l *Library) SetLaunchExecutable(id, exe string) (Game, error) {
 	if err != nil {
 		return Game{}, err
 	}
-	if exe == g.Executable {
+	// Picking a Creation Engine game's own executable is a choice of its
+	// own: starting it without the script extender.
+	if exe == g.Executable && g.Engine != EngineCreation {
 		exe = ""
 	}
 	if exe != "" {

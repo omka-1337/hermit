@@ -21,7 +21,8 @@ const deployFile = "deploy.json"
 // deployCreation links the enabled mods of a profile into the Data folder of
 // a Creation Engine game and gives the game the profile's plugin list. It
 // returns the command to run, which starts the script extender instead of
-// the game's launcher once the game folder has one.
+// the game's launcher once the game folder has one, unless the user picked
+// the file the game starts from.
 func deployCreation(game library.Game, profile library.Profile, profileDir, dataDir string, command, env []string) ([]string, error) {
 	g, ok := bethesda.Find(game.Executable)
 	if !ok {
@@ -48,6 +49,9 @@ func deployCreation(game library.Game, profile library.Profile, profileDir, data
 	if err := writeDeployState(dataDir, state); err != nil {
 		bethesda.Undeploy(game.Path, state)
 		return nil, err
+	}
+	if game.LaunchExecutable != "" {
+		return command, nil
 	}
 	return withLoader(command, game.Path, g), nil
 }
@@ -119,14 +123,5 @@ func withLoader(command []string, gamePath string, g bethesda.Game) []string {
 	if loader == "" {
 		return command
 	}
-	for i, arg := range command {
-		for _, launcher := range g.Launchers {
-			if strings.EqualFold(filepath.Base(arg), launcher) {
-				out := append([]string(nil), command...)
-				out[i] = filepath.Join(gamePath, loader)
-				return out
-			}
-		}
-	}
-	return command
+	return withExecutable(command, gamePath, filepath.Join(gamePath, loader), g.Launchers...)
 }

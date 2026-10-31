@@ -390,3 +390,57 @@ func TestRunCreationEngineGame(t *testing.T) {
 		}
 	}
 }
+
+func TestWithExecutable(t *testing.T) {
+	game := "/games/Skyrim Special Edition"
+	steam := []string{"/steam/reaper", "SteamLaunch", "AppId=489830", "--", "/steam/proton", "waitforexitandrun", game + "/SkyrimSELauncher.exe"}
+	got := withExecutable(steam, game, game+"/Tools/Launcher.exe")
+	if got[len(got)-1] != game+"/Tools/Launcher.exe" || steam[len(steam)-1] != game+"/SkyrimSELauncher.exe" {
+		t.Errorf("Steam command: %v (original %v)", got, steam)
+	}
+	// Steam reaching the game folder through a symlink: found by name.
+	linked := []string{"/steam/proton", "run", "/home/u/.steam/steam/steamapps/common/Game/Game.exe"}
+	if got := withExecutable(linked, "/home/u/.local/share/Steam/steamapps/common/Game", "/x/Launcher.exe", "Game.exe"); got[2] != "/x/Launcher.exe" {
+		t.Errorf("by name: %v", got)
+	}
+	if got := withExecutable([]string{"sh", "-c", "true"}, game, "/x.exe"); !slices.Equal(got, []string{"sh", "-c", "true"}) {
+		t.Errorf("nothing to replace: %v", got)
+	}
+}
+
+func TestChosenExecutableOverridesSKSE(t *testing.T) {
+	tmp := t.TempDir()
+	lib, err := library.New(filepath.Join(tmp, "lib"), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gamePath := filepath.Join(tmp, "Skyrim Special Edition")
+	for _, f := range []string{"SkyrimSE.exe", "SkyrimSELauncher.exe", "skse64_loader.exe", "Data/Skyrim.esm"} {
+		mkfile(t, filepath.Join(gamePath, f))
+	}
+	game, err := lib.AddGame("Skyrim", gamePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := &Wrapper{Lib: lib, Installer: modinstall.NewInstaller(lib, nil, nil)}
+	run := func() string {
+		t.Helper()
+		plan, err := w.Prepare(game.ID, []string{"proton", "waitforexitandrun", filepath.Join(gamePath, "SkyrimSELauncher.exe")}, nil, os.Getpid(), nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := w.Cleanup(game.ID); err != nil {
+			t.Fatal(err)
+		}
+		return filepath.Base(plan.Command[len(plan.Command)-1])
+	}
+	if got := run(); got != "skse64_loader.exe" {
+		t.Errorf("automatic: started %s", got)
+	}
+	if _, err := lib.SetLaunchExecutable(game.ID, "SkyrimSE.exe"); err != nil {
+		t.Fatal(err)
+	}
+	if got := run(); got != "SkyrimSE.exe" {
+		t.Errorf("chosen: started %s", got)
+	}
+}

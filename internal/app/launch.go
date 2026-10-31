@@ -200,10 +200,12 @@ func (s *LaunchService) ListExecutables(gameID string) ([]string, error) {
 }
 
 // isHiddenOrData skips folders that hold no launchers: dot folders, Unity's
-// *_Data folders and the parts of BepInEx a mod manager put there.
+// *_Data folders, a Creation Engine game's Data, whose tools run inside the
+// game rather than start it, and the parts of BepInEx a mod manager put there.
 func isHiddenOrData(name string) bool {
 	lower := strings.ToLower(name)
-	return strings.HasPrefix(lower, ".") || strings.HasSuffix(lower, "_data") || lower == "bepinex" || lower == "dotnet"
+	return strings.HasPrefix(lower, ".") || strings.HasSuffix(lower, "_data") || lower == "data" ||
+		lower == "bepinex" || lower == "dotnet"
 }
 
 // RecommendedLaunchOptions is the Steam Launch Options value that runs games

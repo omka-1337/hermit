@@ -10,6 +10,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"syscall"
 	"time"
@@ -195,6 +196,10 @@ func (w *Wrapper) Prepare(gameID string, command, env []string, pid int, logOut 
 			}
 		}
 	}
+	if game.Runtime == library.RuntimeProton && game.LaunchExecutable != "" {
+		exe := filepath.Join(game.Path, filepath.FromSlash(game.LaunchExecutable))
+		command = withExecutable(command, game.Path, exe, filepath.Base(game.Executable))
+	}
 	session.Modded = modded
 	if err := writeSession(dataDir, session); err != nil {
 		Unlink(game.Path, session.Links, profileDir)
@@ -298,6 +303,24 @@ func (w *Wrapper) findGame(gameID string, command []string) (library.Game, error
 		return library.Game{}, errors.New("cannot tell which game is launched; pass --game <id>")
 	}
 	return w.Lib.FindGameBySteamAppID(appID)
+}
+
+// withExecutable starts exe in place of the game file in command, the file
+// Steam or PortProton runs: the first argument that is an .exe in the game
+// folder, or one of names wherever it is, for a game folder Steam reaches by
+// another path.
+func withExecutable(command []string, gamePath, exe string, names ...string) []string {
+	inGame := filepath.Clean(gamePath) + string(filepath.Separator)
+	for i, arg := range command {
+		base := filepath.Base(arg)
+		named := slices.ContainsFunc(names, func(n string) bool { return strings.EqualFold(n, base) })
+		if named || (strings.HasPrefix(arg, inGame) && strings.EqualFold(filepath.Ext(arg), ".exe")) {
+			out := append([]string(nil), command...)
+			out[i] = exe
+			return out
+		}
+	}
+	return command
 }
 
 // withDLLOverride adds a Wine DLL override unless the DLL is already configured.

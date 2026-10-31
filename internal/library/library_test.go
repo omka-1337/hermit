@@ -344,6 +344,22 @@ func TestSetLaunchExecutable(t *testing.T) {
 	}
 }
 
+func TestSetLaunchExecutableOfCreationEngineGame(t *testing.T) {
+	lib := newTestLibrary(t)
+	g, err := lib.AddGame("Skyrim", fakeGame(t, "SkyrimSE.exe", "skse64_loader.exe", "Data/", "Data/Skyrim.esm"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The game's own executable means starting it without SKSE, which is not
+	// what the default does.
+	if g, err = lib.SetLaunchExecutable(g.ID, "SkyrimSE.exe"); err != nil || g.LaunchExecutable != "SkyrimSE.exe" {
+		t.Errorf("own executable: %q, %v", g.LaunchExecutable, err)
+	}
+	if g, err = lib.SetLaunchExecutable(g.ID, ""); err != nil || g.LaunchExecutable != "" {
+		t.Errorf("back to automatic: %q, %v", g.LaunchExecutable, err)
+	}
+}
+
 func TestSetLaunchExecutableStaysInsideTheGame(t *testing.T) {
 	lib := newTestLibrary(t)
 	path := fakeGame(t, "Game.exe", "Game_Data/", "UnityPlayer.dll")

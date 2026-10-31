@@ -126,11 +126,17 @@ func ParseLog(r io.Reader) Report {
 	return rep
 }
 
+// logClockSlack is how far before the start of a session its log may seem to
+// have been written: the kernel stamps files from a clock that lags the one
+// sessions are timed with by a few milliseconds. A log left from an earlier
+// session is older by far more.
+const logClockSlack = time.Second
+
 // BuildReport reads the profile's BepInEx log after a session.
 func BuildReport(profileDir string, session Session, mods []library.Mod) Report {
 	logPath := filepath.Join(profileDir, "BepInEx", "LogOutput.log")
 	rep := Report{Loaded: []string{}, Issues: []Issue{}}
-	if fi, err := os.Stat(logPath); err == nil && !fi.ModTime().Before(session.StartedAt) {
+	if fi, err := os.Stat(logPath); err == nil && !fi.ModTime().Before(session.StartedAt.Add(-logClockSlack)) {
 		if f, err := os.Open(logPath); err == nil {
 			rep = ParseLog(f)
 			f.Close()

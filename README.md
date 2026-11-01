@@ -27,15 +27,18 @@ installed.
 
 - A load order of mods, as in Mod Organizer 2: drag mods into place, group them under separators, and see at a click
   which mods a mod overwrites and which overwrite it
+- Browse Nexus Mods from Hermit; a mod's file downloads through a browser inside Hermit's window, or through "Mod
+  Manager Download" on the website, and installs into the game's active profile
 - Install from archives — zip, 7z, rar — with FOMOD installers in a window of their own, several archives at once
-- "Mod Manager Download" from Nexus Mods opens in Hermit and installs into the game's active profile
-- Creation Engine games get their plugin list and INI files per profile, start through their script extender, and can
-  bring in a Mod Organizer 2 instance whole
+- A preview of the game folder as the mods will make it, with the mod each file comes from
+- Creation Engine games get their plugins ordered beside the mods, INI files and saves per profile if you like, start
+  through their script extender, and can bring in a Mod Organizer 2 instance whole
 - Tools that come with mods, such as BodySlide or Pandora, run in the game's Proton prefix with the profile in place
 
 **Everywhere**
 
 - Several profiles per game, each with its own mods, switched with a click
+- One list of downloads, from Thunderstore and Nexus Mods alike, with a speed limit they share
 - Launch from Hermit, or straight from Steam through the game's launch options — Proton and native Linux games
 - A Steam Deck layout driven by the controller, next to the regular desktop one
 
@@ -68,7 +71,7 @@ buttons, the d-pad moves the focus and B steps back out.
 
 Download the AppImage from the [releases page](https://github.com/omka-1337/hermit/releases), make it executable
 (`chmod +x Hermit-*.AppImage`) and run it. It needs FUSE; on SteamOS and most distributions it is already there. To
-use it from Game Mode on a Steam Deck, add the AppImage to Steam as a non-Steam game.
+use it from Game Mode on a Steam Deck, add it to Steam as a non-Steam game: Settings → Steam does that for you.
 
 An AUR package, and Windows and macOS builds, are planned before 1.0; for now the AppImage is the only build. What
 changed in each release is in [CHANGELOG.md](CHANGELOG.md).
@@ -156,13 +159,15 @@ internal/thunderstore/   Thunderstore API client
 internal/profileshare/   r2modman-compatible profile export/import
 internal/configs/        config file editing
 internal/deploy/         mod folders linked into a game for a session, for the engines below
-internal/creation/       Creation Engine games: Data, plugins.txt, INI files, MO2 import
+internal/creation/       Creation Engine games: Data, load order of plugins, INI files and saves, MO2 import
 internal/redengine/      REDengine games: Cyberpunk 2077
 internal/unreal/         Unreal Engine games: Batman: Arkham Knight
 internal/archive/        zip, 7z and rar archives, without tools from the system
 internal/fomod/          FOMOD installers
-internal/nexus/          Nexus Mods API and nxm:// links
+internal/nexus/          Nexus Mods API: searching mods, their pages and files, downloads, nxm:// links
 internal/steam/          Steam libraries, launch options, icons
+internal/platform/       the desktop: window, desktop entries, nxm:// handler, the browser inside the window
+internal/throttle/       the speed limit downloads share
 frontend/                React + TypeScript + Tailwind (Vite)
 build/                   Wails build and packaging config
 ```

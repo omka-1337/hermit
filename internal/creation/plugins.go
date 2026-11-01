@@ -2,12 +2,13 @@ package creation
 
 import (
 	"errors"
-	"hermit/internal/deploy"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"slices"
 	"strings"
+
+	"hermit/internal/deploy"
 )
 
 // byteOrderMark starts files saved by some Windows editors.

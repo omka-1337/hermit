@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -12,6 +13,7 @@ import (
 	"time"
 
 	"hermit/internal/library"
+	"hermit/internal/modinstall"
 )
 
 func TestDownloads(t *testing.T) {
@@ -110,5 +112,42 @@ func TestDownloads(t *testing.T) {
 	}
 	if d := wait(); d.Status != DownloadDone || fileHits.Load() != 1 {
 		t.Errorf("again: %+v, %d downloads", d, fileHits.Load())
+	}
+}
+
+func TestTrackedInstall(t *testing.T) {
+	lib, err := library.New(t.TempDir(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := NewDownloadService(lib, t.TempDir(), "test")
+	plan := s.track("game", "", "game//modpack/Author-Pack", "Pack", nil)
+	// Two of four packages there, the third half way.
+	plan.progress(modinstall.Progress{Stage: modinstall.StageDownload, Done: 50, Total: 100, Step: 2, Steps: 4})
+	if d := s.List()[0]; d.Stage != StageDownload || d.Progress != 0.625 || d.Source != "thunderstore" || d.Status != DownloadRunning {
+		t.Errorf("downloading: %+v", d)
+	}
+	plan.finish(nil)
+
+	// The install that follows carries on the same entry, unpacking.
+	install := s.track("game", "", "game//modpack/Author-Pack", "Pack", nil)
+	install.progress(modinstall.Progress{Stage: modinstall.StageInstall, Step: 3, Steps: 4})
+	list := s.List()
+	if len(list) != 1 || list[0].Stage != StageUnpack || list[0].Progress != 0.5 {
+		t.Errorf("unpacking: %+v", list)
+	}
+	install.finish(nil)
+	if d := s.List()[0]; d.Status != DownloadDone || d.Progress != 1 {
+		t.Errorf("done: %+v", d)
+	}
+	// The main window installs the files from Nexus Mods, not these.
+	if taken := s.TakeFinished(); len(taken) != 0 {
+		t.Errorf("handed over for installing: %+v", taken)
+	}
+
+	failed := s.track("game", "default", "game/default/Other-Mod", "Mod", nil)
+	failed.finish(errors.New("no such package"))
+	if d := s.List()[1]; d.Status != DownloadFailed || d.Error != "no such package" {
+		t.Errorf("failed: %+v", d)
 	}
 }

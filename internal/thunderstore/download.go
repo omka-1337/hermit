@@ -15,6 +15,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"hermit/internal/throttle"
 )
 
 // Thunderstore restricts names to these characters, which also makes them safe as file names.
@@ -150,9 +152,9 @@ func (c *Client) downloadOnce(ctx context.Context, ref PackageRef, url, dir, pat
 	defer os.Remove(tmp.Name())
 
 	hash := sha256.New()
-	body := io.Reader(resp.Body)
+	body := throttle.Downloads.Reader(ctx, resp.Body)
 	if progress != nil {
-		body = &progressReader{r: resp.Body, total: resp.ContentLength, fn: progress}
+		body = &progressReader{r: body, total: resp.ContentLength, fn: progress}
 	}
 	if _, err := io.Copy(io.MultiWriter(tmp, hash), body); err != nil {
 		tmp.Close()

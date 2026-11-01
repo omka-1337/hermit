@@ -58,10 +58,33 @@ export function Logs(gameID: string): $CancellablePromise<$models.LogFile[] | nu
 }
 
 /**
+ * MovePlugins moves plugins to just before the plugin before, or to the end
+ * of the load order when before is empty, and returns the order that makes.
+ */
+export function MovePlugins(gameID: string, profileID: string, names: string[] | null, before: string): $CancellablePromise<creation$0.LoadOrderEntry[] | null> {
+    return $Call.ByID(260322513, gameID, profileID, names, before);
+}
+
+/**
  * OpenLogs shows the script extender's log folder in the file manager.
  */
 export function OpenLogs(gameID: string): $CancellablePromise<void> {
     return $Call.ByID(674722445, gameID);
+}
+
+/**
+ * Options returns what a profile shares with the game.
+ */
+export function Options(gameID: string, profileID: string): $CancellablePromise<$models.ProfileOptions> {
+    return $Call.ByID(104680936, gameID, profileID);
+}
+
+/**
+ * Plugins is the load order of a profile: the plugins the game will load
+ * with it, in the order it loads them.
+ */
+export function Plugins(gameID: string, profileID: string): $CancellablePromise<creation$0.LoadOrderEntry[] | null> {
+    return $Call.ByID(1050445526, gameID, profileID);
 }
 
 /**
@@ -70,4 +93,29 @@ export function OpenLogs(gameID: string): $CancellablePromise<void> {
  */
 export function ReadLog(gameID: string, name: string): $CancellablePromise<string> {
     return $Call.ByID(4031409140, gameID, name);
+}
+
+/**
+ * SetPluginActive switches a plugin of the profile on or off, and returns
+ * the load order that makes.
+ */
+export function SetPluginActive(gameID: string, profileID: string, name: string, active: boolean): $CancellablePromise<creation$0.LoadOrderEntry[] | null> {
+    return $Call.ByID(820395659, gameID, profileID, name, active);
+}
+
+/**
+ * SetProfileINIs has the game play with the profile's own INI files, or
+ * with its own. A profile without INI files of its own gets copies of the
+ * game's to start from; the profile's are kept when it goes back to the
+ * game's.
+ */
+export function SetProfileINIs(gameID: string, profileID: string, on: boolean): $CancellablePromise<void> {
+    return $Call.ByID(1657825432, gameID, profileID, on);
+}
+
+/**
+ * SetProfileSaves has the profile keep its saves, or play with the game's.
+ */
+export function SetProfileSaves(gameID: string, profileID: string, on: boolean): $CancellablePromise<void> {
+    return $Call.ByID(3274151575, gameID, profileID, on);
 }

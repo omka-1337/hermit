@@ -261,3 +261,32 @@ func TestDeploySwapsINIs(t *testing.T) {
 		t.Error("the ini the game did not have is still there")
 	}
 }
+
+func TestDeploySwapsSaves(t *testing.T) {
+	game, profile := setup(t)
+	saves := filepath.Join(t.TempDir(), "My Games", "Skyrim Special Edition", "Saves")
+	write(t, filepath.Dir(saves), map[string]string{"Saves/global.ess": "the game's own save"})
+	s, err := Deploy(game, profile, nil, Prefix{Saves: saves})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(saves, "global.ess")); err == nil {
+		t.Error("the game sees its own saves during the profile's session")
+	}
+	// The game saves during the session.
+	if err := os.WriteFile(filepath.Join(saves, "profile.ess"), []byte("made in the session"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Undeploy(game, s); err != nil {
+		t.Fatal(err)
+	}
+	if got := read(t, filepath.Join(saves, "global.ess")); got != "the game's own save" {
+		t.Errorf("the game's save after the session: %q", got)
+	}
+	if _, err := os.Stat(filepath.Join(saves, "profile.ess")); err == nil {
+		t.Error("the profile's save is among the game's")
+	}
+	if got := read(t, filepath.Join(profile, SavesDir, "profile.ess")); got != "made in the session" {
+		t.Errorf("the profile's save: %q", got)
+	}
+}

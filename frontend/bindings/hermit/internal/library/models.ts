@@ -221,6 +221,18 @@ export interface Profile {
      */
     "modpack"?: string;
     "mods": Mod[] | null;
+
+    /**
+     * GameINIs plays a Creation Engine profile that has INI files of its own
+     * with the game's instead; the profile's are kept for when it is unset.
+     */
+    "gameInis"?: boolean;
+
+    /**
+     * ProfileSaves keeps the saves of a Creation Engine profile in the
+     * profile instead of the game's Saves folder.
+     */
+    "profileSaves"?: boolean;
 }
 
 export enum Runtime {

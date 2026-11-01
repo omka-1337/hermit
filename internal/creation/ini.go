@@ -2,10 +2,11 @@ package creation
 
 import (
 	"errors"
-	"hermit/internal/deploy"
 	"io/fs"
 	"os"
 	"path/filepath"
+
+	"hermit/internal/deploy"
 )
 
 // INISwap is an INI file of the game a profile's took the place of.

@@ -18,8 +18,12 @@ import { useDragReorder } from "./useDragReorder";
 // Clicking a mod shows its conflicts: in green the mods whose files it
 // replaces, in red the ones replacing its files.
 // columns lay out the header and every mod row alike: the grip, the place in
-// the order, Active, Name, Version, Source and Author.
-const columns = "grid grid-cols-[1rem_2rem_3.25rem_minmax(0,1fr)_6rem_7rem_10rem] items-center gap-x-3";
+// the order, Active, Name, Version, Source, Author and Overwrite. Author
+// gives way when the list is narrow, as beside the panel of plugins.
+const columns =
+  "grid grid-cols-[1rem_2rem_3.25rem_minmax(0,1fr)_6rem_7rem_4.5rem] @4xl:grid-cols-[1rem_2rem_3.25rem_minmax(0,1fr)_6rem_7rem_10rem_4.5rem] items-center gap-x-3";
+// author is the class of the Author column's cells.
+const author = "hidden @4xl:block";
 
 const sourceLabels: Record<string, string> = { nexus: "Nexus", local: "Local", github: "GitHub", thunderstore: "Thunderstore" };
 
@@ -67,6 +71,26 @@ export default function ModListTab() {
     const sel = mods[selectedAt];
     if (!sel || m.id === sel.id || !sel.enabled || !m.enabled || !conflicts[sel.id]?.[m.id]) return null;
     return i > selectedAt ? "replaces" : "replaced";
+  };
+
+  // overwrite is how a mod's files fare against the other mods that are on:
+  // the files it takes over from mods above it, and its own files mods below
+  // it take over, with how many mods each.
+  const overwrite = (m: Mod, i: number): Overwrite => {
+    const o = { wins: 0, winsMods: 0, loses: 0, losesMods: 0 };
+    if (!m.enabled) return o;
+    mods.forEach((n, j) => {
+      const files = conflicts[m.id]?.[n.id];
+      if (!files || j === i || !n.enabled) return;
+      if (j < i) {
+        o.wins += files;
+        o.winsMods++;
+      } else {
+        o.loses += files;
+        o.losesMods++;
+      }
+    });
+    return o;
   };
 
   const scroller = useRef<HTMLDivElement>(null);
@@ -206,20 +230,29 @@ export default function ModListTab() {
   }
 
   return (
-    <div ref={scroller} className="relative h-full overflow-y-auto px-6 pb-3">
+    <div ref={scroller} className="@container relative h-full overflow-y-auto px-6 pb-3">
       {importModal}
       <ErrorText>{error}</ErrorText>
       {/* The header stays in place while the list scrolls under it. */}
-      <div
-        className={`${columns} sticky top-0 z-10 -mx-6 border-b border-l-2 border-zinc-800 border-l-transparent bg-zinc-950 px-6 py-2 text-xs font-medium text-zinc-500`}
-      >
-        <span />
-        <span className="text-right">#</span>
-        <span>Active</span>
-        <span>Name</span>
-        <span>Version</span>
-        <span>Source</span>
-        <span>Author</span>
+      <div className="sticky top-0 z-10 -mx-6 bg-zinc-950">
+        <div className="flex items-baseline gap-2 px-6 pt-3 pb-1">
+          <span className="text-sm font-semibold">Mods</span>
+          <span className="text-xs text-zinc-500">
+            {mods.filter((m) => m.enabled && !m.separator).length} of {mods.filter((m) => !m.separator).length} on
+          </span>
+        </div>
+        <div
+          className={`${columns} border-b border-l-2 border-zinc-800 border-l-transparent px-6 py-2 text-xs font-medium text-zinc-500`}
+        >
+          <span />
+          <span className="text-right">#</span>
+          <span>Active</span>
+          <span>Name</span>
+          <span>Version</span>
+          <span>Source</span>
+          <span className={author}>Author</span>
+          <span>Overwrite</span>
+        </div>
       </div>
       <ul className="divide-y divide-zinc-800">
         {rows.map(({ m, i, count, priority, hidden, rel, relations }) => [
@@ -269,11 +302,11 @@ export default function ModListTab() {
               }
               className={`${columns} cursor-default border-l-2 py-2 ${drag?.ids.includes(m.id) ? "opacity-40" : ""} ${
                 m.id === selected
-                  ? "border-accent-500 bg-accent-500/15"
+                  ? "border-transparent bg-accent-500/15"
                   : rel === "replaced"
-                    ? "border-emerald-500 bg-emerald-500/10"
+                    ? "border-transparent bg-emerald-500/10"
                     : rel === "replaces"
-                      ? "border-red-500 bg-red-500/10"
+                      ? "border-transparent bg-red-500/10"
                       : `border-transparent ${drag ? "" : "hover:bg-zinc-800/60"}`
               }`}
             >
@@ -313,7 +346,8 @@ export default function ModListTab() {
                   <span className="text-zinc-400">{sourceLabels[m.source.type] ?? ""}</span>
                 )}
               </span>
-              <span className={`truncate text-sm text-zinc-400 ${m.enabled ? "" : "opacity-50"}`}>{m.author}</span>
+              <span className={`${author} truncate text-sm text-zinc-400 ${m.enabled ? "" : "opacity-50"}`}>{m.author}</span>
+              <OverwriteCell {...overwrite(m, i)} />
             </li>
           ),
         ])}
@@ -366,7 +400,7 @@ export default function ModListTab() {
 }
 
 // Grip is where a finger drags a row from; a mouse can take the whole row.
-function Grip() {
+export function Grip() {
   return (
     <span data-drag-grip className="flex cursor-grab touch-none items-center self-stretch px-0.5 text-zinc-600" aria-hidden>
       <svg viewBox="0 0 10 16" className="h-4 w-2.5" fill="currentColor">
@@ -394,5 +428,29 @@ function ChevronIcon({ open }: { open: boolean }) {
     >
       <path d="m9 18 6-6-6-6" />
     </svg>
+  );
+}
+
+const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? "" : "s"}`;
+
+// OverwriteCell marks, as MO2 does, a mod that takes over files of mods above
+// it with a green plus, and one whose files mods below it take over with a
+// red minus.
+type Overwrite = { wins: number; winsMods: number; loses: number; losesMods: number };
+
+function OverwriteCell({ wins, winsMods, loses, losesMods }: Overwrite) {
+  return (
+    <span className="flex items-center gap-2 text-base leading-none font-bold">
+      {wins > 0 && (
+        <span className="text-emerald-400" title={`Replaces ${plural(wins, "file")} of ${plural(winsMods, "mod")} above it`}>
+          +
+        </span>
+      )}
+      {loses > 0 && (
+        <span className="text-red-400" title={`${plural(loses, "file")} replaced by ${plural(losesMods, "mod")} below it`}>
+          −
+        </span>
+      )}
+    </span>
   );
 }

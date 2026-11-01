@@ -1,8 +1,7 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Dialogs, Events } from "@wailsio/runtime";
 import { confirmDanger, deployed, Download, DownloadService, errorMessage, Game, Library, Profile } from "../api";
-import { useDownloads, useNexusSetup } from "../downloads";
-import { formatBytes } from "../format";
+import { stageColors, useDownloads, useNexusSetup } from "../downloads";
 import { QueueStatus, useInstallQueue } from "../installQueue";
 import { installFromFileEvent } from "../components/TitleMenus";
 import GamePicker from "../components/GamePicker";
@@ -13,11 +12,16 @@ import GameSwitcher from "../components/sidebar/GameSwitcher";
 import ProfileSwitcher from "../components/sidebar/ProfileSwitcher";
 import { TabIcon } from "../components/sidebar/icons";
 import { Button, ErrorText, Modal } from "../components/ui";
+import { ResizeHandle, usePanelWidth } from "../panelWidth";
 import { requestRefresh, useRefresh } from "../refresh";
 import DownloadsView from "./DownloadsView";
+import BrowserPage, { openBrowserEvent } from "./BrowserPage";
 import SettingsView from "./SettingsView";
 import { GearIcon } from "./shell";
+import nexusLogo from "../assets/nexus.svg";
 import thunderstoreLogo from "../assets/thunderstore.svg";
+
+type Page = "profile" | "settings" | "downloads" | "browser";
 
 type Props = {
   games: Game[];
@@ -35,8 +39,16 @@ type Props = {
 // mods and follows downloads and installs.
 export default function DesktopWorkspace({ games, selectedId, onSelect, onGamesChanged }: Props) {
   // page is what fills the window beside the sidebar: the profile's page
-  // picked in the sidebar, or Settings or Downloads.
-  const [page, setPage] = useState<"profile" | "settings" | "downloads">("profile");
+  // picked in the sidebar, Settings, Downloads, or a page of Nexus Mods in
+  // the browser, which goes back to returnTo when it is done.
+  const [page, setPage] = useState<Page>("profile");
+  const [browserURL, setBrowserURL] = useState("");
+  const [returnTo, setReturnTo] = useState<Page>("profile");
+  // The page and game as the event handlers see them, between renders.
+  const pageRef = useRef(page);
+  pageRef.current = page;
+  const gameRef = useRef(selectedId);
+  gameRef.current = selectedId;
   const elsewhere = page !== "profile";
   const [adding, setAdding] = useState(false);
   const [tab, setTab] = useState<Tab>("installed");
@@ -46,6 +58,8 @@ export default function DesktopWorkspace({ games, selectedId, onSelect, onGamesC
   const queue = useInstallQueue(setError);
   const downloads = useDownloads();
   const nexus = useNexusSetup();
+  // The sidebar is as wide as it was dragged to: 16rem at first.
+  const sidebar = usePanelWidth("sidebar", 256, 200, 480);
   const game = games.find((g) => g.id === selectedId) ?? null;
   const profile = profiles.find((p) => p.id === game?.activeProfile) ?? null;
   const tabs = game ? profileTabs(game, profile, true) : [];
@@ -109,6 +123,24 @@ export default function DesktopWorkspace({ games, selectedId, onSelect, onGamesC
     return () => window.removeEventListener(installFromFileEvent, install);
   }, [game, queue]);
 
+  // A page of Nexus Mods opens in the browser; once it hands a file over,
+  // or is closed, the user is back where they opened it from.
+  useEffect(() => {
+    const open = (e: Event) => {
+      setBrowserURL((e as CustomEvent<string>).detail);
+      if (pageRef.current !== "browser") setReturnTo(pageRef.current);
+      setPage("browser");
+    };
+    window.addEventListener(openBrowserEvent, open);
+    const offDownload = Events.On("browser:download", () => {
+      if (pageRef.current === "browser") setPage(returnTo);
+    });
+    return () => {
+      window.removeEventListener(openBrowserEvent, open);
+      offDownload();
+    };
+  }, [returnTo]);
+
   // F5 reads everything on screen again, as in MO2; the web view would
   // otherwise reload the whole interface.
   useEffect(() => {
@@ -145,9 +177,14 @@ export default function DesktopWorkspace({ games, selectedId, onSelect, onGamesC
   useEffect(() => {
     const take = async () => {
       for (const d of (await DownloadService.TakeFinished()) ?? []) {
-        onSelect(d.gameId);
-        setPage("profile");
-        setTab("installed");
+        // A download for the game open installs where the user is, in the
+        // background, as one started from Browse keeps them browsing; one for
+        // another game opens that game's mods.
+        if (d.gameId !== gameRef.current) {
+          onSelect(d.gameId);
+          setPage("profile");
+          setTab("installed");
+        }
         queueAdd(d.gameId, d.profileId, [d.path]).catch((err) => setError(errorMessage(err)));
       }
     };
@@ -186,7 +223,11 @@ export default function DesktopWorkspace({ games, selectedId, onSelect, onGamesC
   return (
     <div className="flex h-full flex-col">
       <div className="flex min-h-0 flex-1">
-        <aside className="flex w-64 shrink-0 flex-col gap-4 border-r border-zinc-800 bg-zinc-900 p-3">
+        <aside
+          style={{ width: sidebar.width }}
+          className="relative flex shrink-0 flex-col gap-4 border-r border-zinc-800 bg-zinc-900 p-3"
+        >
+          <ResizeHandle edge="right" panel={sidebar} label="Sidebar width" />
           <GameSwitcher
             games={games}
             selected={game}
@@ -237,7 +278,11 @@ export default function DesktopWorkspace({ games, selectedId, onSelect, onGamesC
                 !elsewhere && tab === "browse" ? "bg-zinc-800 font-medium text-zinc-100" : "text-zinc-400 hover:bg-zinc-800/60 hover:text-zinc-200"
               }`}
             >
-              <img src={thunderstoreLogo} alt="Thunderstore" className="h-4 w-4 shrink-0" />
+              {deployed(game.engine) ? (
+                <img src={nexusLogo} alt="Nexus Mods" className="h-4 w-4 shrink-0" />
+              ) : (
+                <img src={thunderstoreLogo} alt="Thunderstore" className="h-4 w-4 shrink-0" />
+              )}
               Browse
             </button>
           )}
@@ -280,16 +325,25 @@ export default function DesktopWorkspace({ games, selectedId, onSelect, onGamesC
               <ErrorText>{error}</ErrorText>
             </div>
           )}
-          {page === "settings" ? (
+          {page === "settings" && (
             <div className="min-h-0 flex-1 overflow-auto">
               <SettingsView />
             </div>
-          ) : page === "downloads" ? (
+          )}
+          {page === "downloads" && (
             <div className="min-h-0 flex-1 overflow-auto">
               <DownloadsView onSetUp={() => setPage("settings")} />
             </div>
-          ) : game && profile ? (
-            <>
+          )}
+          {page === "browser" && (
+            <div className="min-h-0 flex-1">
+              <BrowserPage url={browserURL} onClose={() => setPage(returnTo)} />
+            </div>
+          )}
+          {/* The profile's page stays while another is shown, so that it is
+              as it was when the user comes back: the mod picked, the search. */}
+          {game && profile ? (
+            <div className={page === "profile" ? "contents" : "hidden"}>
               <div className="shrink-0 px-6 empty:hidden [&>section]:pt-4">
                 <LaunchSetup game={game} />
               </div>
@@ -306,8 +360,9 @@ export default function DesktopWorkspace({ games, selectedId, onSelect, onGamesC
                   addRequest={addRequest}
                 />
               </div>
-            </>
+            </div>
           ) : (
+            page === "profile" &&
             !game && (
               <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
                 <p className="text-zinc-400">{games.length ? "Choose a game in the top left" : "No games added yet"}</p>
@@ -373,62 +428,48 @@ export default function DesktopWorkspace({ games, selectedId, onSelect, onGamesC
 }
 
 // StatusBar runs along the bottom of the window: how many mods the profile
-// has and how many of them are on, the download under way from Nexus Mods,
-// and how far a queue of installs got, as installed of queued.
+// has and, in its middle, the work under way: how many downloads and
+// archives are left in the queue, a bar in the colour of what is being done,
+// downloading or unpacking, and how far it is.
 function StatusBar({ profile, queue, downloads }: { profile: Profile | null; queue: QueueStatus | null; downloads: Download[] }) {
-  const current = downloads.find((d) => d.status === "downloading");
-  const waiting = downloads.filter((d) => d.status === "queued").length;
   const mods = profile?.mods?.filter((m) => !m.separator) ?? [];
   const on = mods.filter((m) => m.enabled).length;
-  // One archive shows how far it is unpacked; a queue, how many are through.
-  const share = !queue
-    ? 0
-    : queue.total > 1
-      ? queue.finished / queue.total
-      : queue.unpack?.total
-        ? queue.unpack.done / queue.unpack.total
-        : queue.finished;
+
+  const running = downloads.find((d) => d.status === "downloading");
+  const waiting = downloads.filter((d) => d.status === "queued").length;
+  const archives = queue ? queue.total - queue.finished : 0;
+  // A download under way first, then the archive being unpacked; a queue
+  // waiting on an installer's window counts how many archives are through.
+  let stage: "download" | "unpack" | null = null;
+  let share = 0;
+  if (running) {
+    stage = running.stage === "unpack" ? "unpack" : "download";
+    share = running.progress || 0;
+  } else if (queue) {
+    stage = "unpack";
+    share = queue.unpack?.total ? queue.unpack.done / queue.unpack.total : queue.total ? queue.finished / queue.total : 0;
+  }
+  const count = (running ? 1 : 0) + waiting + archives;
+  const percent = Math.round(share * 100);
+
   return (
-    <footer className="flex h-7 shrink-0 items-center gap-4 border-t border-zinc-800 bg-zinc-900 px-3 text-xs text-zinc-500">
+    <footer className="relative flex h-7 shrink-0 items-center gap-4 border-t border-zinc-800 bg-zinc-900 px-3 text-xs text-zinc-500">
       {profile && (
         <span>
           {mods.length} {mods.length === 1 ? "mod" : "mods"}, {on} on
         </span>
       )}
-      <span className="flex-1" />
-      {(current || waiting > 0) && (
-        <span className="flex min-w-0 items-center gap-2">
-          <span className="truncate">
-            {current
-              ? `Downloading ${current.name}${current.size ? ` · ${Math.round((current.done / current.size) * 100)}%` : ""}${
-                  current.speed ? ` · ${formatBytes(current.speed)}/s` : ""
-                }`
-              : "Waiting to download"}
-            {waiting > 0 && ` · ${waiting} more`}
+      {stage && (
+        <div
+          className="absolute left-1/2 flex -translate-x-1/2 items-center gap-2"
+          title={`${count} in the queue · ${stage === "download" ? "downloading" : "unpacking"} ${percent}%`}
+        >
+          <span className="w-6 text-right font-medium text-zinc-300 tabular-nums">{count}</span>
+          <span className="h-1.5 w-64 overflow-hidden rounded-full bg-zinc-800">
+            <span className={`block h-full transition-[width] ${stageColors[stage]}`} style={{ width: `${percent}%` }} />
           </span>
-          {current && (
-            <span className="h-1.5 w-28 shrink-0 overflow-hidden rounded-full bg-zinc-800">
-              <span
-                className="block h-full bg-sky-500 transition-[width]"
-                style={{ width: `${current.size ? Math.round((current.done / current.size) * 100) : 0}%` }}
-              />
-            </span>
-          )}
-        </span>
-      )}
-      {queue && (
-        <span className="flex min-w-0 items-center gap-2">
-          <span className="truncate">
-            {queue.action}
-            {queue.unpack?.total ? ` · ${Math.round((queue.unpack.done / queue.unpack.total) * 100)}%` : ""}
-          </span>
-          <span className="h-1.5 w-40 shrink-0 overflow-hidden rounded-full bg-zinc-800">
-            <span className="block h-full bg-accent-500 transition-[width]" style={{ width: `${Math.round(share * 100)}%` }} />
-          </span>
-          <span className="shrink-0 font-medium text-zinc-300 tabular-nums">
-            {queue.finished}/{queue.total}
-          </span>
-        </span>
+          <span className="w-9 font-medium text-zinc-300 tabular-nums">{percent}%</span>
+        </div>
       )}
     </footer>
   );

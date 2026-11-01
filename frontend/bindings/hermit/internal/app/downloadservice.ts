@@ -39,6 +39,16 @@ export function ClearFinished(): $CancellablePromise<void> {
 }
 
 /**
+ * DownloadFile downloads a file of a mod from Nexus Mods into the active
+ * profile of the game, as a link from its "Mod Manager Download" button
+ * does. Without such a link Nexus Mods gives files to Premium accounts
+ * only; other accounts download through the button on the mod's page.
+ */
+export function DownloadFile(gameID: string, modID: number, fileID: number): $CancellablePromise<void> {
+    return $Call.ByID(3842982585, gameID, modID, fileID);
+}
+
+/**
  * HandleLink is HandleNXM for a link that came from outside, through the
  * command line: the reason it is not downloaded goes to the main window.
  */

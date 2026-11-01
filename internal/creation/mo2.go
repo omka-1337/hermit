@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
-	"hermit/internal/deploy"
 	"io"
 	"io/fs"
 	"os"
@@ -14,6 +13,8 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+
+	"hermit/internal/deploy"
 )
 
 // MO2Instance is a Mod Organizer 2 instance: the folder with

@@ -50,7 +50,8 @@ export interface ConfigContent {
 }
 
 /**
- * Download is a file from Nexus Mods, queued, on its way or there.
+ * Download is a file from Nexus Mods, queued, on its way or there, or a
+ * mod or modpack InstallService downloads and installs from Thunderstore.
  */
 export interface Download {
     "id": string;
@@ -81,6 +82,24 @@ export interface Download {
      * Path is where the file is once it is there.
      */
     "path": string;
+
+    /**
+     * Source is "nexus", or "thunderstore" for what InstallService
+     * downloads and installs itself.
+     */
+    "source": string;
+
+    /**
+     * Stage is StageDownload while files come, StageUnpack while a
+     * Thunderstore install puts them in place.
+     */
+    "stage": string;
+
+    /**
+     * Progress is how much of the stage is done, 0 to 1: for a mod with its
+     * dependencies or a modpack, of all their files together.
+     */
+    "progress": number;
 }
 
 export enum DownloadStatus {
@@ -217,6 +236,39 @@ export interface PreparedMod {
      * name of, if one does: ChooseTarget says what to do about it.
      */
     "existing": string;
+}
+
+/**
+ * PreviewSummary is what PreviewGame found.
+ */
+export interface PreviewSummary {
+    /**
+     * Files is how many files the game folder will have.
+     */
+    "files": number;
+
+    /**
+     * Open is the folder to show first, slash-separated from the game
+     * folder: Data for a Creation Engine game, "" for the game folder.
+     */
+    "open": string;
+}
+
+/**
+ * ProfileOptions are the choices a Creation Engine profile makes about what
+ * it shares with the game.
+ */
+export interface ProfileOptions {
+    /**
+     * ProfileINIs is set when the game plays with the profile's own INI
+     * files rather than its own.
+     */
+    "profileInis": boolean;
+
+    /**
+     * ProfileSaves is set when the profile keeps its saves.
+     */
+    "profileSaves": boolean;
 }
 
 /**

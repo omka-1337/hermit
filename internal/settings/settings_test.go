@@ -63,3 +63,23 @@ func TestLastGameSurvivesUpdate(t *testing.T) {
 		t.Fatalf("after update: %+v", st)
 	}
 }
+
+func TestPanelWidthsSurviveUpdate(t *testing.T) {
+	s := NewStore(t.TempDir())
+	if err := s.SetPanelWidth("sidebar", 300); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SetPanelWidth("plugins", 420); err != nil {
+		t.Fatal(err)
+	}
+	st, _ := s.Get()
+	st.AllowNSFW = true
+	st.PanelWidths = nil
+	if _, err := s.Update(st); err != nil {
+		t.Fatal(err)
+	}
+	got, _ := s.Get()
+	if got.PanelWidths["sidebar"] != 300 || got.PanelWidths["plugins"] != 420 || !got.AllowNSFW {
+		t.Errorf("after an update: %+v", got)
+	}
+}

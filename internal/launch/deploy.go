@@ -51,6 +51,14 @@ func deployMods(game library.Game, profile library.Profile, profileDir, dataDir 
 		var prefix creation.Prefix
 		if compatData := compatDataDir(game, command, env); compatData != "" {
 			prefix = creation.PrefixFor(compatData, cg)
+			// The profile chooses whether the game plays with its INI files
+			// or the game's, and keeps its saves or not.
+			if profile.GameINIs {
+				prefix.MyGames = ""
+			}
+			if profile.ProfileSaves {
+				prefix.Saves = creation.GameSavesDir(creation.MyGamesDir(compatData, cg))
+			}
 		}
 		state, err = creation.Deploy(game.Path, profileDir, mods, prefix)
 	} else {

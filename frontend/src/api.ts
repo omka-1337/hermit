@@ -10,6 +10,8 @@ export type { Settings } from "../bindings/hermit/internal/settings";
 export {
   CreationService,
   ModListService,
+  NexusService,
+  BrowserService,
   BrowseService,
   DownloadService,
   CacheService,
@@ -23,8 +25,11 @@ export {
   SteamService,
 } from "../bindings/hermit/internal/app";
 export type { ImportProgress, ImportResult, Preview } from "../bindings/hermit/internal/profileshare";
-export type { MO2Instance } from "../bindings/hermit/internal/creation";
-export type { Download, NexusAccount, NXMHandler, PreparedMod, Tool } from "../bindings/hermit/internal/app";
+export type { LoadOrderEntry, MO2Instance } from "../bindings/hermit/internal/creation";
+export type { PreviewEntry } from "../bindings/hermit/internal/deploy";
+export type { ModFile, ModPage, ModSummary } from "../bindings/hermit/internal/nexus";
+export type { BrowserState } from "../bindings/hermit/internal/platform";
+export type { Download, NexusAccount, NXMHandler, PreparedMod, ProfileOptions, Tool } from "../bindings/hermit/internal/app";
 // UnpackProgress travels only in events, so it has no binding of its own.
 export type UnpackProgress = { file: string; done: number; total: number };
 export type { View as FomodView } from "../bindings/hermit/internal/fomod";

@@ -23,6 +23,7 @@ import (
 	"hermit/internal/profileshare"
 	"hermit/internal/settings"
 	"hermit/internal/steam"
+	"hermit/internal/throttle"
 	"hermit/internal/thunderstore"
 )
 
@@ -99,9 +100,13 @@ func main() {
 	if err != nil {
 		log.Printf("settings: %v", err)
 	}
+	// Downloads keep under the speed Settings give them.
+	throttle.Downloads.SetRate(int64(stored.DownloadLimit) << 10)
+	settingsStore.OnUpdate = func(st settings.Settings) { throttle.Downloads.SetRate(int64(st.DownloadLimit) << 10) }
 
 	modList := app.NewModListService(b.lib, b.steamRoots)
 	downloads := app.NewDownloadService(b.lib, b.root, app.ID+"/"+app.Version)
+	browser := app.NewBrowserService(downloads, b.root)
 	// window is the main window; a link from Nexus Mods brings it up.
 	var window *application.WebviewWindow
 	wailsApp := application.New(application.Options{
@@ -130,7 +135,7 @@ func main() {
 			application.NewService(b.lib),
 			application.NewService(settingsStore),
 			application.NewService(app.NewBrowseService(b.lib, b.ts, settingsStore)),
-			application.NewService(app.NewInstallService(b.lib, b.installer, b.github)),
+			application.NewService(app.NewInstallService(b.lib, b.installer, b.github, downloads)),
 			application.NewService(app.NewLaunchService(b.lib, b.steamRoots)),
 			application.NewService(app.NewIconService(b.steamRoots)),
 			application.NewService(app.NewSteamService(b.steamRoots, b.root)),
@@ -140,6 +145,8 @@ func main() {
 			application.NewService(modList),
 			application.NewService(app.NewCreationService(b.lib)),
 			application.NewService(downloads),
+			application.NewService(browser),
+			application.NewService(app.NewNexusService(b.lib, app.ID+"/"+app.Version)),
 			application.NewService(app.NewShareService(
 				profileshare.NewSharer(b.lib, b.installer, b.ts, filepath.Join(b.root, "cache", "imports")),
 			)),
@@ -169,6 +176,9 @@ func main() {
 		windowOptions.StartState = application.WindowStateFullscreen
 	}
 	window = wailsApp.Window.NewWithOptions(windowOptions)
+	// Pages of Nexus Mods open in a browser of their own over the page,
+	// called for on the GTK thread.
+	browser.Window = window.NativeWindow
 
 	// On the very first run a small window of its own asks whether Hermit
 	// should put itself into Steam, the way a launcher asks before it settles

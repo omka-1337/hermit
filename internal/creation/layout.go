@@ -6,7 +6,9 @@ package creation
 //
 //	plugins.txt  the plugin list, "*" marking active plugins
 //	ini/         the game's INI files, when the profile has its own
+//	saves/       the profile's saves, when it keeps them
 const (
 	PluginsFile = "plugins.txt"
 	INIDir      = "ini"
+	SavesDir    = "saves"
 )

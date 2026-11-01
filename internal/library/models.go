@@ -71,6 +71,12 @@ type Profile struct {
 	// "<author>-<name>-<version>"; empty for profiles assembled by hand.
 	Modpack string `json:"modpack,omitempty"`
 	Mods    []Mod  `json:"mods"`
+	// GameINIs plays a Creation Engine profile that has INI files of its own
+	// with the game's instead; the profile's are kept for when it is unset.
+	GameINIs bool `json:"gameInis,omitempty"`
+	// ProfileSaves keeps the saves of a Creation Engine profile in the
+	// profile instead of the game's Saves folder.
+	ProfileSaves bool `json:"profileSaves,omitempty"`
 }
 
 type Mod struct {

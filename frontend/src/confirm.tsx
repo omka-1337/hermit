@@ -51,7 +51,7 @@ export default function ConfirmHost() {
   if (!pending) return null;
   const { question } = pending;
   return (
-    <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/70 p-6" onClick={() => close(false)}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-6" onClick={() => close(false)}>
       <div
         ref={box}
         className="flex w-full max-w-lg flex-col gap-4 rounded-xl border border-zinc-700 bg-zinc-900 p-6"

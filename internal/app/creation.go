@@ -256,3 +256,161 @@ func (s *CreationService) creationGame(gameID string) (library.Game, creation.Ga
 }
 
 func (s *CreationService) notRunning(gameID string) error { return notRunning(s.lib, gameID) }
+
+// Plugins is the load order of a profile: the plugins the game will load
+// with it, in the order it loads them.
+func (s *CreationService) Plugins(gameID, profileID string) ([]creation.LoadOrderEntry, error) {
+	g, gamePath, profileDir, mods, err := s.loadOrderOf(gameID, profileID)
+	if err != nil {
+		return nil, err
+	}
+	return creation.LoadOrder(g, gamePath, profileDir, mods)
+}
+
+// SetPluginActive switches a plugin of the profile on or off, and returns
+// the load order that makes.
+func (s *CreationService) SetPluginActive(gameID, profileID, name string, active bool) ([]creation.LoadOrderEntry, error) {
+	g, gamePath, profileDir, mods, err := s.loadOrderOf(gameID, profileID)
+	if err != nil {
+		return nil, err
+	}
+	if err := creation.SetPluginActive(g, gamePath, profileDir, mods, name, active); err != nil {
+		return nil, err
+	}
+	return creation.LoadOrder(g, gamePath, profileDir, mods)
+}
+
+// MovePlugins moves plugins to just before the plugin before, or to the end
+// of the load order when before is empty, and returns the order that makes.
+func (s *CreationService) MovePlugins(gameID, profileID string, names []string, before string) ([]creation.LoadOrderEntry, error) {
+	g, gamePath, profileDir, mods, err := s.loadOrderOf(gameID, profileID)
+	if err != nil {
+		return nil, err
+	}
+	if err := creation.MovePlugins(g, gamePath, profileDir, mods, names, before); err != nil {
+		return nil, err
+	}
+	return creation.LoadOrder(g, gamePath, profileDir, mods)
+}
+
+// loadOrderOf gathers what the load order of a profile is made from: the
+// game, its folder, the profile's folder and its enabled mods in order.
+func (s *CreationService) loadOrderOf(gameID, profileID string) (creation.Game, string, string, []string, error) {
+	game, g, err := s.creationGame(gameID)
+	if err != nil {
+		return creation.Game{}, "", "", nil, err
+	}
+	profile, err := s.lib.GetProfile(gameID, profileID)
+	if err != nil {
+		return creation.Game{}, "", "", nil, err
+	}
+	profileDir, err := s.lib.ProfileDir(gameID, profileID)
+	if err != nil {
+		return creation.Game{}, "", "", nil, err
+	}
+	var mods []string
+	for _, m := range profile.Mods {
+		if m.Enabled && !m.Separator {
+			mods = append(mods, m.ID)
+		}
+	}
+	return g, game.Path, profileDir, mods, nil
+}
+
+// ProfileOptions are the choices a Creation Engine profile makes about what
+// it shares with the game.
+type ProfileOptions struct {
+	// ProfileINIs is set when the game plays with the profile's own INI
+	// files rather than its own.
+	ProfileINIs bool `json:"profileInis"`
+	// ProfileSaves is set when the profile keeps its saves.
+	ProfileSaves bool `json:"profileSaves"`
+}
+
+// Options returns what a profile shares with the game.
+func (s *CreationService) Options(gameID, profileID string) (ProfileOptions, error) {
+	profile, err := s.lib.GetProfile(gameID, profileID)
+	if err != nil {
+		return ProfileOptions{}, err
+	}
+	profileDir, err := s.lib.ProfileDir(gameID, profileID)
+	if err != nil {
+		return ProfileOptions{}, err
+	}
+	return ProfileOptions{
+		ProfileINIs:  !profile.GameINIs && hasINIs(profileDir),
+		ProfileSaves: profile.ProfileSaves,
+	}, nil
+}
+
+// SetProfileINIs has the game play with the profile's own INI files, or
+// with its own. A profile without INI files of its own gets copies of the
+// game's to start from; the profile's are kept when it goes back to the
+// game's.
+func (s *CreationService) SetProfileINIs(gameID, profileID string, on bool) error {
+	game, g, err := s.creationGame(gameID)
+	if err != nil {
+		return err
+	}
+	if err := s.notRunning(gameID); err != nil {
+		return err
+	}
+	profileDir, err := s.lib.ProfileDir(gameID, profileID)
+	if err != nil {
+		return err
+	}
+	if on && !hasINIs(profileDir) {
+		compatData := creation.SteamCompatData(game.Path, game.SteamAppID)
+		if compatData == "" {
+			return errors.New("the game's Proton prefix was not found; Steam makes it the first time it starts the game")
+		}
+		myGames := creation.MyGamesDir(compatData, g)
+		copied := 0
+		for _, name := range g.INIs {
+			file, _ := deploy.FindFold(myGames, name)
+			if file == "" {
+				continue
+			}
+			data, err := os.ReadFile(filepath.Join(myGames, file))
+			if err != nil {
+				return err
+			}
+			if err := os.MkdirAll(filepath.Join(profileDir, creation.INIDir), 0o755); err != nil {
+				return err
+			}
+			if err := os.WriteFile(filepath.Join(profileDir, creation.INIDir, file), data, 0o644); err != nil {
+				return err
+			}
+			copied++
+		}
+		if copied == 0 {
+			return errors.New("the game has no INI files to start from yet; it makes them the first time it starts")
+		}
+	}
+	_, err = s.lib.UpdateProfile(gameID, profileID, func(p *library.Profile) error {
+		p.GameINIs = !on
+		return nil
+	})
+	return err
+}
+
+// SetProfileSaves has the profile keep its saves, or play with the game's.
+func (s *CreationService) SetProfileSaves(gameID, profileID string, on bool) error {
+	if _, _, err := s.creationGame(gameID); err != nil {
+		return err
+	}
+	if err := s.notRunning(gameID); err != nil {
+		return err
+	}
+	_, err := s.lib.UpdateProfile(gameID, profileID, func(p *library.Profile) error {
+		p.ProfileSaves = on
+		return nil
+	})
+	return err
+}
+
+// hasINIs reports whether a profile has INI files of its own.
+func hasINIs(profileDir string) bool {
+	entries, _ := os.ReadDir(filepath.Join(profileDir, creation.INIDir))
+	return slices.ContainsFunc(entries, func(e fs.DirEntry) bool { return !e.IsDir() })
+}

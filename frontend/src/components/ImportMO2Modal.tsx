@@ -10,13 +10,15 @@ type Props = {
   profileId?: string;
   onClose: () => void;
   onImported: (profile: Profile) => void;
+  // onBack, when set, goes back to where the dialog came from.
+  onBack?: () => void;
 };
 
 // ImportMO2Modal brings a profile of a Mod Organizer 2 instance over into
 // Hermit: its mods as MO2 installed them, their order, their separators, the
 // options picked in their installers, the plugin list and the profile's own
 // INI files. MO2 itself is left as it is.
-export default function ImportMO2Modal({ game, profileId, onClose, onImported }: Props) {
+export default function ImportMO2Modal({ game, profileId, onClose, onImported, onBack }: Props) {
   const [instance, setInstance] = useState<MO2Instance | null>(null);
   const [chosen, setChosen] = useState("");
   const [name, setName] = useState("");
@@ -130,6 +132,11 @@ export default function ImportMO2Modal({ game, profileId, onClose, onImported }:
         </p>
         <ErrorText>{error}</ErrorText>
         <div className="flex justify-end gap-2">
+          {onBack && (
+            <Button variant="ghost" onClick={onBack} disabled={busy}>
+              Back
+            </Button>
+          )}
           <Button variant="ghost" onClick={onClose} disabled={busy}>
             Cancel
           </Button>

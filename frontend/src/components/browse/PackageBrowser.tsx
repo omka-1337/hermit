@@ -311,7 +311,7 @@ export default function PackageBrowser({ game, modpacksOnly, isInstalled, render
   );
 }
 
-function ViewButton({
+export function ViewButton({
   label,
   active,
   onClick,
@@ -338,7 +338,7 @@ function ViewButton({
   );
 }
 
-function CardsIcon() {
+export function CardsIcon() {
   return (
     <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
       <rect x="3" y="3" width="7" height="7" rx="1.5" />
@@ -349,7 +349,7 @@ function CardsIcon() {
   );
 }
 
-function ListIcon() {
+export function ListIcon() {
   return (
     <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
       <path d="M4 6h16M4 12h16M4 18h16" />

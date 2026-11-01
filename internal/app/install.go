@@ -18,10 +18,31 @@ type InstallService struct {
 	lib       *library.Library
 	installer *modinstall.Installer
 	github    *github.Client
+	// downloads lists what is downloaded from Thunderstore with the files
+	// from Nexus Mods, for the Downloads page and the status bar.
+	downloads *DownloadService
 }
 
-func NewInstallService(lib *library.Library, installer *modinstall.Installer, gh *github.Client) *InstallService {
-	return &InstallService{lib: lib, installer: installer, github: gh}
+func NewInstallService(lib *library.Library, installer *modinstall.Installer, gh *github.Client, downloads *DownloadService) *InstallService {
+	return &InstallService{lib: lib, installer: installer, github: gh, downloads: downloads}
+}
+
+// follow runs an install from Thunderstore as an entry of the downloads, one
+// however many packages it takes, which can cancel it from there. key names
+// the package, so that its plan and its install share the entry.
+func follow[T any](s *InstallService, ctx context.Context, gameID, profileID, key, name string, run func(ctx context.Context, progress func(modinstall.Progress)) (T, error)) (T, error) {
+	if s.downloads == nil {
+		return run(ctx, emitProgress)
+	}
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	t := s.downloads.track(gameID, profileID, gameID+"/"+profileID+"/"+key, name, cancel)
+	out, err := run(ctx, func(p modinstall.Progress) {
+		emitProgress(p)
+		t.progress(p)
+	})
+	t.finish(err)
+	return out, err
 }
 
 func emitProgress(p modinstall.Progress) {
@@ -34,7 +55,9 @@ func emitProgress(p modinstall.Progress) {
 // installing it would change, including conflicts with installed mods.
 func (s *InstallService) PlanInstall(ctx context.Context, gameID, profileID, namespace, name, version string, opts modinstall.Options) (modinstall.InstallPlan, error) {
 	ref := thunderstore.PackageRef{Namespace: namespace, Name: name, Version: version}
-	return s.installer.PlanInstall(ctx, gameID, profileID, ref, opts, emitProgress)
+	return follow(s, ctx, gameID, profileID, namespace+"-"+name, name, func(ctx context.Context, progress func(modinstall.Progress)) (modinstall.InstallPlan, error) {
+		return s.installer.PlanInstall(ctx, gameID, profileID, ref, opts, progress)
+	})
 }
 
 // InstallPackage installs a Thunderstore package version with its dependencies
@@ -42,7 +65,9 @@ func (s *InstallService) PlanInstall(ctx context.Context, gameID, profileID, nam
 // installed mods are uninstalled only if opts.ReplaceConflicts is set.
 func (s *InstallService) InstallPackage(ctx context.Context, gameID, profileID, namespace, name, version string, opts modinstall.Options) (library.Profile, error) {
 	ref := thunderstore.PackageRef{Namespace: namespace, Name: name, Version: version}
-	return s.installer.Install(ctx, gameID, profileID, ref, opts, emitProgress)
+	return follow(s, ctx, gameID, profileID, namespace+"-"+name, name, func(ctx context.Context, progress func(modinstall.Progress)) (library.Profile, error) {
+		return s.installer.Install(ctx, gameID, profileID, ref, opts, progress)
+	})
 }
 
 func (s *InstallService) UninstallMod(gameID, profileID, modID string) (library.Profile, error) {
@@ -66,18 +91,26 @@ func (s *InstallService) CheckUpdates(ctx context.Context, gameID, profileID str
 
 // UpdateAll updates every outdated mod, emitting InstallProgressEvent.
 func (s *InstallService) UpdateAll(ctx context.Context, gameID, profileID string) (modinstall.UpdateResult, error) {
-	return s.installer.UpdateAll(ctx, gameID, profileID, emitProgress)
+	return follow(s, ctx, gameID, profileID, "updates", "Updates", func(ctx context.Context, progress func(modinstall.Progress)) (modinstall.UpdateResult, error) {
+		return s.installer.UpdateAll(ctx, gameID, profileID, progress)
+	})
 }
 
 // InstallModpack creates a new profile from a Thunderstore modpack.
 func (s *InstallService) InstallModpack(ctx context.Context, gameID, namespace, name, version, profileName string) (library.Profile, error) {
 	ref := thunderstore.PackageRef{Namespace: namespace, Name: name, Version: version}
-	return s.installer.InstallAsNewProfile(ctx, gameID, profileName, ref, emitProgress)
+	// A modpack is one entry: its mods are downloaded first and installed
+	// once they are all there.
+	return follow(s, ctx, gameID, "", "modpack/"+namespace+"-"+name, name, func(ctx context.Context, progress func(modinstall.Progress)) (library.Profile, error) {
+		return s.installer.InstallAsNewProfile(ctx, gameID, profileName, ref, progress)
+	})
 }
 
 // UpdateMod updates one Thunderstore or GitHub mod to its latest version.
 func (s *InstallService) UpdateMod(ctx context.Context, gameID, profileID, modID string) (library.Profile, error) {
-	return s.installer.UpdateMod(ctx, gameID, profileID, modID, emitProgress)
+	return follow(s, ctx, gameID, profileID, modID, modID, func(ctx context.Context, progress func(modinstall.Progress)) (library.Profile, error) {
+		return s.installer.UpdateMod(ctx, gameID, profileID, modID, progress)
+	})
 }
 
 // InspectFile reads a .zip or .dll mod file and suggests its author, name and version.

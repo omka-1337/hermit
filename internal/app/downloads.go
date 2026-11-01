@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"hermit/internal/deploy"
 	"io"
 	"net/http"
 	"os"
@@ -17,9 +16,11 @@ import (
 
 	"github.com/adrg/xdg"
 
+	"hermit/internal/deploy"
 	"hermit/internal/library"
 	"hermit/internal/nexus"
 	"hermit/internal/platform"
+	"hermit/internal/throttle"
 )
 
 const (
@@ -43,7 +44,8 @@ const (
 	DownloadCancelled DownloadStatus = "cancelled"
 )
 
-// Download is a file from Nexus Mods, queued, on its way or there.
+// Download is a file from Nexus Mods, queued, on its way or there, or a
+// mod or modpack InstallService downloads and installs from Thunderstore.
 type Download struct {
 	ID       string `json:"id"`
 	GameID   string `json:"gameId"`
@@ -64,11 +66,29 @@ type Download struct {
 	Error  string         `json:"error"`
 	// Path is where the file is once it is there.
 	Path string `json:"path"`
+	// Source is "nexus", or "thunderstore" for what InstallService
+	// downloads and installs itself.
+	Source string `json:"source"`
+	// Stage is StageDownload while files come, StageUnpack while a
+	// Thunderstore install puts them in place.
+	Stage string `json:"stage"`
+	// Progress is how much of the stage is done, 0 to 1: for a mod with its
+	// dependencies or a modpack, of all their files together.
+	Progress float64 `json:"progress"`
 
 	link   nexus.Link
 	taken  bool
 	cancel context.CancelFunc
+	// key is what InstallService's calls for one package share: its plan
+	// downloads it, its install unpacks it, in the same entry.
+	key string
 }
+
+// The stages of a Download.
+const (
+	StageDownload = "download"
+	StageUnpack   = "unpack"
+)
 
 // NexusAccount is the Nexus Mods account downloads are made with.
 type NexusAccount struct {
@@ -197,6 +217,31 @@ func (s *DownloadService) HandleNXM(link string) error {
 	if err != nil {
 		return err
 	}
+	return s.enqueue(l)
+}
+
+// DownloadFile downloads a file of a mod from Nexus Mods into the active
+// profile of the game, as a link from its "Mod Manager Download" button
+// does. Without such a link Nexus Mods gives files to Premium accounts
+// only; other accounts download through the button on the mod's page.
+func (s *DownloadService) DownloadFile(gameID string, modID, fileID int) error {
+	if !s.Account().Premium {
+		return errors.New("Nexus Mods lets only Premium accounts download without its website; use Mod Manager Download on the mod's page")
+	}
+	game, err := s.lib.GetGame(gameID)
+	if err != nil {
+		return err
+	}
+	modding, ok := game.Modding()
+	if !ok || modding.Nexus == "" {
+		return fmt.Errorf("%s has no mods on Nexus Mods Hermit can install", game.Name)
+	}
+	return s.enqueue(nexus.Link{Game: modding.Nexus, ModID: modID, FileID: fileID})
+}
+
+// enqueue queues the download of the file a link is to, into the active
+// profile of the game it is for.
+func (s *DownloadService) enqueue(l nexus.Link) error {
 	if !s.Account().HasKey {
 		return nexus.ErrNoKey
 	}
@@ -209,7 +254,7 @@ func (s *DownloadService) HandleNXM(link string) error {
 	d := &Download{
 		ID: fmt.Sprint(s.nextID), GameID: game.ID, GameName: game.Name, ProfileID: game.ActiveProfile,
 		ModID: l.ModID, FileID: l.FileID, Name: fmt.Sprintf("Mod %d", l.ModID),
-		Status: DownloadQueued, link: l,
+		Status: DownloadQueued, Source: "nexus", Stage: StageDownload, link: l,
 	}
 	s.downloads = append(s.downloads, d)
 	start := !s.running
@@ -353,7 +398,7 @@ func (s *DownloadService) download(ctx context.Context, d *Download) error {
 	// Downloaded before: the profile keeps the archives of its mods.
 	if fi, err := os.Stat(target); err == nil && fi.Size() == file.Size {
 		s.mu.Lock()
-		d.Done, d.Path = file.Size, target
+		d.Done, d.Path, d.Progress = file.Size, target, 1
 		s.mu.Unlock()
 		return nil
 	}
@@ -383,9 +428,12 @@ func (s *DownloadService) download(ctx context.Context, d *Download) error {
 		return err
 	}
 	defer os.Remove(part)
-	if _, err := io.Copy(out, &progressReader{r: resp.Body, report: func(done int64, speed int64) {
+	if _, err := io.Copy(out, &progressReader{r: throttle.Downloads.Reader(ctx, resp.Body), report: func(done int64, speed int64) {
 		s.mu.Lock()
 		d.Done, d.Speed = done, speed
+		if d.Size > 0 {
+			d.Progress = min(1, float64(done)/float64(d.Size))
+		}
 		s.mu.Unlock()
 		s.changed()
 	}}); err != nil {

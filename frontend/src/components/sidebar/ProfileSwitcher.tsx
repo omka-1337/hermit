@@ -1,11 +1,10 @@
 import { useState } from "react";
-import { deployed, Engine, errorMessage, FolderService, Game, Library, Profile } from "../../api";
+import { deployed, errorMessage, FolderService, Game, Library, Profile } from "../../api";
 import { packageLabel } from "../../format";
 import ContextMenu, { anchorBelow, MenuAnchor, MenuDivider, MenuItem } from "../ContextMenu";
 import CreateProfileModal from "../CreateProfileModal";
-import ImportMO2Modal from "../ImportMO2Modal";
 import { useProfileActions } from "../profileActions";
-import { ExportModal, ImportModal } from "../share";
+import { ExportModal } from "../share";
 import { inputClass } from "../ui";
 import { PlusIcon } from "../../screens/shell";
 import { ChevronDownIcon, DotsIcon } from "./icons";
@@ -28,12 +27,9 @@ export default function ProfileSwitcher({ game, profiles, onGameChanged, reload,
   const [actions, setActions] = useState<MenuAnchor | null>(null);
   const [renaming, setRenaming] = useState(false);
   const [creating, setCreating] = useState(false);
-  const [importing, setImporting] = useState(false);
   const [exporting, setExporting] = useState(false);
   const { moving, setActive, copy, rename, move, moveTo, remove } = useProfileActions(game, reload, onGameChanged, onError);
-  const creation = game.engine === Engine.EngineCreation;
-  // Profiles of other games whose mods are deployed are neither imported
-  // nor exported yet.
+  // Profiles of games whose mods are deployed are not exported yet.
   const modList = deployed(game.engine);
   const current = profiles.find((p) => p.id === game.activeProfile) ?? null;
   const folder = current ? game.profileDirs?.[current.id] : undefined;
@@ -123,9 +119,6 @@ export default function ProfileSwitcher({ game, profiles, onGameChanged, reload,
             <PlusIcon />
             New profile…
           </MenuItem>
-          {(creation || !modList) && (
-            <MenuItem onClick={pick(() => setImporting(true))}>{creation ? "Import from MO2…" : "Import…"}</MenuItem>
-          )}
         </ContextMenu>
       )}
 
@@ -171,29 +164,6 @@ export default function ProfileSwitcher({ game, profiles, onGameChanged, reload,
           onClose={() => setCreating(false)}
           onCreated={(profileId) => {
             setCreating(false);
-            added(profileId);
-          }}
-        />
-      )}
-      {importing && creation && (
-        <ImportMO2Modal
-          game={game}
-          onClose={() => setImporting(false)}
-          onImported={(profile) => {
-            setImporting(false);
-            added(profile.id);
-          }}
-        />
-      )}
-      {importing && !modList && (
-        <ImportModal
-          game={game}
-          onClose={() => {
-            setImporting(false);
-            reload();
-          }}
-          onImported={(profileId) => {
-            setImporting(false);
             added(profileId);
           }}
         />

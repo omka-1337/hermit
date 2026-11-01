@@ -4,7 +4,7 @@ import { Browser } from "@wailsio/runtime";
 import AddToSteam from "../components/AddToSteam";
 import CacheSettings from "../components/CacheSettings";
 import NexusSettings from "../components/NexusSettings";
-import { Button, ErrorText, Spinner } from "../components/ui";
+import { Button, ErrorText, inputClass, Spinner } from "../components/ui";
 import { useUIMode } from "../uimode";
 
 export default function SettingsView() {
@@ -91,6 +91,7 @@ export default function SettingsView() {
           </label>
         </section>
       )}
+      {settings && <DownloadLimit limit={settings.downloadLimit ?? 0} onChange={(kb) => update({ downloadLimit: kb })} />}
       <section className="flex flex-col gap-3">
         <h2 className="text-sm font-semibold tracking-wide text-zinc-400 uppercase">Storage</h2>
         <CacheSettings />
@@ -140,5 +141,50 @@ export default function SettingsView() {
         </section>
       )}
     </div>
+  );
+}
+
+// limits are the speeds offered, in MB a second; 0 is none.
+const limits = [0, 2, 5, 10, 20];
+
+// DownloadLimit caps the speed all downloads share: a few of them at full
+// speed can fill a home connection until calls, streams and games on it drop.
+function DownloadLimit({ limit, onChange }: { limit: number; onChange: (kb: number) => void }) {
+  const [custom, setCustom] = useState("");
+  const mb = limit / 1024;
+  const save = () => {
+    const value = Number(custom.replace(",", "."));
+    if (custom.trim() !== "" && value >= 0) onChange(Math.round(value * 1024));
+    setCustom("");
+  };
+  return (
+    <section className="flex flex-col gap-3">
+      <h2 className="text-sm font-semibold tracking-wide text-zinc-400 uppercase">Downloads</h2>
+      <div className="flex flex-col gap-2 rounded-lg border border-zinc-800 px-4 py-3">
+        <span className="text-sm font-medium">Speed limit</span>
+        <span className="text-xs text-zinc-500">
+          Mods from Thunderstore and Nexus Mods share it. A modpack downloads several mods at once, and at full speed
+          they can fill the connection until calls, streams and games on it drop.
+        </span>
+        <div className="mt-1 flex flex-wrap items-center gap-2">
+          {limits.map((l) => (
+            <Button key={l} variant={mb === l ? "primary" : "secondary"} onClick={() => onChange(l * 1024)}>
+              {l === 0 ? "No limit" : `${l} MB/s`}
+            </Button>
+          ))}
+          <input
+            className={`${inputClass} w-24`}
+            inputMode="decimal"
+            placeholder={limit && !limits.includes(mb) ? `${+mb.toFixed(1)}` : "Other"}
+            value={custom}
+            onChange={(e) => setCustom(e.target.value)}
+            onBlur={save}
+            onKeyDown={(e) => e.key === "Enter" && save()}
+          />
+          <span className="text-xs text-zinc-500">MB/s</span>
+        </div>
+        {limit > 0 && !limits.includes(mb) && <span className="text-xs text-zinc-500">Now {+mb.toFixed(1)} MB/s.</span>}
+      </div>
+    </section>
   );
 }

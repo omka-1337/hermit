@@ -42,6 +42,18 @@ export interface Settings {
      * start; its active profile comes with it.
      */
     "lastGame"?: string;
+
+    /**
+     * DownloadLimit is the speed all downloads share at most, in KB a
+     * second; 0 lets them go as fast as the connection does.
+     */
+    "downloadLimit"?: number;
+
+    /**
+     * PanelWidths are the widths, in pixels, the panels of the desktop
+     * layout were dragged to, by panel.
+     */
+    "panelWidths"?: { [_ in string]?: number } | null;
 }
 
 /**

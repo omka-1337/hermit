@@ -183,7 +183,7 @@ export function Modal({ title, onClose, children, size = "md" }: ModalProps) {
 
   return (
     <div
-      className={`fixed inset-0 z-10 flex items-center justify-center bg-black/60 ${sizes === deckModalSizes ? "p-3" : "p-6"}`}
+      className={`fixed inset-0 z-30 flex items-center justify-center bg-black/60 ${sizes === deckModalSizes ? "p-3" : "p-6"}`}
       onMouseDown={onClose}
     >
       <div

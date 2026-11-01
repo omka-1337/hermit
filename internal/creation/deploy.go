@@ -25,12 +25,15 @@ type State struct {
 	OriginalPlugins *string `json:"originalPlugins,omitempty"`
 	// INIs are the game's INI files the profile's replaced for the session.
 	INIs []INISwap `json:"inis,omitempty"`
+	// Saves is the game's Saves folder the profile's replaced.
+	Saves *SavesSwap `json:"saves,omitempty"`
 }
 
 // Deploy links the files of mods into the game's Data folder, as
 // deploy.Deploy does. The profile's plugin list is brought up to date with
-// the plugins deployed and given to the game, and its INI files, if it has
-// them, take the place of the game's, in the places prefix names.
+// the plugins deployed and given to the game, its INI files, if it has
+// them, take the place of the game's, and its saves folder the game's, in
+// the places prefix names.
 func Deploy(gamePath, profileDir string, mods []string, prefix Prefix) (State, error) {
 	ds, err := deploy.Deploy(gamePath, profileDir, mods, Target)
 	if err != nil {
@@ -53,16 +56,22 @@ func Deploy(gamePath, profileDir string, mods []string, prefix Prefix) (State, e
 			return State{}, err
 		}
 	}
+	if prefix.Saves != "" {
+		if err := s.swapSaves(profileDir, prefix.Saves); err != nil {
+			Undeploy(gamePath, s)
+			return State{}, err
+		}
+	}
 	return s, nil
 }
 
 // Undeploy takes the mods out of Data as deploy.Undeploy does and puts the
-// original plugins.txt back, and the game's INI files, keeping what the
-// game changed in the profile's. It returns the files written into Data
+// original plugins.txt back, the game's INI files, keeping what the game
+// changed in the profile's, and the game's Saves folder. It returns the files written into Data
 // during the session, now in the profile's overwrite folder.
 func Undeploy(gamePath string, s State) ([]string, error) {
 	captured, err := deploy.Undeploy(gamePath, Target, s.State)
-	errs := []error{err, s.restoreINIs()}
+	errs := []error{err, s.restoreINIs(), s.restoreSaves()}
 	if s.PluginsPath != "" {
 		if s.OriginalPlugins != nil {
 			errs = append(errs, os.WriteFile(s.PluginsPath, []byte(*s.OriginalPlugins), 0o644))

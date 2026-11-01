@@ -1,5 +1,49 @@
 # Changelog
 
+## 0.4.0 — 2026-11-01
+
+Mods from Nexus Mods are found, downloaded and installed without leaving Hermit, and a Creation Engine profile's
+plugins are ordered beside its mods, as in Mod Organizer 2.
+
+### Added
+
+- Browse Nexus Mods for the games whose mods are deployed, as Thunderstore is browsed for Unity games: search,
+  sorting, cards or a list, a mod's page with its description, files and pictures, and the mods the profile has marked
+  as installed.
+- A browser inside Hermit's window for the pages of Nexus Mods. Its "Mod Manager Download" hands the file to Hermit,
+  which takes you back where you came from and installs it into the active profile, with no system browser and no
+  nxm:// link set up. It keeps your login to Nexus Mods and shares nothing with Hermit's own pages. A Premium account
+  downloads straight away.
+- The plugins of a Creation Engine profile beside its mods: their load order, dragged into place, switched on and off,
+  each with its index, whether it is a master or a light plugin, and the masters it misses.
+- A Data page: the game folder as the profile's mods will make it, with the mod each file comes from and the mods
+  whose file by that name loses to it.
+- An Overwrite column in the list of mods: a green plus for a mod that takes over files of mods above it, a red minus
+  for one whose files mods below it take over.
+- A Creation Engine profile can keep its own INI files and its own saves, chosen in its settings; the saves are the
+  profile's for the length of a session, as MO2 gives them.
+- Install mods, refresh and the profile's settings as tools over the list of mods, by Play.
+- Downloads from Thunderstore are on the Downloads page with those from Nexus Mods, a mod with its dependencies or a
+  modpack as one entry, and can be cancelled there.
+- A speed limit for downloads in Settings, shared by all of them, so that a modpack does not fill the connection until
+  calls, streams and games on it drop.
+- Drag the edge of the sidebar, or of the plugins, to make it wider or narrower; Hermit keeps the width.
+- Creating a profile starts from cards, each saying what it does: an empty profile, a modpack, an imported file, or a
+  profile code.
+
+### Changed
+
+- The status bar shows the work under way in its middle: how many downloads and archives are left, a bar blue while
+  downloading and amber while unpacking, and how far it is.
+- The selected mod and its conflicts show by their background alone, without a coloured outline.
+- Importing a profile is one of the cards of a new profile rather than an item of the list of profiles.
+
+### Fixed
+
+- The columns of a Unity profile's mod list stay under their names.
+- The header of a list of mods stays at the top while it scrolls, with no rows showing above it or over dialogs.
+- Dialogs are drawn over the lists behind them, and menus and confirmations over dialogs.
+
 ## 0.3.0 — 2026-10-31
 
 Hermit is no longer only for BepInEx: games whose mods are files laid out as the game's own get a load order of mods,

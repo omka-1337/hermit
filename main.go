@@ -140,6 +140,7 @@ func main() {
 			application.NewService(modList),
 			application.NewService(app.NewCreationService(b.lib)),
 			application.NewService(downloads),
+			application.NewService(app.NewNexusService(b.lib, app.ID+"/"+app.Version)),
 			application.NewService(app.NewShareService(
 				profileshare.NewSharer(b.lib, b.installer, b.ts, filepath.Join(b.root, "cache", "imports")),
 			)),

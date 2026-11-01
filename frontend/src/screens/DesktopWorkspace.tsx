@@ -18,6 +18,7 @@ import { requestRefresh, useRefresh } from "../refresh";
 import DownloadsView from "./DownloadsView";
 import SettingsView from "./SettingsView";
 import { GearIcon } from "./shell";
+import nexusLogo from "../assets/nexus.svg";
 import thunderstoreLogo from "../assets/thunderstore.svg";
 
 type Props = {
@@ -244,7 +245,11 @@ export default function DesktopWorkspace({ games, selectedId, onSelect, onGamesC
                 !elsewhere && tab === "browse" ? "bg-zinc-800 font-medium text-zinc-100" : "text-zinc-400 hover:bg-zinc-800/60 hover:text-zinc-200"
               }`}
             >
-              <img src={thunderstoreLogo} alt="Thunderstore" className="h-4 w-4 shrink-0" />
+              {deployed(game.engine) ? (
+                <img src={nexusLogo} alt="Nexus Mods" className="h-4 w-4 shrink-0" />
+              ) : (
+                <img src={thunderstoreLogo} alt="Thunderstore" className="h-4 w-4 shrink-0" />
+              )}
               Browse
             </button>
           )}

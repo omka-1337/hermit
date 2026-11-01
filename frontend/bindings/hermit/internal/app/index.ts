@@ -12,6 +12,7 @@ import * as InfoService from "./infoservice.js";
 import * as InstallService from "./installservice.js";
 import * as LaunchService from "./launchservice.js";
 import * as ModListService from "./modlistservice.js";
+import * as NexusService from "./nexusservice.js";
 import * as ShareService from "./shareservice.js";
 import * as SteamService from "./steamservice.js";
 export {
@@ -26,6 +27,7 @@ export {
     InstallService,
     LaunchService,
     ModListService,
+    NexusService,
     ShareService,
     SteamService
 };

@@ -11,6 +11,7 @@ import { useGamepad } from "../../gamepad";
 import { usePageHints } from "../../screens/shell";
 import { useLayout } from "../../uimode";
 import DataTab from "./DataTab";
+import NexusBrowseTab from "./NexusBrowseTab";
 import ModListTab from "./ModListTab";
 import PluginsPanel from "./PluginsPanel";
 import BrowseTab from "./BrowseTab";
@@ -42,6 +43,7 @@ export function profileTabs(game: Game, profile: Profile | null, desktop = false
         { id: "installed", label: `Mods${modCount ? ` (${modCount})` : ""}` },
         ...(desktop
           ? [
+              { id: "browse" as const, label: "Browse" },
               { id: "data" as const, label: game.engine === Engine.EngineCreation ? "Data" : "Game folder" },
               { id: "tools" as const, label: "Tools" },
             ]
@@ -242,6 +244,8 @@ export default function ProfileView({
                   <ToolsTab />
                 ) : tab === "data" ? (
                   <DataTab />
+                ) : tab === "browse" ? (
+                  <NexusBrowseTab />
                 ) : panel ? (
                   <div className="flex h-full">
                     <div className="min-w-0 flex-1">

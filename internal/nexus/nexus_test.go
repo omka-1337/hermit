@@ -2,8 +2,10 @@ package nexus
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -71,5 +73,59 @@ func TestClient(t *testing.T) {
 	}
 	if _, err := (&Client{BaseURL: srv.URL}).Validate(ctx); err != ErrNoKey {
 		t.Errorf("no key: %v", err)
+	}
+}
+
+func TestGraphQL(t *testing.T) {
+	var asked []map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v2/graphql" || r.Method != http.MethodPost {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		var req struct {
+			Query     string         `json:"query"`
+			Variables map[string]any `json:"variables"`
+		}
+		json.NewDecoder(r.Body).Decode(&req)
+		asked = append(asked, req.Variables)
+		switch {
+		case strings.Contains(req.Query, "game(domainName"):
+			w.Write([]byte(`{"data":{"game":{"id":1704}}}`))
+		case strings.Contains(req.Query, "modFiles"):
+			w.Write([]byte(`{"data":{"mod":{"modId":12604,"name":"SkyUI","description":"[b]UI[/b]","modCategory":{"name":"User Interface"}},
+				"modFiles":[{"fileId":1,"name":"SkyUI","category":"MAIN","sizeInBytes":"2693003","date":1700000000,"primary":1}]}}`))
+		default:
+			w.Write([]byte(`{"data":{"mods":{"totalCount":224,"nodes":[{"modId":12604,"name":"SkyUI","endorsements":507351}]}}}`))
+		}
+	}))
+	defer srv.Close()
+	c := &Client{BaseURL: srv.URL}
+	ctx := context.Background()
+
+	r, err := c.Search(ctx, SearchOptions{Game: "skyrimspecialedition", Query: "sky ui", Sort: "nonsense"})
+	if err != nil || r.Total != 224 || len(r.Mods) != 1 || r.Mods[0].Name != "SkyUI" {
+		t.Fatalf("search: %+v %v", r, err)
+	}
+	vars, _ := json.Marshal(asked[0])
+	for _, want := range []string{`"skyrimspecialedition"`, `"sky ui"`, `"skyui"`, `"WILDCARD"`, `"adultContent":[{"value":false}]`, `{"endorsements":{"direction":"DESC"}}`, `"count":20`} {
+		if !strings.Contains(string(vars), want) {
+			t.Errorf("search variables lack %s: %s", want, vars)
+		}
+	}
+
+	p, err := c.Page(ctx, "skyrimspecialedition", 12604)
+	if err != nil || p.Category != "User Interface" || p.Description != "[b]UI[/b]" || len(p.Files) != 1 || p.Files[0].Size != 2693003 || p.Files[0].Primary != 1 {
+		t.Fatalf("page: %+v %v", p, err)
+	}
+	if asked[len(asked)-1]["gameId"] != float64(1704) {
+		t.Errorf("page asked for game %v", asked[len(asked)-1]["gameId"])
+	}
+
+	srv.Config.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`{"errors":[{"message":"Field 'x' doesn't exist"}]}`))
+	})
+	if _, err := c.Search(ctx, SearchOptions{Game: "skyrimspecialedition"}); err == nil || !strings.Contains(err.Error(), "doesn't exist") {
+		t.Errorf("an error of the API: %v", err)
 	}
 }

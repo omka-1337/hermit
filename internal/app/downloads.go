@@ -197,6 +197,31 @@ func (s *DownloadService) HandleNXM(link string) error {
 	if err != nil {
 		return err
 	}
+	return s.enqueue(l)
+}
+
+// DownloadFile downloads a file of a mod from Nexus Mods into the active
+// profile of the game, as a link from its "Mod Manager Download" button
+// does. Without such a link Nexus Mods gives files to Premium accounts
+// only; other accounts download through the button on the mod's page.
+func (s *DownloadService) DownloadFile(gameID string, modID, fileID int) error {
+	if !s.Account().Premium {
+		return errors.New("Nexus Mods lets only Premium accounts download without its website; use Mod Manager Download on the mod's page")
+	}
+	game, err := s.lib.GetGame(gameID)
+	if err != nil {
+		return err
+	}
+	modding, ok := game.Modding()
+	if !ok || modding.Nexus == "" {
+		return fmt.Errorf("%s has no mods on Nexus Mods Hermit can install", game.Name)
+	}
+	return s.enqueue(nexus.Link{Game: modding.Nexus, ModID: modID, FileID: fileID})
+}
+
+// enqueue queues the download of the file a link is to, into the active
+// profile of the game it is for.
+func (s *DownloadService) enqueue(l nexus.Link) error {
 	if !s.Account().HasKey {
 		return nexus.ErrNoKey
 	}

@@ -85,9 +85,14 @@ type ImportProps = {
   game: Game;
   onClose: () => void;
   onImported: (profileId: string) => void;
+  // from narrows the start to one way in, an .r2z file or a profile code;
+  // without it both are offered.
+  from?: "file" | "code";
+  // onBack, when set, goes back from the start to where the dialog came from.
+  onBack?: () => void;
 };
 
-export function ImportModal({ game, onClose, onImported }: ImportProps) {
+export function ImportModal({ game, onClose, onImported, from, onBack }: ImportProps) {
   const [code, setCode] = useState("");
   const [preview, setPreview] = useState<Preview | null>(null);
   const [name, setName] = useState("");
@@ -210,25 +215,38 @@ export function ImportModal({ game, onClose, onImported }: ImportProps) {
   } else {
     body = (
       <>
-        <p className="text-zinc-400">Import a profile exported from this manager or from r2modman.</p>
-        <Button className="self-start" disabled={busy} onClick={pickFile}>
-          Choose .r2z file…
-        </Button>
-        <div className="flex flex-col gap-1.5">
-          <span className="text-zinc-400">or enter a profile code</span>
-          <div className="flex gap-2">
-            <input
-              className={`${inputClass} font-mono`}
-              placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
-            />
-            <Button disabled={busy || !codeValid} onClick={() => load("", code.trim())}>
-              {busy ? "Loading…" : "Load"}
+        {from !== "code" && (
+          <>
+            <p className="text-zinc-400">Import a profile exported from this manager or from r2modman.</p>
+            <Button className="self-start" disabled={busy} onClick={pickFile}>
+              Choose .r2z file…
             </Button>
+          </>
+        )}
+        {from !== "file" && (
+          <div className="flex flex-col gap-1.5">
+            <span className="text-zinc-400">
+              {from === "code" ? "A profile code someone shared from r2modman or Hermit" : "or enter a profile code"}
+            </span>
+            <div className="flex gap-2">
+              <input
+                className={`${inputClass} font-mono`}
+                placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+              />
+              <Button disabled={busy || !codeValid} onClick={() => load("", code.trim())}>
+                {busy ? "Loading…" : "Load"}
+              </Button>
+            </div>
           </div>
-        </div>
-        <div className="flex justify-end">
+        )}
+        <div className="flex justify-end gap-2">
+          {onBack && (
+            <Button variant="ghost" onClick={onBack}>
+              Back
+            </Button>
+          )}
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
@@ -238,7 +256,7 @@ export function ImportModal({ game, onClose, onImported }: ImportProps) {
   }
 
   return (
-    <Modal title="Import profile" onClose={busy ? () => {} : onClose}>
+    <Modal title={from === "code" ? "Download a profile from its code" : "Import profile"} onClose={busy ? () => {} : onClose}>
       <div className="flex flex-col gap-4 text-sm">
         {body}
         <ErrorText>{error}</ErrorText>

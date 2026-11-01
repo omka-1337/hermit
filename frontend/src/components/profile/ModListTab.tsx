@@ -18,8 +18,12 @@ import { useDragReorder } from "./useDragReorder";
 // Clicking a mod shows its conflicts: in green the mods whose files it
 // replaces, in red the ones replacing its files.
 // columns lay out the header and every mod row alike: the grip, the place in
-// the order, Active, Name, Version, Source, Author and Overwrite.
-const columns = "grid grid-cols-[1rem_2rem_3.25rem_minmax(0,1fr)_6rem_7rem_10rem_4.5rem] items-center gap-x-3";
+// the order, Active, Name, Version, Source, Author and Overwrite. Author
+// gives way when the list is narrow, as beside the panel of plugins.
+const columns =
+  "grid grid-cols-[1rem_2rem_3.25rem_minmax(0,1fr)_6rem_7rem_4.5rem] @4xl:grid-cols-[1rem_2rem_3.25rem_minmax(0,1fr)_6rem_7rem_10rem_4.5rem] items-center gap-x-3";
+// author is the class of the Author column's cells.
+const author = "hidden @4xl:block";
 
 const sourceLabels: Record<string, string> = { nexus: "Nexus", local: "Local", github: "GitHub", thunderstore: "Thunderstore" };
 
@@ -226,7 +230,7 @@ export default function ModListTab() {
   }
 
   return (
-    <div ref={scroller} className="relative h-full overflow-y-auto px-6 pb-3">
+    <div ref={scroller} className="@container relative h-full overflow-y-auto px-6 pb-3">
       {importModal}
       <ErrorText>{error}</ErrorText>
       {/* The header stays in place while the list scrolls under it. */}
@@ -239,7 +243,7 @@ export default function ModListTab() {
         <span>Name</span>
         <span>Version</span>
         <span>Source</span>
-        <span>Author</span>
+        <span className={author}>Author</span>
         <span>Overwrite</span>
       </div>
       <ul className="divide-y divide-zinc-800">
@@ -334,7 +338,7 @@ export default function ModListTab() {
                   <span className="text-zinc-400">{sourceLabels[m.source.type] ?? ""}</span>
                 )}
               </span>
-              <span className={`truncate text-sm text-zinc-400 ${m.enabled ? "" : "opacity-50"}`}>{m.author}</span>
+              <span className={`${author} truncate text-sm text-zinc-400 ${m.enabled ? "" : "opacity-50"}`}>{m.author}</span>
               <OverwriteCell {...overwrite(m, i)} />
             </li>
           ),
@@ -388,7 +392,7 @@ export default function ModListTab() {
 }
 
 // Grip is where a finger drags a row from; a mouse can take the whole row.
-function Grip() {
+export function Grip() {
   return (
     <span data-drag-grip className="flex cursor-grab touch-none items-center self-stretch px-0.5 text-zinc-600" aria-hidden>
       <svg viewBox="0 0 10 16" className="h-4 w-2.5" fill="currentColor">

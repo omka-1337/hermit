@@ -11,6 +11,7 @@ import { useGamepad } from "../../gamepad";
 import { usePageHints } from "../../screens/shell";
 import { useLayout } from "../../uimode";
 import ModListTab from "./ModListTab";
+import PluginsPanel from "./PluginsPanel";
 import BrowseTab from "./BrowseTab";
 import ConfigTab from "./ConfigTab";
 import InstalledTab from "./InstalledTab";
@@ -18,13 +19,15 @@ import LoaderNotice from "./LoaderNotice";
 import LogsTab from "./LogsTab";
 import ToolsTab from "./ToolsTab";
 import { ProfileProvider } from "./ProfileContext";
+import { ResizeHandle, usePanelWidth } from "../../panelWidth";
 
 export type Tab = "installed" | "browse" | "config" | "tools" | "logs";
 
 // profileTabs are the pages of a profile. A game whose mods are deployed has
 // neither Thunderstore nor BepInEx: its profile is the list of its mods, and
 // in the desktop layout the tools its mods bring and, for a Creation Engine
-// game, the logs its script extender's plugins wrote.
+// game, the logs its script extender's plugins wrote. Its load order of
+// plugins is in a panel beside the list of mods.
 export function profileTabs(game: Game, profile: Profile | null, desktop = false): { id: Tab; label: string }[] {
   // Separators head groups of mods and are not mods themselves. The desktop
   // layout counts mods in its status bar instead.
@@ -110,6 +113,11 @@ export default function ProfileView({
   }, [game.id, profileId]);
 
   const modList = deployed(game.engine);
+  // A Creation Engine game's list of mods has the profile's load order of
+  // plugins beside it in the desktop layout, as wide as it was dragged to:
+  // 22rem at first.
+  const panel = embedded && game.engine === Engine.EngineCreation;
+  const plugins = usePanelWidth("plugins", 352, 260, 720);
   const tabs = profileTabs(game, profile, embedded);
 
   const step = (by: number) =>
@@ -124,7 +132,7 @@ export default function ProfileView({
   return (
     <div className="flex h-full flex-col">
       {embedded ? (
-        <header className="flex items-center gap-3 border-b border-zinc-800 px-6 py-3">
+        <header className="flex min-h-16 items-center gap-3 border-b border-zinc-800 px-6 py-3">
           <span className="text-lg font-semibold">{tabs.find((t) => t.id === tab)?.label}</span>
           <div className="ml-auto">
             <PlayBar game={game} profileId={profileId} onGameChanged={onGameChanged} />
@@ -192,7 +200,23 @@ export default function ProfileView({
           <ProfileProvider game={game} profile={profile} onProfileChange={setProfile} onOpenProfile={onOpenProfile}>
             {modList ? (
               <div className="min-h-0 flex-1">
-                {tab === "logs" ? <LogsTab /> : tab === "tools" ? <ToolsTab /> : <ModListTab />}
+                {tab === "logs" ? (
+                  <LogsTab />
+                ) : tab === "tools" ? (
+                  <ToolsTab />
+                ) : panel ? (
+                  <div className="flex h-full">
+                    <div className="min-w-0 flex-1">
+                      <ModListTab />
+                    </div>
+                    <aside style={{ width: plugins.width }} className="relative shrink-0 border-l border-zinc-800">
+                      <ResizeHandle edge="left" panel={plugins} label="Plugins panel width" />
+                      <PluginsPanel />
+                    </aside>
+                  </div>
+                ) : (
+                  <ModListTab />
+                )}
               </div>
             ) : (
               <>

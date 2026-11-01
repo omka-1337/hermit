@@ -256,3 +256,63 @@ func (s *CreationService) creationGame(gameID string) (library.Game, creation.Ga
 }
 
 func (s *CreationService) notRunning(gameID string) error { return notRunning(s.lib, gameID) }
+
+// Plugins is the load order of a profile: the plugins the game will load
+// with it, in the order it loads them.
+func (s *CreationService) Plugins(gameID, profileID string) ([]creation.LoadOrderEntry, error) {
+	g, gamePath, profileDir, mods, err := s.loadOrderOf(gameID, profileID)
+	if err != nil {
+		return nil, err
+	}
+	return creation.LoadOrder(g, gamePath, profileDir, mods)
+}
+
+// SetPluginActive switches a plugin of the profile on or off, and returns
+// the load order that makes.
+func (s *CreationService) SetPluginActive(gameID, profileID, name string, active bool) ([]creation.LoadOrderEntry, error) {
+	g, gamePath, profileDir, mods, err := s.loadOrderOf(gameID, profileID)
+	if err != nil {
+		return nil, err
+	}
+	if err := creation.SetPluginActive(g, gamePath, profileDir, mods, name, active); err != nil {
+		return nil, err
+	}
+	return creation.LoadOrder(g, gamePath, profileDir, mods)
+}
+
+// MovePlugins moves plugins to just before the plugin before, or to the end
+// of the load order when before is empty, and returns the order that makes.
+func (s *CreationService) MovePlugins(gameID, profileID string, names []string, before string) ([]creation.LoadOrderEntry, error) {
+	g, gamePath, profileDir, mods, err := s.loadOrderOf(gameID, profileID)
+	if err != nil {
+		return nil, err
+	}
+	if err := creation.MovePlugins(g, gamePath, profileDir, mods, names, before); err != nil {
+		return nil, err
+	}
+	return creation.LoadOrder(g, gamePath, profileDir, mods)
+}
+
+// loadOrderOf gathers what the load order of a profile is made from: the
+// game, its folder, the profile's folder and its enabled mods in order.
+func (s *CreationService) loadOrderOf(gameID, profileID string) (creation.Game, string, string, []string, error) {
+	game, g, err := s.creationGame(gameID)
+	if err != nil {
+		return creation.Game{}, "", "", nil, err
+	}
+	profile, err := s.lib.GetProfile(gameID, profileID)
+	if err != nil {
+		return creation.Game{}, "", "", nil, err
+	}
+	profileDir, err := s.lib.ProfileDir(gameID, profileID)
+	if err != nil {
+		return creation.Game{}, "", "", nil, err
+	}
+	var mods []string
+	for _, m := range profile.Mods {
+		if m.Enabled && !m.Separator {
+			mods = append(mods, m.ID)
+		}
+	}
+	return g, game.Path, profileDir, mods, nil
+}

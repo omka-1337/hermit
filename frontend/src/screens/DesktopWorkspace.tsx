@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Dialogs, Events } from "@wailsio/runtime";
 import { confirmDanger, deployed, Download, DownloadService, errorMessage, Game, Library, Profile } from "../api";
 import { useDownloads, useNexusSetup } from "../downloads";
@@ -16,10 +16,13 @@ import { Button, ErrorText, Modal } from "../components/ui";
 import { ResizeHandle, usePanelWidth } from "../panelWidth";
 import { requestRefresh, useRefresh } from "../refresh";
 import DownloadsView from "./DownloadsView";
+import BrowserPage, { openBrowserEvent } from "./BrowserPage";
 import SettingsView from "./SettingsView";
 import { GearIcon } from "./shell";
 import nexusLogo from "../assets/nexus.svg";
 import thunderstoreLogo from "../assets/thunderstore.svg";
+
+type Page = "profile" | "settings" | "downloads" | "browser";
 
 type Props = {
   games: Game[];
@@ -37,8 +40,16 @@ type Props = {
 // mods and follows downloads and installs.
 export default function DesktopWorkspace({ games, selectedId, onSelect, onGamesChanged }: Props) {
   // page is what fills the window beside the sidebar: the profile's page
-  // picked in the sidebar, or Settings or Downloads.
-  const [page, setPage] = useState<"profile" | "settings" | "downloads">("profile");
+  // picked in the sidebar, Settings, Downloads, or a page of Nexus Mods in
+  // the browser, which goes back to returnTo when it is done.
+  const [page, setPage] = useState<Page>("profile");
+  const [browserURL, setBrowserURL] = useState("");
+  const [returnTo, setReturnTo] = useState<Page>("profile");
+  // The page and game as the event handlers see them, between renders.
+  const pageRef = useRef(page);
+  pageRef.current = page;
+  const gameRef = useRef(selectedId);
+  gameRef.current = selectedId;
   const elsewhere = page !== "profile";
   const [adding, setAdding] = useState(false);
   const [tab, setTab] = useState<Tab>("installed");
@@ -113,6 +124,24 @@ export default function DesktopWorkspace({ games, selectedId, onSelect, onGamesC
     return () => window.removeEventListener(installFromFileEvent, install);
   }, [game, queue]);
 
+  // A page of Nexus Mods opens in the browser; once it hands a file over,
+  // or is closed, the user is back where they opened it from.
+  useEffect(() => {
+    const open = (e: Event) => {
+      setBrowserURL((e as CustomEvent<string>).detail);
+      if (pageRef.current !== "browser") setReturnTo(pageRef.current);
+      setPage("browser");
+    };
+    window.addEventListener(openBrowserEvent, open);
+    const offDownload = Events.On("browser:download", () => {
+      if (pageRef.current === "browser") setPage(returnTo);
+    });
+    return () => {
+      window.removeEventListener(openBrowserEvent, open);
+      offDownload();
+    };
+  }, [returnTo]);
+
   // F5 reads everything on screen again, as in MO2; the web view would
   // otherwise reload the whole interface.
   useEffect(() => {
@@ -149,9 +178,14 @@ export default function DesktopWorkspace({ games, selectedId, onSelect, onGamesC
   useEffect(() => {
     const take = async () => {
       for (const d of (await DownloadService.TakeFinished()) ?? []) {
-        onSelect(d.gameId);
-        setPage("profile");
-        setTab("installed");
+        // A download for the game open installs where the user is, in the
+        // background, as one started from Browse keeps them browsing; one for
+        // another game opens that game's mods.
+        if (d.gameId !== gameRef.current) {
+          onSelect(d.gameId);
+          setPage("profile");
+          setTab("installed");
+        }
         queueAdd(d.gameId, d.profileId, [d.path]).catch((err) => setError(errorMessage(err)));
       }
     };
@@ -292,16 +326,25 @@ export default function DesktopWorkspace({ games, selectedId, onSelect, onGamesC
               <ErrorText>{error}</ErrorText>
             </div>
           )}
-          {page === "settings" ? (
+          {page === "settings" && (
             <div className="min-h-0 flex-1 overflow-auto">
               <SettingsView />
             </div>
-          ) : page === "downloads" ? (
+          )}
+          {page === "downloads" && (
             <div className="min-h-0 flex-1 overflow-auto">
               <DownloadsView onSetUp={() => setPage("settings")} />
             </div>
-          ) : game && profile ? (
-            <>
+          )}
+          {page === "browser" && (
+            <div className="min-h-0 flex-1">
+              <BrowserPage url={browserURL} onClose={() => setPage(returnTo)} />
+            </div>
+          )}
+          {/* The profile's page stays while another is shown, so that it is
+              as it was when the user comes back: the mod picked, the search. */}
+          {game && profile ? (
+            <div className={page === "profile" ? "contents" : "hidden"}>
               <div className="shrink-0 px-6 empty:hidden [&>section]:pt-4">
                 <LaunchSetup game={game} />
               </div>
@@ -318,8 +361,9 @@ export default function DesktopWorkspace({ games, selectedId, onSelect, onGamesC
                   addRequest={addRequest}
                 />
               </div>
-            </>
+            </div>
           ) : (
+            page === "profile" &&
             !game && (
               <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
                 <p className="text-zinc-400">{games.length ? "Choose a game in the top left" : "No games added yet"}</p>

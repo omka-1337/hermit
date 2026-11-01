@@ -102,6 +102,7 @@ func main() {
 
 	modList := app.NewModListService(b.lib, b.steamRoots)
 	downloads := app.NewDownloadService(b.lib, b.root, app.ID+"/"+app.Version)
+	browser := app.NewBrowserService(downloads, b.root)
 	// window is the main window; a link from Nexus Mods brings it up.
 	var window *application.WebviewWindow
 	wailsApp := application.New(application.Options{
@@ -140,6 +141,7 @@ func main() {
 			application.NewService(modList),
 			application.NewService(app.NewCreationService(b.lib)),
 			application.NewService(downloads),
+			application.NewService(browser),
 			application.NewService(app.NewNexusService(b.lib, app.ID+"/"+app.Version)),
 			application.NewService(app.NewShareService(
 				profileshare.NewSharer(b.lib, b.installer, b.ts, filepath.Join(b.root, "cache", "imports")),
@@ -170,6 +172,9 @@ func main() {
 		windowOptions.StartState = application.WindowStateFullscreen
 	}
 	window = wailsApp.Window.NewWithOptions(windowOptions)
+	// Pages of Nexus Mods open in a browser of their own over the page,
+	// called for on the GTK thread.
+	browser.Window = window.NativeWindow
 
 	// On the very first run a small window of its own asks whether Hermit
 	// should put itself into Steam, the way a launcher asks before it settles

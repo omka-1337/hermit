@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { Browser } from "@wailsio/runtime";
 import {
   BrowseView,
   DownloadService,
@@ -13,6 +12,7 @@ import {
   SettingsStore,
 } from "../../api";
 import { useNexusSetup } from "../../downloads";
+import { openInBrowser } from "../../screens/BrowserPage";
 import { formatAgo, formatBytes, formatCount } from "../../format";
 import { useUIMode } from "../../uimode";
 import BBCode from "../BBCode";
@@ -259,8 +259,9 @@ function NexusDetails({ game, modId, onClose }: { game: Game; modId: number; onC
     };
   }, [game.id, modId]);
 
-  // A Premium account downloads in Hermit; any other through the button of
-  // the file on Nexus Mods, which hands it to Hermit through nxm:// links.
+  // A Premium account downloads straight away; any other through the button
+  // of the file on Nexus Mods, opened in Hermit's browser, which hands the
+  // file to Hermit and takes the user back here.
   const download = async (f: ModFile) => {
     setError("");
     try {
@@ -268,7 +269,7 @@ function NexusDetails({ game, modId, onClose }: { game: Game; modId: number; onC
         await DownloadService.DownloadFile(game.id, modId, f.fileId);
         setQueued((s) => new Set(s).add(f.fileId));
       } else {
-        Browser.OpenURL(await NexusService.FilesURL(game.id, modId, f.fileId));
+        openInBrowser(await NexusService.FilesURL(game.id, modId, f.fileId));
       }
     } catch (err) {
       setError(errorMessage(err));
@@ -307,15 +308,16 @@ function NexusDetails({ game, modId, onClose }: { game: Game; modId: number; onC
 
             {!nexus.account?.premium && (
               <p className="rounded-md border border-zinc-800 bg-zinc-900 px-3 py-2 text-xs text-zinc-400">
-                Download opens the file on Nexus Mods: its <span className="text-zinc-200">Mod Manager Download</span>{" "}
-                button hands it to Hermit, which installs it into the active profile.
-                {!nexus.ready && " Set up Nexus Mods in Settings first, so that Hermit gets it."}
+                Download opens the file's page of Nexus Mods here: its{" "}
+                <span className="text-zinc-200">Mod Manager Download</span> button hands it to Hermit, which brings you back
+                and installs it into the active profile. The first time, log in to Nexus Mods on that page.
+                {!nexus.account?.hasKey && " Hermit needs your Nexus Mods API key in Settings as well."}
               </p>
             )}
 
             <div className="-mt-2 flex items-center gap-2">
-              <Button variant="ghost" onClick={async () => Browser.OpenURL(await NexusService.FilesURL(game.id, modId, 0))}>
-                Nexus Mods ↗
+              <Button variant="ghost" onClick={async () => openInBrowser(await NexusService.FilesURL(game.id, modId, 0))}>
+                Open on Nexus Mods
               </Button>
             </div>
 
@@ -348,7 +350,7 @@ function NexusDetails({ game, modId, onClose }: { game: Game; modId: number; onC
                       <Button
                         variant={g.category === "MAIN" ? "primary" : "secondary"}
                         disabled={queued.has(f.fileId)}
-                        title={nexus.account?.premium ? "Download into the active profile" : "Open the file's Mod Manager Download on Nexus Mods"}
+                        title={nexus.account?.premium ? "Download into the active profile" : "Open the file's page of Nexus Mods, with its Mod Manager Download"}
                         onClick={() => download(f)}
                       >
                         {queued.has(f.fileId) ? "Queued" : "Download"}

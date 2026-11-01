@@ -18,8 +18,8 @@ import { useDragReorder } from "./useDragReorder";
 // Clicking a mod shows its conflicts: in green the mods whose files it
 // replaces, in red the ones replacing its files.
 // columns lay out the header and every mod row alike: the grip, the place in
-// the order, Active, Name, Version, Source and Author.
-const columns = "grid grid-cols-[1rem_2rem_3.25rem_minmax(0,1fr)_6rem_7rem_10rem] items-center gap-x-3";
+// the order, Active, Name, Version, Source, Author and Overwrite.
+const columns = "grid grid-cols-[1rem_2rem_3.25rem_minmax(0,1fr)_6rem_7rem_10rem_4.5rem] items-center gap-x-3";
 
 const sourceLabels: Record<string, string> = { nexus: "Nexus", local: "Local", github: "GitHub", thunderstore: "Thunderstore" };
 
@@ -67,6 +67,26 @@ export default function ModListTab() {
     const sel = mods[selectedAt];
     if (!sel || m.id === sel.id || !sel.enabled || !m.enabled || !conflicts[sel.id]?.[m.id]) return null;
     return i > selectedAt ? "replaces" : "replaced";
+  };
+
+  // overwrite is how a mod's files fare against the other mods that are on:
+  // the files it takes over from mods above it, and its own files mods below
+  // it take over, with how many mods each.
+  const overwrite = (m: Mod, i: number): Overwrite => {
+    const o = { wins: 0, winsMods: 0, loses: 0, losesMods: 0 };
+    if (!m.enabled) return o;
+    mods.forEach((n, j) => {
+      const files = conflicts[m.id]?.[n.id];
+      if (!files || j === i || !n.enabled) return;
+      if (j < i) {
+        o.wins += files;
+        o.winsMods++;
+      } else {
+        o.loses += files;
+        o.losesMods++;
+      }
+    });
+    return o;
   };
 
   const scroller = useRef<HTMLDivElement>(null);
@@ -220,6 +240,7 @@ export default function ModListTab() {
         <span>Version</span>
         <span>Source</span>
         <span>Author</span>
+        <span>Overwrite</span>
       </div>
       <ul className="divide-y divide-zinc-800">
         {rows.map(({ m, i, count, priority, hidden, rel, relations }) => [
@@ -314,6 +335,7 @@ export default function ModListTab() {
                 )}
               </span>
               <span className={`truncate text-sm text-zinc-400 ${m.enabled ? "" : "opacity-50"}`}>{m.author}</span>
+              <OverwriteCell {...overwrite(m, i)} />
             </li>
           ),
         ])}
@@ -394,5 +416,29 @@ function ChevronIcon({ open }: { open: boolean }) {
     >
       <path d="m9 18 6-6-6-6" />
     </svg>
+  );
+}
+
+const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? "" : "s"}`;
+
+// OverwriteCell marks, as MO2 does, a mod that takes over files of mods above
+// it with a green plus, and one whose files mods below it take over with a
+// red minus.
+type Overwrite = { wins: number; winsMods: number; loses: number; losesMods: number };
+
+function OverwriteCell({ wins, winsMods, loses, losesMods }: Overwrite) {
+  return (
+    <span className="flex items-center gap-2 text-base leading-none font-bold">
+      {wins > 0 && (
+        <span className="text-emerald-400" title={`Replaces ${plural(wins, "file")} of ${plural(winsMods, "mod")} above it`}>
+          +
+        </span>
+      )}
+      {loses > 0 && (
+        <span className="text-red-400" title={`${plural(loses, "file")} replaced by ${plural(losesMods, "mod")} below it`}>
+          −
+        </span>
+      )}
+    </span>
   );
 }

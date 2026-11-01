@@ -56,7 +56,7 @@ export default function ContextMenu({ at, onClose, children, width = "w-52" }: P
   );
 
   return (
-    <div className="fixed inset-0 z-30" onMouseDown={onClose} onContextMenu={(e) => e.preventDefault()}>
+    <div className="fixed inset-0 z-40" onMouseDown={onClose} onContextMenu={(e) => e.preventDefault()}>
       <div
         ref={box}
         style={{ left: pos.x, top: pos.y }}

@@ -86,10 +86,12 @@ export default function InstalledTab({ onBrowse, addRequest = 0 }: { onBrowse: (
   }
 
   return (
-    <div className="h-full overflow-y-auto px-6 py-3">
+    // No padding at the top: the header of the table sticks to the top of
+    // the scrolling area, padding and all, and rows would show above it.
+    <div className="h-full overflow-y-auto px-6 pb-3">
       {addModal}
       <ErrorText>{error}</ErrorText>
-      <div className="mb-3 flex items-center justify-between gap-3 text-sm">
+      <div className="mb-3 flex items-center justify-between gap-3 pt-3 text-sm">
         {busy === "update-all" ? (
           <span className="flex min-w-0 items-center gap-2 text-zinc-300">
             <Spinner />

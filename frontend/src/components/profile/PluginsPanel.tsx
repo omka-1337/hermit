@@ -105,7 +105,7 @@ export default function PluginsPanel() {
             onPointerDown={(e) => !p.implicit && !busy && start(e, [p.name], p.name)}
             title={`${p.name}\nfrom ${origin(p)}`}
             className={`${columns} -mx-3 border-l-2 px-3 py-1.5 ${drag?.ids.includes(p.name) ? "opacity-40" : ""} ${
-              p.missing?.length || p.error ? "border-red-500 bg-red-500/10" : `border-transparent ${drag ? "" : "hover:bg-zinc-800/60"}`
+              p.missing?.length || p.error ? "border-transparent bg-red-500/10" : `border-transparent ${drag ? "" : "hover:bg-zinc-800/60"}`
             }`}
           >
             {p.implicit ? <span /> : <Grip />}

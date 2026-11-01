@@ -294,11 +294,11 @@ export default function ModListTab() {
               }
               className={`${columns} cursor-default border-l-2 py-2 ${drag?.ids.includes(m.id) ? "opacity-40" : ""} ${
                 m.id === selected
-                  ? "border-accent-500 bg-accent-500/15"
+                  ? "border-transparent bg-accent-500/15"
                   : rel === "replaced"
-                    ? "border-emerald-500 bg-emerald-500/10"
+                    ? "border-transparent bg-emerald-500/10"
                     : rel === "replaces"
-                      ? "border-red-500 bg-red-500/10"
+                      ? "border-transparent bg-red-500/10"
                       : `border-transparent ${drag ? "" : "hover:bg-zinc-800/60"}`
               }`}
             >

@@ -35,6 +35,9 @@ type ModListService struct {
 
 	mu       sync.Mutex
 	sessions map[string]*installSession
+	// previews are the game folders PreviewGame worked out last, by game
+	// and profile.
+	previews map[string]*deploy.Preview
 }
 
 func NewModListService(lib *library.Library, steamRoots []string) *ModListService {
@@ -342,4 +345,70 @@ func uniqueModID(name string, taken []string) string {
 		id = fmt.Sprintf("%s-%d", base, n)
 	}
 	return id
+}
+
+// PreviewSummary is what PreviewGame found.
+type PreviewSummary struct {
+	// Files is how many files the game folder will have.
+	Files int `json:"files"`
+	// Open is the folder to show first, slash-separated from the game
+	// folder: Data for a Creation Engine game, "" for the game folder.
+	Open string `json:"open"`
+}
+
+// PreviewGame works out how the game folder will look with the profile's
+// enabled mods in it, which mod each file comes from, without deploying
+// them; PreviewFolder then lists its folders.
+func (s *ModListService) PreviewGame(gameID, profileID string) (PreviewSummary, error) {
+	game, modding, err := s.deployedGame(gameID)
+	if err != nil {
+		return PreviewSummary{}, err
+	}
+	profile, err := s.lib.GetProfile(gameID, profileID)
+	if err != nil {
+		return PreviewSummary{}, err
+	}
+	profileDir, err := s.lib.ProfileDir(gameID, profileID)
+	if err != nil {
+		return PreviewSummary{}, err
+	}
+	var mods []string
+	for _, m := range profile.Mods {
+		if m.Enabled && !m.Separator {
+			mods = append(mods, m.ID)
+		}
+	}
+	p, err := deploy.NewPreview(game.Path, profileDir, mods, modding.Target)
+	if err != nil {
+		return PreviewSummary{}, err
+	}
+	s.mu.Lock()
+	if s.previews == nil {
+		s.previews = map[string]*deploy.Preview{}
+	}
+	s.previews[gameID+"/"+profileID] = p
+	s.mu.Unlock()
+
+	summary := PreviewSummary{Files: p.Files}
+	if modding.Target.Data != "" {
+		if name, _ := deploy.FindFold(game.Path, modding.Target.Data); name != "" {
+			summary.Open = name
+		}
+	}
+	return summary, nil
+}
+
+// PreviewFolder lists a folder of the game folder PreviewGame worked out,
+// slash-separated from the game folder, "" for the game folder itself.
+func (s *ModListService) PreviewFolder(gameID, profileID, path string) ([]deploy.PreviewEntry, error) {
+	s.mu.Lock()
+	p := s.previews[gameID+"/"+profileID]
+	s.mu.Unlock()
+	if p == nil {
+		if _, err := s.PreviewGame(gameID, profileID); err != nil {
+			return nil, err
+		}
+		return s.PreviewFolder(gameID, profileID, path)
+	}
+	return p.Folder(path)
 }

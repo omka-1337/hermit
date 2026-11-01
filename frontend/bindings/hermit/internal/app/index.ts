@@ -46,6 +46,7 @@ export type {
     NXMHandler,
     NexusAccount,
     PreparedMod,
+    PreviewSummary,
     SteamSetup,
     Tool,
     Update

@@ -22,6 +22,8 @@ const tabPaths: Record<Tab, string[]> = {
   // A box of parts: the mods of the profile.
   installed: ["M21 8 12 3 3 8v8l9 5 9-5V8Z", "m3 8 9 5 9-5", "M12 13v8"],
   browse: ["M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14Z", "m20 20-4-4"],
+  // Folders under a folder: the game's files as the mods make them.
+  data: ["M4 4h5l2 2h7a2 2 0 0 1 2 2v1", "M4 4v14a2 2 0 0 0 2 2h2", "M12 13h3l1.5 1.5H20v5h-8Z", "M8 11h4"],
   // A wrench.
   tools: ["M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76Z"],
   config: ["M21 4h-7", "M10 4H3", "M21 12h-9", "M8 12H3", "M21 20h-5", "M12 20H3", "M14 2v4", "M8 10v4", "M16 18v4"],

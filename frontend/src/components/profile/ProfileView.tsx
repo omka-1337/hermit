@@ -10,6 +10,7 @@ import { Button, ErrorText, useModalOpen } from "../ui";
 import { useGamepad } from "../../gamepad";
 import { usePageHints } from "../../screens/shell";
 import { useLayout } from "../../uimode";
+import DataTab from "./DataTab";
 import ModListTab from "./ModListTab";
 import PluginsPanel from "./PluginsPanel";
 import BrowseTab from "./BrowseTab";
@@ -21,12 +22,13 @@ import ToolsTab from "./ToolsTab";
 import { ProfileProvider } from "./ProfileContext";
 import { ResizeHandle, usePanelWidth } from "../../panelWidth";
 
-export type Tab = "installed" | "browse" | "config" | "tools" | "logs";
+export type Tab = "installed" | "browse" | "config" | "data" | "tools" | "logs";
 
 // profileTabs are the pages of a profile. A game whose mods are deployed has
 // neither Thunderstore nor BepInEx: its profile is the list of its mods, and
-// in the desktop layout the tools its mods bring and, for a Creation Engine
-// game, the logs its script extender's plugins wrote. Its load order of
+// in the desktop layout the game folder as its mods will make it, the tools
+// its mods bring and, for a Creation Engine game, the logs its script
+// extender's plugins wrote. Its load order of
 // plugins is in a panel beside the list of mods.
 export function profileTabs(game: Game, profile: Profile | null, desktop = false): { id: Tab; label: string }[] {
   // Separators head groups of mods and are not mods themselves. The desktop
@@ -35,7 +37,12 @@ export function profileTabs(game: Game, profile: Profile | null, desktop = false
   return deployed(game.engine)
     ? [
         { id: "installed", label: `Mods${modCount ? ` (${modCount})` : ""}` },
-        ...(desktop ? [{ id: "tools" as const, label: "Tools" }] : []),
+        ...(desktop
+          ? [
+              { id: "data" as const, label: game.engine === Engine.EngineCreation ? "Data" : "Game folder" },
+              { id: "tools" as const, label: "Tools" },
+            ]
+          : []),
         ...(desktop && game.engine === Engine.EngineCreation ? [{ id: "logs" as const, label: "Logs" }] : []),
       ]
     : [
@@ -204,6 +211,8 @@ export default function ProfileView({
                   <LogsTab />
                 ) : tab === "tools" ? (
                   <ToolsTab />
+                ) : tab === "data" ? (
+                  <DataTab />
                 ) : panel ? (
                   <div className="flex h-full">
                     <div className="min-w-0 flex-1">

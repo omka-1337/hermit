@@ -220,6 +220,22 @@ export interface PreparedMod {
 }
 
 /**
+ * PreviewSummary is what PreviewGame found.
+ */
+export interface PreviewSummary {
+    /**
+     * Files is how many files the game folder will have.
+     */
+    "files": number;
+
+    /**
+     * Open is the folder to show first, slash-separated from the game
+     * folder: Data for a Creation Engine game, "" for the game folder.
+     */
+    "open": string;
+}
+
+/**
  * SteamSetup is what the interface needs to know to offer the shortcut.
  */
 export interface SteamSetup {

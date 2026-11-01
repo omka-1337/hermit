@@ -109,7 +109,7 @@ type LoadOrderEntry struct {
 }
 
 // OverwriteMod is LoadOrderEntry.Mod for a plugin in the overwrite folder.
-const OverwriteMod = "\x00overwrite"
+const OverwriteMod = deploy.OverwriteSource
 
 // available is a plugin that will be in Data while the profile is played,
 // with where it comes from.

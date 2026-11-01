@@ -14,6 +14,9 @@ import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wails
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
+import * as deploy$0 from "../deploy/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
 import * as fomod$0 from "../fomod/models.js";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
@@ -121,6 +124,23 @@ export function PrepareInstall(gameID: string, profileID: string, file: string):
  */
 export function PreparedInfo(session: string): $CancellablePromise<$models.PreparedMod> {
     return $Call.ByID(2830304298, session);
+}
+
+/**
+ * PreviewFolder lists a folder of the game folder PreviewGame worked out,
+ * slash-separated from the game folder, "" for the game folder itself.
+ */
+export function PreviewFolder(gameID: string, profileID: string, path: string): $CancellablePromise<deploy$0.PreviewEntry[] | null> {
+    return $Call.ByID(464829281, gameID, profileID, path);
+}
+
+/**
+ * PreviewGame works out how the game folder will look with the profile's
+ * enabled mods in it, which mod each file comes from, without deploying
+ * them; PreviewFolder then lists its folders.
+ */
+export function PreviewGame(gameID: string, profileID: string): $CancellablePromise<$models.PreviewSummary> {
+    return $Call.ByID(3533561803, gameID, profileID);
 }
 
 /**

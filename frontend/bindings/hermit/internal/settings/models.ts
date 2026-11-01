@@ -42,6 +42,12 @@ export interface Settings {
      * start; its active profile comes with it.
      */
     "lastGame"?: string;
+
+    /**
+     * PanelWidths are the widths, in pixels, the panels of the desktop
+     * layout were dragged to, by panel.
+     */
+    "panelWidths"?: { [_ in string]?: number } | null;
 }
 
 /**

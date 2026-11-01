@@ -42,6 +42,9 @@ type Settings struct {
 	// LastGame is the game that was open last, opened again on the next
 	// start; its active profile comes with it.
 	LastGame string `json:"lastGame,omitempty"`
+	// PanelWidths are the widths, in pixels, the panels of the desktop
+	// layout were dragged to, by panel.
+	PanelWidths map[string]int `json:"panelWidths,omitempty"`
 }
 
 type Store struct {
@@ -71,8 +74,8 @@ func (s *Store) CompleteSetup() (Settings, error) {
 	return st, s.save(st)
 }
 
-// Update replaces user-editable preferences; SetupCompleted and LastGame are
-// kept as stored.
+// Update replaces user-editable preferences; SetupCompleted, LastGame and
+// PanelWidths are kept as stored.
 func (s *Store) Update(st Settings) (Settings, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -83,7 +86,25 @@ func (s *Store) Update(st Settings) (Settings, error) {
 	}
 	st.SetupCompleted = current.SetupCompleted
 	st.LastGame = current.LastGame
+	st.PanelWidths = current.PanelWidths
 	return st, s.save(st)
+}
+
+// SetPanelWidth records the width a panel was dragged to, in pixels, to
+// give it the same width next time.
+func (s *Store) SetPanelWidth(panel string, width int) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	st, err := s.load()
+	if err != nil {
+		return err
+	}
+	if st.PanelWidths == nil {
+		st.PanelWidths = map[string]int{}
+	}
+	st.PanelWidths[panel] = width
+	return s.save(st)
 }
 
 // SetLastGame records the game that is open, to open it again next time.

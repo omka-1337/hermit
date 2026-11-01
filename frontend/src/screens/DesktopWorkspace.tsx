@@ -13,6 +13,7 @@ import GameSwitcher from "../components/sidebar/GameSwitcher";
 import ProfileSwitcher from "../components/sidebar/ProfileSwitcher";
 import { TabIcon } from "../components/sidebar/icons";
 import { Button, ErrorText, Modal } from "../components/ui";
+import { ResizeHandle, usePanelWidth } from "../panelWidth";
 import { requestRefresh, useRefresh } from "../refresh";
 import DownloadsView from "./DownloadsView";
 import SettingsView from "./SettingsView";
@@ -46,6 +47,8 @@ export default function DesktopWorkspace({ games, selectedId, onSelect, onGamesC
   const queue = useInstallQueue(setError);
   const downloads = useDownloads();
   const nexus = useNexusSetup();
+  // The sidebar is as wide as it was dragged to: 16rem at first.
+  const sidebar = usePanelWidth("sidebar", 256, 200, 480);
   const game = games.find((g) => g.id === selectedId) ?? null;
   const profile = profiles.find((p) => p.id === game?.activeProfile) ?? null;
   const tabs = game ? profileTabs(game, profile, true) : [];
@@ -186,7 +189,11 @@ export default function DesktopWorkspace({ games, selectedId, onSelect, onGamesC
   return (
     <div className="flex h-full flex-col">
       <div className="flex min-h-0 flex-1">
-        <aside className="flex w-64 shrink-0 flex-col gap-4 border-r border-zinc-800 bg-zinc-900 p-3">
+        <aside
+          style={{ width: sidebar.width }}
+          className="relative flex shrink-0 flex-col gap-4 border-r border-zinc-800 bg-zinc-900 p-3"
+        >
+          <ResizeHandle edge="right" panel={sidebar} label="Sidebar width" />
           <GameSwitcher
             games={games}
             selected={game}

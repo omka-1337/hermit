@@ -25,8 +25,16 @@ export function SetLastGame(gameID: string): $CancellablePromise<void> {
 }
 
 /**
- * Update replaces user-editable preferences; SetupCompleted and LastGame are
- * kept as stored.
+ * SetPanelWidth records the width a panel was dragged to, in pixels, to
+ * give it the same width next time.
+ */
+export function SetPanelWidth(panel: string, width: number): $CancellablePromise<void> {
+    return $Call.ByID(706378217, panel, width);
+}
+
+/**
+ * Update replaces user-editable preferences; SetupCompleted, LastGame and
+ * PanelWidths are kept as stored.
  */
 export function Update(st: $models.Settings): $CancellablePromise<$models.Settings> {
     return $Call.ByID(971130280, st);

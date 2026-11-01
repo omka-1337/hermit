@@ -17,7 +17,6 @@ package library
 import (
 	"errors"
 	"fmt"
-	"hermit/internal/deploy"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -27,6 +26,7 @@ import (
 	"sync"
 	"syscall"
 
+	"hermit/internal/deploy"
 	"hermit/internal/steam"
 )
 

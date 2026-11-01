@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"hermit/internal/deploy"
 	"io"
 	"net/http"
 	"os"
@@ -17,6 +16,7 @@ import (
 
 	"github.com/adrg/xdg"
 
+	"hermit/internal/deploy"
 	"hermit/internal/library"
 	"hermit/internal/nexus"
 	"hermit/internal/platform"

@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Dialogs, Events } from "@wailsio/runtime";
 import { confirmDanger, deployed, Download, DownloadService, errorMessage, Game, Library, Profile } from "../api";
-import { useDownloads, useNexusSetup } from "../downloads";
-import { formatBytes } from "../format";
+import { stageColors, useDownloads, useNexusSetup } from "../downloads";
 import { QueueStatus, useInstallQueue } from "../installQueue";
 import { installFromFileEvent } from "../components/TitleMenus";
 import GamePicker from "../components/GamePicker";
@@ -429,62 +428,48 @@ export default function DesktopWorkspace({ games, selectedId, onSelect, onGamesC
 }
 
 // StatusBar runs along the bottom of the window: how many mods the profile
-// has and how many of them are on, the download under way from Nexus Mods,
-// and how far a queue of installs got, as installed of queued.
+// has and, in its middle, the work under way: how many downloads and
+// archives are left in the queue, a bar in the colour of what is being done,
+// downloading or unpacking, and how far it is.
 function StatusBar({ profile, queue, downloads }: { profile: Profile | null; queue: QueueStatus | null; downloads: Download[] }) {
-  const current = downloads.find((d) => d.status === "downloading");
-  const waiting = downloads.filter((d) => d.status === "queued").length;
   const mods = profile?.mods?.filter((m) => !m.separator) ?? [];
   const on = mods.filter((m) => m.enabled).length;
-  // One archive shows how far it is unpacked; a queue, how many are through.
-  const share = !queue
-    ? 0
-    : queue.total > 1
-      ? queue.finished / queue.total
-      : queue.unpack?.total
-        ? queue.unpack.done / queue.unpack.total
-        : queue.finished;
+
+  const running = downloads.find((d) => d.status === "downloading");
+  const waiting = downloads.filter((d) => d.status === "queued").length;
+  const archives = queue ? queue.total - queue.finished : 0;
+  // A download under way first, then the archive being unpacked; a queue
+  // waiting on an installer's window counts how many archives are through.
+  let stage: "download" | "unpack" | null = null;
+  let share = 0;
+  if (running) {
+    stage = running.stage === "unpack" ? "unpack" : "download";
+    share = running.progress || 0;
+  } else if (queue) {
+    stage = "unpack";
+    share = queue.unpack?.total ? queue.unpack.done / queue.unpack.total : queue.total ? queue.finished / queue.total : 0;
+  }
+  const count = (running ? 1 : 0) + waiting + archives;
+  const percent = Math.round(share * 100);
+
   return (
-    <footer className="flex h-7 shrink-0 items-center gap-4 border-t border-zinc-800 bg-zinc-900 px-3 text-xs text-zinc-500">
+    <footer className="relative flex h-7 shrink-0 items-center gap-4 border-t border-zinc-800 bg-zinc-900 px-3 text-xs text-zinc-500">
       {profile && (
         <span>
           {mods.length} {mods.length === 1 ? "mod" : "mods"}, {on} on
         </span>
       )}
-      <span className="flex-1" />
-      {(current || waiting > 0) && (
-        <span className="flex min-w-0 items-center gap-2">
-          <span className="truncate">
-            {current
-              ? `Downloading ${current.name}${current.size ? ` · ${Math.round((current.done / current.size) * 100)}%` : ""}${
-                  current.speed ? ` · ${formatBytes(current.speed)}/s` : ""
-                }`
-              : "Waiting to download"}
-            {waiting > 0 && ` · ${waiting} more`}
+      {stage && (
+        <div
+          className="absolute left-1/2 flex -translate-x-1/2 items-center gap-2"
+          title={`${count} in the queue · ${stage === "download" ? "downloading" : "unpacking"} ${percent}%`}
+        >
+          <span className="w-6 text-right font-medium text-zinc-300 tabular-nums">{count}</span>
+          <span className="h-1.5 w-64 overflow-hidden rounded-full bg-zinc-800">
+            <span className={`block h-full transition-[width] ${stageColors[stage]}`} style={{ width: `${percent}%` }} />
           </span>
-          {current && (
-            <span className="h-1.5 w-28 shrink-0 overflow-hidden rounded-full bg-zinc-800">
-              <span
-                className="block h-full bg-sky-500 transition-[width]"
-                style={{ width: `${current.size ? Math.round((current.done / current.size) * 100) : 0}%` }}
-              />
-            </span>
-          )}
-        </span>
-      )}
-      {queue && (
-        <span className="flex min-w-0 items-center gap-2">
-          <span className="truncate">
-            {queue.action}
-            {queue.unpack?.total ? ` · ${Math.round((queue.unpack.done / queue.unpack.total) * 100)}%` : ""}
-          </span>
-          <span className="h-1.5 w-40 shrink-0 overflow-hidden rounded-full bg-zinc-800">
-            <span className="block h-full bg-accent-500 transition-[width]" style={{ width: `${Math.round(share * 100)}%` }} />
-          </span>
-          <span className="shrink-0 font-medium text-zinc-300 tabular-nums">
-            {queue.finished}/{queue.total}
-          </span>
-        </span>
+          <span className="w-9 font-medium text-zinc-300 tabular-nums">{percent}%</span>
+        </div>
       )}
     </footer>
   );

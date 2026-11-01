@@ -27,3 +27,7 @@ export function useNexusSetup() {
   const ready = !!account?.hasKey && !!handler?.hermit;
   return { account, handler, ready, reload, setAccount, setHandler };
 }
+
+// stageColors tell the stages of the work apart wherever it is shown:
+// downloading in blue, unpacking and installing in amber.
+export const stageColors = { download: "bg-sky-500", unpack: "bg-amber-500" } as const;

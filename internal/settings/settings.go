@@ -42,6 +42,9 @@ type Settings struct {
 	// LastGame is the game that was open last, opened again on the next
 	// start; its active profile comes with it.
 	LastGame string `json:"lastGame,omitempty"`
+	// DownloadLimit is the speed all downloads share at most, in KB a
+	// second; 0 lets them go as fast as the connection does.
+	DownloadLimit int `json:"downloadLimit,omitempty"`
 	// PanelWidths are the widths, in pixels, the panels of the desktop
 	// layout were dragged to, by panel.
 	PanelWidths map[string]int `json:"panelWidths,omitempty"`
@@ -50,6 +53,8 @@ type Settings struct {
 type Store struct {
 	path string
 	mu   sync.Mutex
+	// OnUpdate, when set, is told the settings Update saved.
+	OnUpdate func(Settings)
 }
 
 func NewStore(root string) *Store {
@@ -87,7 +92,14 @@ func (s *Store) Update(st Settings) (Settings, error) {
 	st.SetupCompleted = current.SetupCompleted
 	st.LastGame = current.LastGame
 	st.PanelWidths = current.PanelWidths
-	return st, s.save(st)
+	st.DownloadLimit = max(0, st.DownloadLimit)
+	if err := s.save(st); err != nil {
+		return st, err
+	}
+	if s.OnUpdate != nil {
+		s.OnUpdate(st)
+	}
+	return st, nil
 }
 
 // SetPanelWidth records the width a panel was dragged to, in pixels, to

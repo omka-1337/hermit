@@ -20,6 +20,7 @@ import (
 	"hermit/internal/library"
 	"hermit/internal/nexus"
 	"hermit/internal/platform"
+	"hermit/internal/throttle"
 )
 
 const (
@@ -427,7 +428,7 @@ func (s *DownloadService) download(ctx context.Context, d *Download) error {
 		return err
 	}
 	defer os.Remove(part)
-	if _, err := io.Copy(out, &progressReader{r: resp.Body, report: func(done int64, speed int64) {
+	if _, err := io.Copy(out, &progressReader{r: throttle.Downloads.Reader(ctx, resp.Body), report: func(done int64, speed int64) {
 		s.mu.Lock()
 		d.Done, d.Speed = done, speed
 		if d.Size > 0 {

@@ -23,6 +23,7 @@ import (
 	"hermit/internal/profileshare"
 	"hermit/internal/settings"
 	"hermit/internal/steam"
+	"hermit/internal/throttle"
 	"hermit/internal/thunderstore"
 )
 
@@ -99,6 +100,9 @@ func main() {
 	if err != nil {
 		log.Printf("settings: %v", err)
 	}
+	// Downloads keep under the speed Settings give them.
+	throttle.Downloads.SetRate(int64(stored.DownloadLimit) << 10)
+	settingsStore.OnUpdate = func(st settings.Settings) { throttle.Downloads.SetRate(int64(st.DownloadLimit) << 10) }
 
 	modList := app.NewModListService(b.lib, b.steamRoots)
 	downloads := app.NewDownloadService(b.lib, b.root, app.ID+"/"+app.Version)

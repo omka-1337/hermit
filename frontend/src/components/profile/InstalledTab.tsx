@@ -9,8 +9,11 @@ import { dependantsOf, dependencyLabel, thunderstoreIconURL, useProfile } from "
 import { useLayout } from "../../uimode";
 
 // columns lay out the header and the mod rows of the desktop layout alike:
-// Active, Name, Version, Source, Author and what can be done to the mod.
-const columns = "grid grid-cols-[3.25rem_minmax(0,1fr)_7rem_7rem_10rem_auto] items-center gap-x-3";
+// Active, Name, Version, Source, Author and what can be done to the mod. The
+// header and each row are grids of their own, so every column has a width
+// of its own: one sized by its content would be narrower in the header, with
+// nothing in it, and shift the columns before it.
+const columns = "grid grid-cols-[3.25rem_minmax(0,1fr)_7rem_7rem_10rem_14rem] items-center gap-x-3";
 
 const sourceLabels: Record<string, string> = { thunderstore: "Thunderstore", github: "GitHub", local: "Local" };
 

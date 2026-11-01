@@ -71,7 +71,7 @@ buttons, the d-pad moves the focus and B steps back out.
 
 Download the AppImage from the [releases page](https://github.com/omka-1337/hermit/releases), make it executable
 (`chmod +x Hermit-*.AppImage`) and run it. It needs FUSE; on SteamOS and most distributions it is already there. To
-use it from Game Mode on a Steam Deck, add the AppImage to Steam as a non-Steam game.
+use it from Game Mode on a Steam Deck, add it to Steam as a non-Steam game: Settings → Steam does that for you.
 
 An AUR package, and Windows and macOS builds, are planned before 1.0; for now the AppImage is the only build. What
 changed in each release is in [CHANGELOG.md](CHANGELOG.md).
@@ -159,13 +159,15 @@ internal/thunderstore/   Thunderstore API client
 internal/profileshare/   r2modman-compatible profile export/import
 internal/configs/        config file editing
 internal/deploy/         mod folders linked into a game for a session, for the engines below
-internal/creation/       Creation Engine games: Data, plugins.txt, INI files, MO2 import
+internal/creation/       Creation Engine games: Data, load order of plugins, INI files and saves, MO2 import
 internal/redengine/      REDengine games: Cyberpunk 2077
 internal/unreal/         Unreal Engine games: Batman: Arkham Knight
 internal/archive/        zip, 7z and rar archives, without tools from the system
 internal/fomod/          FOMOD installers
-internal/nexus/          Nexus Mods API and nxm:// links
+internal/nexus/          Nexus Mods API: searching mods, their pages and files, downloads, nxm:// links
 internal/steam/          Steam libraries, launch options, icons
+internal/platform/       the desktop: window, desktop entries, nxm:// handler, the browser inside the window
+internal/throttle/       the speed limit downloads share
 frontend/                React + TypeScript + Tailwind (Vite)
 build/                   Wails build and packaging config
 ```

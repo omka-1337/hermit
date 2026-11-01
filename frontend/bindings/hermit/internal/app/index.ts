@@ -47,6 +47,7 @@ export type {
     NexusAccount,
     PreparedMod,
     PreviewSummary,
+    ProfileOptions,
     SteamSetup,
     Tool,
     Update

@@ -3,6 +3,8 @@ package creation
 import (
 	"os"
 	"path/filepath"
+
+	"hermit/internal/deploy"
 )
 
 // SteamCompatData is the Proton compatibility data folder, compatdata/<appid>,
@@ -43,6 +45,18 @@ type Prefix struct {
 	Plugins string
 	// MyGames is the game's folder in Documents\My Games, with its INI files.
 	MyGames string
+	// Saves is the game's Saves folder, which is the profile's own for the
+	// session when it is set.
+	Saves string
+}
+
+// GameSavesDir is the game's folder of saves, in its My Games folder, in any
+// letter case.
+func GameSavesDir(myGames string) string {
+	if name, _ := deploy.FindFold(myGames, "Saves"); name != "" {
+		return filepath.Join(myGames, name)
+	}
+	return filepath.Join(myGames, "Saves")
 }
 
 // PrefixFor is the Prefix of a game in a compatibility data folder.

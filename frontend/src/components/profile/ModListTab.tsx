@@ -234,17 +234,25 @@ export default function ModListTab() {
       {importModal}
       <ErrorText>{error}</ErrorText>
       {/* The header stays in place while the list scrolls under it. */}
-      <div
-        className={`${columns} sticky top-0 z-10 -mx-6 border-b border-l-2 border-zinc-800 border-l-transparent bg-zinc-950 px-6 py-2 text-xs font-medium text-zinc-500`}
-      >
-        <span />
-        <span className="text-right">#</span>
-        <span>Active</span>
-        <span>Name</span>
-        <span>Version</span>
-        <span>Source</span>
-        <span className={author}>Author</span>
-        <span>Overwrite</span>
+      <div className="sticky top-0 z-10 -mx-6 bg-zinc-950">
+        <div className="flex items-baseline gap-2 px-6 pt-3 pb-1">
+          <span className="text-sm font-semibold">Mods</span>
+          <span className="text-xs text-zinc-500">
+            {mods.filter((m) => m.enabled && !m.separator).length} of {mods.filter((m) => !m.separator).length} on
+          </span>
+        </div>
+        <div
+          className={`${columns} border-b border-l-2 border-zinc-800 border-l-transparent px-6 py-2 text-xs font-medium text-zinc-500`}
+        >
+          <span />
+          <span className="text-right">#</span>
+          <span>Active</span>
+          <span>Name</span>
+          <span>Version</span>
+          <span>Source</span>
+          <span className={author}>Author</span>
+          <span>Overwrite</span>
+        </div>
       </div>
       <ul className="divide-y divide-zinc-800">
         {rows.map(({ m, i, count, priority, hidden, rel, relations }) => [

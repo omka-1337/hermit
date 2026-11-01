@@ -236,6 +236,23 @@ export interface PreviewSummary {
 }
 
 /**
+ * ProfileOptions are the choices a Creation Engine profile makes about what
+ * it shares with the game.
+ */
+export interface ProfileOptions {
+    /**
+     * ProfileINIs is set when the game plays with the profile's own INI
+     * files rather than its own.
+     */
+    "profileInis": boolean;
+
+    /**
+     * ProfileSaves is set when the profile keeps its saves.
+     */
+    "profileSaves": boolean;
+}
+
+/**
  * SteamSetup is what the interface needs to know to offer the shortcut.
  */
 export interface SteamSetup {

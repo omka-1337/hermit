@@ -89,7 +89,7 @@ export default function PluginsPanel() {
           </p>
         )}
         <div
-          className={`${columns} border-b border-l-2 border-zinc-800 border-l-transparent px-3 py-1.5 text-xs font-medium text-zinc-500`}
+          className={`${columns} border-b border-l-2 border-zinc-800 border-l-transparent px-3 py-2 text-xs font-medium text-zinc-500`}
         >
           <span />
           <span>Index</span>

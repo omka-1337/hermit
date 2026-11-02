@@ -19,9 +19,10 @@ import (
 const installUsage = `usage: hermit install [--game <id>] [--profile <id>] [--choose "[Step/]Group=Option[,Option]"]... [--defaults]
                       [--existing replace|merge|rename|cancel] [--name <name>] <archive>...
   Installs mod archives (zip, 7z, rar) into a profile of a game whose mods Hermit deploys (Creation Engine,
-  REDengine, Unreal Engine), the active one unless --profile says otherwise. A FOMOD installer takes its options from --choose, or its defaults with --defaults; with neither, it
-  asks for them step by step when run in a terminal. An archive with the name of a mod the profile has replaces it,
-  merges with it, is installed under --name, or is skipped, as --existing says; in a terminal it asks.`
+  REDengine, Unreal Engine), the active one unless --profile says otherwise. A FOMOD installer takes its options
+  from --choose, or its defaults with --defaults; with neither, it asks for them step by step when run in a
+  terminal. An archive with the name of a mod the profile has replaces it, merges with it, is installed under
+  --name, or is skipped, as --existing says; in a terminal it asks.`
 
 type installArgs struct {
 	game, profile string

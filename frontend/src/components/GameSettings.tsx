@@ -199,7 +199,7 @@ function WinePrefix({ game, onChanged, onError }: { game: Game; onChanged?: (gam
     <div className="flex flex-col gap-1.5 text-sm">
       <span className="text-zinc-400">Wine prefix</span>
       <span className="truncate text-xs text-zinc-300 select-text" title={game.prefix}>
-        {game.prefix || (game.steamAppId ? "Steam's prefix for the game" : "Not chosen")}
+        {game.prefix || (game.steamAppId ? "Steam's prefix for the game" : "PortProton's prefix for the game")}
       </span>
       <div className="flex gap-2">
         <Button onClick={choose}>Choose…</Button>

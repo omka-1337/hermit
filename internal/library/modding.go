@@ -1,10 +1,12 @@
 package library
 
 import (
+	"path/filepath"
 	"strings"
 
 	"hermit/internal/creation"
 	"hermit/internal/deploy"
+	"hermit/internal/platform"
 	"hermit/internal/redengine"
 	"hermit/internal/sims4"
 	"hermit/internal/unreal"
@@ -87,7 +89,7 @@ func NexusGame(domain string) (string, bool) {
 // ModsRoot is the folder the game's mods are deployed into: the game's own
 // folder, but for The Sims 4 its Mods folder in the Wine prefix it runs in,
 // prefix when one is given, as the environment of a session says, or the
-// one chosen for the game, or Steam's.
+// one chosen for the game, or Steam's, or the one PortProton runs it in.
 func (g Game) ModsRoot(prefix string) (string, error) {
 	if g.Engine != EngineSims4 {
 		return g.Path, nil
@@ -97,6 +99,13 @@ func (g Game) ModsRoot(prefix string) (string, error) {
 	}
 	if prefix == "" {
 		prefix = creation.SteamCompatData(g.Path, g.SteamAppID)
+	}
+	if prefix == "" {
+		exe := g.LaunchExecutable
+		if exe == "" {
+			exe = g.Executable
+		}
+		prefix = platform.PortProtonPrefix(filepath.Join(g.Path, filepath.FromSlash(exe)))
 	}
 	return sims4.ModsDir(prefix)
 }

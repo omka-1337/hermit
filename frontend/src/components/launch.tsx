@@ -109,10 +109,12 @@ export function PlayButton({ game, profileId, label = "Play", onPlayed }: PlayPr
 
 // LaunchSetup is the Launch section of a game's page: how to get the game to
 // load its profile. Once Steam has the launch options there is nothing left
-// to do there, and the section is not shown.
+// to do there, and the section is not shown; nor for a game outside Steam
+// that Hermit starts itself, through PortProton, from Play.
 export function LaunchSetup({ game }: { game: Game }) {
   const { info, reload } = useLaunchInfo(game.id);
   if (!info || (info.supported && !info.external && info.configured)) return null;
+  if (info.supported && info.external && info.portProton) return null;
   return (
     <section className="flex flex-col gap-3">
       <h2 className="text-sm font-semibold tracking-wide text-zinc-400 uppercase">Launch</h2>

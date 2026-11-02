@@ -14,6 +14,8 @@
 
 ### Fixed
 
+- A game outside Steam that Hermit starts itself, through PortProton, has no section about launch options on its
+  page any more.
 - The pictures of mods on Nexus Mods load after switching to another game.
 - Mods of Unreal Engine 3 games work. Skins and suits, downloadable content of their own, go into a folder of the
   game's DLC, each skin of a pack as a bundle of its own; a mod that adds to the game's own configuration or

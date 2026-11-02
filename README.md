@@ -113,11 +113,11 @@ launch wrapper runs the game through the shell.
 
 | Engine | Games | Mods from | Status |
 | --- | --- | --- | --- |
-| Unity (BepInEx) | Lethal Company, PEAK, R.E.P.O., Content Warning, MiSide and any other BepInEx game | Thunderstore, GitHub, archives | Used in practice on the games named |
-| Creation Engine | Skyrim (SE, VR, Legendary), Fallout 4 (and VR), Starfield | Nexus Mods, archives, MO2 | Used on Skyrim SE; the others share its code |
-| REDengine 4 | Cyberpunk 2077 | Nexus Mods, archives | New, not yet tried with real mods |
-| Unreal Engine 3 | Batman: Arkham Knight | Nexus Mods, archives | Skins and suits used in practice |
-| The Sims 4 | The Sims 4, from Steam or elsewhere | Nexus Mods, archives, `.package` and `.ts4script` files | New, not yet tried with real mods |
+| Unity (BepInEx) | Lethal Company, PEAK, R.E.P.O., Content Warning, MiSide and any other BepInEx game | Thunderstore, GitHub, archives | Supported |
+| Creation Engine | Skyrim (SE, VR, Legendary), Fallout 4 (and VR), Starfield | Nexus Mods, archives, MO2 | Supported |
+| REDengine 4 | Cyberpunk 2077 | Nexus Mods, archives | Supported |
+| Unreal Engine 3 | Batman: Arkham Knight | Nexus Mods, archives | Supported |
+| The Sims 4 | The Sims 4, from Steam or elsewhere | Nexus Mods, archives, `.package` and `.ts4script` files | Supported |
 
 For Unity games Hermit works wherever BepInEx works, and BepInEx keeps its own
 [platform compatibility chart](https://github.com/BepInEx/BepInEx#platform-compatibility-chart).

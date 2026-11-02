@@ -12,6 +12,12 @@
 ### Fixed
 
 - The pictures of mods on Nexus Mods load after switching to another game.
+- Mods of Unreal Engine 3 games work. Skins and suits, downloadable content of their own, go into a folder of the
+  game's DLC, each skin of a pack as a bundle of its own; a mod that adds to the game's own configuration or
+  localisation is merged into it for the session instead of taking its place. A mod installed before needs installing
+  again.
+- A mod made for TFC Installer, which writes it into the game's own packages, is refused with the reason instead of
+  having its files put into the game where they do nothing: Hermit keeps the game as it is.
 
 ## 0.4.0 — 2026-11-01
 

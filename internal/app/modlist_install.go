@@ -293,6 +293,10 @@ func (s *ModListService) FinishInstall(session string, choices fomod.Choices) (l
 	if err != nil {
 		return library.Profile{}, err
 	}
+	_, modding, err := s.deployedGame(is.gameID)
+	if err != nil {
+		return library.Profile{}, err
+	}
 	var files []fomod.File
 	notes := ""
 	if cfg := is.staged.Fomod; cfg != nil {
@@ -325,7 +329,7 @@ func (s *ModListService) FinishInstall(session string, choices fomod.Choices) (l
 					return err
 				}
 			}
-			if err := is.staged.Install(modDir, files); err != nil {
+			if err := is.staged.Install(modDir, files, modding.Target); err != nil {
 				return err
 			}
 			m := &p.Mods[i]
@@ -349,7 +353,7 @@ func (s *ModListService) FinishInstall(session string, choices fomod.Choices) (l
 		}
 		id := uniqueModID(is.name, taken)
 		modDir := filepath.Join(profileDir, deploy.ModsDir, id)
-		if err := is.staged.Install(modDir, files); err != nil {
+		if err := is.staged.Install(modDir, files, modding.Target); err != nil {
 			os.RemoveAll(modDir)
 			return err
 		}

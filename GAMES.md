@@ -43,7 +43,13 @@ installers) or from Nexus Mods: browsed in Hermit and downloaded through a brows
   DLLs mods put beside the game's executable, as Cyber Engine Tweaks' `version.dll` and RED4ext's `winmm.dll`, are
   loaded through Wine's native overrides. Not tried with real mods yet.
 - Unreal Engine 3: Batman: Arkham Knight. Mods go into the game folder, packages taking the place of the game's own
-  in `BmGame/CookedPCConsole`, which are set aside and put back after the session. Not tried with real mods yet.
+  in `BmGame/CookedPCConsole`, which are set aside and put back after the session. Skins and suits are downloadable
+  content of their own, a folder with `CookedPCConsole` and `Config/BmGame.ini`: each goes, under its own name, into
+  the first of the game's DLC folders, as their authors say to. A mod's changes to the game's own configuration and
+  localisation (`.ini`, `.int` and the other languages) hold only the lines it adds: for the session the game reads
+  its own file with the mods' merged into it. Mods made for TFC Installer (with a `GameProfile.xml`, `.PackagePatch`
+  or `.TFCMapping`) are not installed: TFC Installer writes them into the game's own packages, which Hermit leaves
+  as they are.
 
 The Witcher 3 (REDengine 3) and Unreal Engine 4 and 5 games are not supported.
 

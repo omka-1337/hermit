@@ -43,11 +43,15 @@ func (g Game) Modding() (m Modding, ok bool) {
 		}
 	case EngineRED:
 		if rg, ok := redengine.Find(g.Executable); ok {
-			return Modding{Target: redengine.Target, Layout: rg.Shape.Layout, Nexus: rg.Nexus, Launchers: rg.Launchers}, true
+			shape := rg.Shape
+			shape.Game = g.Path
+			return Modding{Target: redengine.Target, Layout: shape.Layout, Nexus: rg.Nexus, Launchers: rg.Launchers}, true
 		}
 	case EngineUnreal:
 		if ug, ok := unreal.Find(g.Executable); ok {
-			return Modding{Target: unreal.Target, Layout: ug.Shape.Layout, Nexus: ug.Nexus, Launchers: ug.Launchers}, true
+			shape := ug.Shape
+			shape.Game = g.Path
+			return Modding{Target: unreal.Target, Layout: shape.Layout, Nexus: ug.Nexus, Launchers: ug.Launchers}, true
 		}
 	}
 	return Modding{}, false

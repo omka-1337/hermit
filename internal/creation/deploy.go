@@ -114,11 +114,11 @@ func isPlugin(rel string) bool {
 // into the game folder, as with SKSE; otherwise the folder with Data's
 // folders or with plugins is Data, looked for through folders an archive is
 // wrapped in.
-func Layout(dir string) ([]deploy.Part, bool) {
+func Layout(dir, _ string) ([]deploy.Part, bool, error) {
 	for {
 		entries, err := os.ReadDir(dir)
 		if err != nil {
-			return []deploy.Part{{From: dir}}, true
+			return []deploy.Part{{From: dir}}, true, nil
 		}
 		for _, e := range entries {
 			if e.IsDir() && strings.EqualFold(e.Name(), "Data") {
@@ -128,18 +128,18 @@ func Layout(dir string) ([]deploy.Part, bool) {
 						parts = append(parts, deploy.Part{From: filepath.Join(dir, other.Name()), To: "Root/" + other.Name()})
 					}
 				}
-				return parts, false
+				return parts, false, nil
 			}
 		}
 		for _, e := range entries {
 			name := strings.ToLower(e.Name())
 			if (e.IsDir() && slices.Contains(dataFolders, name)) || (!e.IsDir() && isDataFile(name)) {
-				return []deploy.Part{{From: dir}}, false
+				return []deploy.Part{{From: dir}}, false, nil
 			}
 		}
 		only := deploy.OnlyFolder(dir)
 		if only == "" {
-			return []deploy.Part{{From: dir}}, true
+			return []deploy.Part{{From: dir}}, true, nil
 		}
 		dir = only
 	}

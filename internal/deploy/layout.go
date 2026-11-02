@@ -14,6 +14,7 @@ package deploy
 //	overwrite/...           files the game and tools wrote during sessions
 //	downloads/              the archives of mods downloaded from Nexus Mods
 //	.staging/               archives unpacked to be installed
+//	.merged/                the game's files merged with mods' for a session
 //
 // The Root folder follows MO2's Root Builder, so mods set up there come over
 // unchanged.
@@ -37,4 +38,9 @@ type Target struct {
 	// by that name for the session, as the mods of Unreal Engine 3 games
 	// do with the game's packages; otherwise the game's file stays.
 	Replace bool
+	// Merge are the extensions of the text files of the game mods add to
+	// rather than replace, as the configuration and localisation of Unreal
+	// Engine 3 games: the game reads, for the session, its own file with
+	// the mods' merged into it. It goes with Replace.
+	Merge []string
 }

@@ -56,7 +56,7 @@ func TestStageAndInstallPlainArchives(t *testing.T) {
 			t.Fatal(err)
 		}
 		mod := filepath.Join(t.TempDir(), "mod")
-		if err := staged.Install(mod, nil); err != nil {
+		if err := staged.Install(mod, nil, Target); err != nil {
 			t.Fatal(err)
 		}
 		var got []string
@@ -97,7 +97,7 @@ func TestStageFomodAndNames(t *testing.T) {
 		t.Fatalf("staged %+v", staged)
 	}
 	mod := filepath.Join(t.TempDir(), "mod")
-	if err := staged.Install(mod, staged.Fomod.Evaluate(nil, nil).Files); err != nil {
+	if err := staged.Install(mod, staged.Fomod.Evaluate(nil, nil).Files, Target); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(mod, "Fancy.esp")); err != nil {

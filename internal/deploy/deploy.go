@@ -60,12 +60,22 @@ func Deploy(gamePath, profileDir string, mods []string, t Target) (State, error)
 	}
 
 	winners := map[string]source{}
+	// every is each mod's file by a key, lowest priority first, for the
+	// files the target merges.
+	every := map[string][]string{}
 	for _, folder := range Folders(profileDir, mods) {
-		err := walkMod(folder, t, func(key string, src source) { winners[key] = src })
+		err := walkMod(folder, t, func(key string, src source) {
+			winners[key] = src
+			if t.merges(src.rel) {
+				every[key] = append(every[key], src.file)
+			}
+		})
 		if err != nil {
 			return State{}, err
 		}
 	}
+	// Merged files of a session before, the game's put back since.
+	os.RemoveAll(filepath.Join(profileDir, MergedDir))
 
 	s := State{ProfileDir: profileDir}
 	if s.Existing, err = snapshot(dataDir); err != nil {
@@ -81,6 +91,17 @@ func Deploy(gamePath, profileDir string, mods []string, t Target) (State, error)
 			return State{}, err
 		}
 		rel, _ := filepath.Rel(gamePath, target)
+		// A text file the game has, or that more than one mod has, is
+		// merged; the game's own is read before it is set aside.
+		ownFile := exists && !isLinkInto(target, profileDir)
+		merge := t.merges(src.rel) && t.Replace && (ownFile || len(every[key]) > 1)
+		var game []byte
+		if merge && ownFile {
+			if game, err = os.ReadFile(target); err != nil {
+				Undeploy(gamePath, t, s)
+				return State{}, err
+			}
+		}
 		if exists {
 			switch {
 			case isLinkInto(target, profileDir):
@@ -103,7 +124,14 @@ func Deploy(gamePath, profileDir string, mods []string, t Target) (State, error)
 				return State{}, err
 			}
 		}
-		if err := os.Symlink(src.file, target); err != nil {
+		file := src.file
+		if merge {
+			if file, err = writeMerged(profileDir, rel, game, every[key]); err != nil {
+				Undeploy(gamePath, t, s)
+				return State{}, err
+			}
+		}
+		if err := os.Symlink(file, target); err != nil {
 			Undeploy(gamePath, t, s)
 			return State{}, err
 		}

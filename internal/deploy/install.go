@@ -24,9 +24,10 @@ type Part struct {
 }
 
 // Layout works out where the files of an archive unpacked into dir go in a
-// mod's folder. unsure is set when nothing in it looked like the game's
-// files: it is then installed as it is.
-type Layout func(dir string) (parts []Part, unsure bool)
+// mod's folder; name is the mod's, from the archive. unsure is set when
+// nothing in it looked like the game's files: it is then installed as it is.
+// An error says why the archive is not one Hermit installs.
+type Layout func(dir, name string) (parts []Part, unsure bool, err error)
 
 // Staged is a mod archive unpacked and looked at, ready to be installed.
 type Staged struct {
@@ -73,7 +74,11 @@ func Stage(file, stagingParent string, layout Layout, progress func(done, total 
 		s.Author = cfg.Info.Author
 		return s, nil
 	}
-	s.Parts, s.Unsure = layout(dir)
+	var err error
+	if s.Parts, s.Unsure, err = layout(dir, s.Name); err != nil {
+		os.RemoveAll(dir)
+		return nil, err
+	}
 	return s, nil
 }
 
@@ -83,8 +88,10 @@ func (s *Staged) Remove() error { return os.RemoveAll(s.Dir) }
 // Install puts the mod's files into modDir: those a FOMOD installer picked
 // with the options in files, or a plain archive's where its layout puts
 // them. Files modDir has already are replaced and the rest kept, so
-// installing into a mod's folder merges the two.
-func (s *Staged) Install(modDir string, files []fomod.File) error {
+// installing into a mod's folder merges the two; text files of the target's
+// Merge, though, are added to, as the options of one archive each bring
+// their lines of the same configuration.
+func (s *Staged) Install(modDir string, files []fomod.File, t Target) error {
 	if s.Fomod != nil {
 		return fomod.Install(s.FomodRoot, files, modDir)
 	}
@@ -93,7 +100,7 @@ func (s *Staged) Install(modDir string, files []fomod.File) error {
 		if p.To != "" {
 			to = foldJoin(modDir, p.To)
 		}
-		if err := mergeTree(p.From, to); err != nil {
+		if err := mergeTree(p.From, to, t); err != nil {
 			return err
 		}
 	}
@@ -149,22 +156,141 @@ type Shape struct {
 	// Within are folders deeper in the game folder an archive can start
 	// from, such as CookedPCConsole for BmGame/CookedPCConsole.
 	Within map[string]string
+	// Bundles are folders of an archive that are whole bundles of the
+	// game's own kind, recognised by the paths all found in them, and where
+	// they go, under their own name: the downloadable content of Unreal
+	// Engine games, a skin or a suit each, is a folder with CookedPCConsole
+	// and Config/BmGame.ini, put into a folder of DLC. A "*" in where they go
+	// stands for the first folder the game has there; an archive can hold
+	// several bundles side by side.
+	Bundles map[string][]string
+	// Game is the game's folder, which a "*" of Bundles is looked up in.
+	Game string
+	// Foreign are the names and extensions of files by which an archive is
+	// known to be a mod another tool installs by changing the game's own
+	// files; Hermit, keeping the game as it is, does not install those, and
+	// Refusal says so.
+	Foreign []string
+	Refusal string
+}
+
+// foreign refuses an archive with files of Foreign in it.
+func (sh Shape) foreign(dir string) error {
+	if len(sh.Foreign) == 0 {
+		return nil
+	}
+	found := false
+	filepath.WalkDir(dir, func(p string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return err
+		}
+		name := strings.ToLower(d.Name())
+		found = slices.ContainsFunc(sh.Foreign, func(f string) bool {
+			f = strings.ToLower(f)
+			return name == f || strings.HasPrefix(f, ".") && strings.HasSuffix(name, f)
+		})
+		if found {
+			return fs.SkipAll
+		}
+		return nil
+	})
+	if found {
+		return errors.New(sh.Refusal)
+	}
+	return nil
+}
+
+// bundle finds where dir goes when it is a bundle, named name.
+func (sh Shape) bundle(dir, name string) (string, bool) {
+	for target, paths := range sh.Bundles {
+		if !slices.ContainsFunc(paths, func(p string) bool { return !existsFold(dir, p) }) {
+			return path(sh.resolve(target), safeName(name)), true
+		}
+	}
+	return "", false
+}
+
+// resolve puts the first folder the game has in place of a "*" of target.
+func (sh Shape) resolve(target string) string {
+	parts := strings.Split(target, "/")
+	dir := sh.Game
+	for i, part := range parts {
+		if part == "*" {
+			entries, _ := os.ReadDir(dir)
+			first := ""
+			for _, e := range entries {
+				if e.IsDir() {
+					first = e.Name()
+					break
+				}
+			}
+			if first == "" {
+				first = "Hermit"
+			}
+			parts[i] = first
+		}
+		if name, _ := FindFold(dir, parts[i]); name != "" {
+			parts[i] = name
+		}
+		dir = filepath.Join(dir, parts[i])
+	}
+	return strings.Join(parts, "/")
+}
+
+// existsFold reports whether rel, slash-separated, is under dir, in any
+// letter case.
+func existsFold(dir, rel string) bool {
+	for _, part := range strings.Split(rel, "/") {
+		name, _ := FindFold(dir, part)
+		if name == "" {
+			return false
+		}
+		dir = filepath.Join(dir, name)
+	}
+	return true
+}
+
+// safeName is a name fit for a folder of the game.
+func safeName(name string) string {
+	name = strings.Map(func(r rune) rune {
+		if r == '/' || r == '\\' || r == ':' || r < ' ' {
+			return '_'
+		}
+		return r
+	}, strings.TrimSpace(name))
+	if name == "" || name == "." || name == ".." {
+		return "Mod"
+	}
+	return name
 }
 
 // Layout is a Layout for archives of this shape. An archive is laid out as
 // the game folder when it, or the folders it is wrapped in, holds one of
-// the shape's Folders; otherwise its Within folders and Loose files go
-// where they belong.
-func (sh Shape) Layout(dir string) ([]Part, bool) {
+// the shape's Folders; otherwise its Bundles, its Within folders and its
+// Loose files go where they belong.
+func (sh Shape) Layout(dir, name string) ([]Part, bool, error) {
+	if err := sh.foreign(dir); err != nil {
+		return nil, false, err
+	}
+	top := dir
 	for {
 		entries, err := os.ReadDir(dir)
 		if err != nil {
-			return []Part{{From: dir}}, true
+			return []Part{{From: dir}}, true, nil
 		}
 		for _, e := range entries {
 			if e.IsDir() && slices.ContainsFunc(sh.Folders, func(f string) bool { return strings.EqualFold(f, e.Name()) }) {
-				return []Part{{From: dir}}, false
+				return []Part{{From: dir}}, false, nil
 			}
+		}
+		// The archive is one bundle: named as the folder it is wrapped in,
+		// or as the mod.
+		own := name
+		if dir != top {
+			own = filepath.Base(dir)
+		}
+		if to, ok := sh.bundle(dir, own); ok {
+			return []Part{{From: dir, To: to}}, false, nil
 		}
 		var parts []Part
 		known := false
@@ -172,6 +298,11 @@ func (sh Shape) Layout(dir string) ([]Part, bool) {
 			from := filepath.Join(dir, e.Name())
 			if e.IsDir() {
 				if to, ok := foldLookup(sh.Within, e.Name()); ok {
+					parts = append(parts, Part{From: from, To: to})
+					known = true
+					continue
+				}
+				if to, ok := sh.bundle(from, e.Name()); ok {
 					parts = append(parts, Part{From: from, To: to})
 					known = true
 					continue
@@ -186,11 +317,11 @@ func (sh Shape) Layout(dir string) ([]Part, bool) {
 			parts = append(parts, Part{From: from, To: e.Name()})
 		}
 		if known {
-			return parts, false
+			return parts, false, nil
 		}
 		only := OnlyFolder(dir)
 		if only == "" {
-			return []Part{{From: dir}}, true
+			return []Part{{From: dir}}, true, nil
 		}
 		dir = only
 	}
@@ -247,8 +378,8 @@ func isDocument(name string) bool {
 
 // mergeTree moves the files of from, a folder or a file, to the same places
 // in to, into the folders already there in whatever letter case they have,
-// replacing the files that are there.
-func mergeTree(from, to string) error {
+// replacing the files that are there, or adding to those t merges.
+func mergeTree(from, to string, t Target) error {
 	return filepath.WalkDir(from, func(p string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
 			return err
@@ -260,6 +391,15 @@ func mergeTree(from, to string) error {
 		}
 		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
 			return err
+		}
+		if t.merges(target) {
+			if had, err := os.ReadFile(target); err == nil {
+				add, err := os.ReadFile(p)
+				if err != nil {
+					return err
+				}
+				return os.WriteFile(target, AppendText(had, add), 0o644)
+			}
 		}
 		if err := os.Remove(target); err != nil && !errors.Is(err, fs.ErrNotExist) {
 			return err

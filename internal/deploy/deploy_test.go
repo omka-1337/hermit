@@ -169,7 +169,7 @@ func TestShapeLayout(t *testing.T) {
 			t.Fatal(err)
 		}
 		mod := filepath.Join(t.TempDir(), "mod")
-		if err := staged.Install(mod, nil); err != nil {
+		if err := staged.Install(mod, nil, Target{}); err != nil {
 			t.Fatal(err)
 		}
 		var got []string

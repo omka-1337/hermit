@@ -378,7 +378,12 @@ func (s *ModListService) PreviewGame(gameID, profileID string) (PreviewSummary, 
 			mods = append(mods, m.ID)
 		}
 	}
-	p, err := deploy.NewPreview(game.Path, profileDir, mods, modding.Target)
+	// The Sims 4's mods go into its Mods folder; the preview is of that.
+	root, err := game.ModsRoot("")
+	if err != nil {
+		return PreviewSummary{}, err
+	}
+	p, err := deploy.NewPreview(root, profileDir, mods, modding.Target)
 	if err != nil {
 		return PreviewSummary{}, err
 	}

@@ -4,6 +4,9 @@
 
 ### Added
 
+- The Sims 4, run by Steam or any other way. Its mods go into its Mods folder in the Wine prefix it runs in — Steam's,
+  or one chosen in the game's settings — for as long as it runs, next to the player's own, which stay. Custom content
+  and scripts install as single .package and .ts4script files as well as from archives.
 - The status bar shows when Hermit is loading something, from disk or into memory — as it starts, on F5, opening a
   page — with a bar running in its accent colour, where downloads show theirs.
 - The pictures of mods on Nexus Mods shimmer while they load, fade in once they are there, and show a broken picture

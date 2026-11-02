@@ -66,6 +66,12 @@ export enum Engine {
      */
     EngineRED = "redengine",
     EngineUnreal = "unreal",
+
+    /**
+     * EngineSims4 is The Sims 4's own engine, whose mods go into the game's
+     * folder of Documents rather than the game's.
+     */
+    EngineSims4 = "sims4",
 };
 
 /**
@@ -103,6 +109,12 @@ export interface Game {
      * the game. Profiles not listed are in games/<id>/profiles/<profile-id>.
      */
     "profileDirs"?: { [_ in string]?: string } | null;
+
+    /**
+     * Prefix is the Wine prefix the game runs in, chosen for a game Steam
+     * does not run, whose mods go into it: The Sims 4's.
+     */
+    "prefix"?: string;
 }
 
 /**

@@ -154,6 +154,14 @@ export function SetLaunchExecutable(id: string, exe: string): $CancellablePromis
 }
 
 /**
+ * SetPrefix chooses the Wine prefix a game Steam does not run runs in, for
+ * the mods that go into it; "" forgets it.
+ */
+export function SetPrefix(id: string, prefix: string): $CancellablePromise<$models.Game> {
+    return $Call.ByID(3082680909, id, prefix);
+}
+
+/**
  * UpdateProfile loads a profile, applies fn and saves the result atomically
  * with respect to other library operations.
  */

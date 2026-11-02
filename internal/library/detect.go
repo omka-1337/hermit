@@ -10,6 +10,7 @@ import (
 	"hermit/internal/creation"
 	"hermit/internal/deploy"
 	"hermit/internal/redengine"
+	"hermit/internal/sims4"
 	"hermit/internal/unreal"
 )
 
@@ -22,6 +23,9 @@ const (
 	EngineCreation Engine = "creation"  // the Creation Engine
 	EngineRED      Engine = "redengine" // CD Projekt Red's REDengine
 	EngineUnreal   Engine = "unreal"
+	// EngineSims4 is The Sims 4's own engine, whose mods go into the game's
+	// folder of Documents rather than the game's.
+	EngineSims4 Engine = "sims4"
 )
 
 // Detection is what can be learned about a game from its install directory.
@@ -118,6 +122,10 @@ func DetectGame(dir string) Detection {
 			d.Engine, d.EngineVersion, d.Executable, d.Runtime = EngineUnreal, g.EngineVersion, g.Exe, RuntimeProton
 			return d
 		}
+	}
+	if hasPathFold(dir, sims4.Exe) {
+		d.Engine, d.Executable, d.Runtime = EngineSims4, sims4.Exe, RuntimeProton
+		return d
 	}
 	return d
 }

@@ -91,7 +91,9 @@ func NewPreview(gamePath, profileDir string, mods []string, t Target) (*Preview,
 		place(rel).source = ""
 		return nil
 	})
-	if err != nil {
+	// A folder not made yet, as The Sims 4's Mods before the first game,
+	// holds nothing.
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return nil, err
 	}
 	game := map[*previewNode]bool{}

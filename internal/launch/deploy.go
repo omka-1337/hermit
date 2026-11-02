@@ -62,7 +62,10 @@ func deployMods(game library.Game, profile library.Profile, profileDir, dataDir 
 		}
 		state, err = creation.Deploy(game.Path, profileDir, mods, prefix)
 	} else {
-		state.State, err = deploy.Deploy(game.Path, profileDir, mods, modding.Target)
+		var root string
+		if root, err = modsRoot(game, env); err == nil {
+			state.State, err = deploy.Deploy(root, profileDir, mods, modding.Target)
+		}
 	}
 	if err != nil {
 		return nil, nil, err
@@ -121,9 +124,32 @@ func undeployState(game library.Game, modding library.Modding, state creation.St
 	if game.Engine == library.EngineCreation {
 		_, err = creation.Undeploy(game.Path, state)
 	} else {
-		_, err = deploy.Undeploy(game.Path, modding.Target, state.State)
+		root := state.Root
+		if root == "" {
+			root = game.Path
+		}
+		_, err = deploy.Undeploy(root, modding.Target, state.State)
 	}
 	return err
+}
+
+// modsRoot is where the mods of a session go, made if need be: the game's
+// folder, or The Sims 4's Mods folder in the Wine prefix the session's
+// environment names, Steam's or a launcher's, or the game's own.
+func modsRoot(game library.Game, env []string) (string, error) {
+	prefix := ""
+	for _, kv := range env {
+		for _, key := range []string{"STEAM_COMPAT_DATA_PATH=", "WINEPREFIX="} {
+			if v, ok := strings.CutPrefix(kv, key); ok && v != "" && prefix == "" {
+				prefix = v
+			}
+		}
+	}
+	root, err := game.ModsRoot(prefix)
+	if err != nil {
+		return "", err
+	}
+	return root, os.MkdirAll(root, 0o755)
 }
 
 func writeDeployState(dataDir string, s creation.State) error {

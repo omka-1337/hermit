@@ -44,6 +44,9 @@ type Game struct {
 	// folders, so a profile with large mods can live on another disk, next to
 	// the game. Profiles not listed are in games/<id>/profiles/<profile-id>.
 	ProfileDirs map[string]string `json:"profileDirs,omitempty"`
+	// Prefix is the Wine prefix the game runs in, chosen for a game Steam
+	// does not run, whose mods go into it: The Sims 4's.
+	Prefix string `json:"prefix,omitempty"`
 }
 
 // GameCandidate is a game that can be added: found in Steam or picked manually.

@@ -51,6 +51,12 @@ installers) or from Nexus Mods: browsed in Hermit and downloaded through a brows
   or `.TFCMapping`) are not installed: TFC Installer writes them into the game's own packages, which Hermit leaves
   as they are.
 
+- The Sims 4. Its mods go not into the game folder but into `Documents/Electronic Arts/The Sims 4/Mods` in the
+  Wine prefix the game runs in: Steam's for the game, or one chosen in the game's settings when it is run some other
+  way. They are linked in for the session, next to what the player keeps there, and taken out after it. Custom
+  content (`.package`) and scripts (`.ts4script`) install on their own or from archives. Not tried with real mods
+  yet.
+
 The Witcher 3 (REDengine 3) and Unreal Engine 4 and 5 games are not supported.
 
 ## Old modpacks

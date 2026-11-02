@@ -26,6 +26,9 @@ var notDeployed = []string{"meta.ini", "fomod"}
 type State struct {
 	// ProfileDir is the profile the links point into.
 	ProfileDir string `json:"profileDir"`
+	// Root is the folder the mods went into: the game's, or another, such
+	// as The Sims 4's Mods folder.
+	Root string `json:"root,omitempty"`
 	// Links are the symlinks made, relative to the game folder.
 	Links []string `json:"links"`
 	// Existing are the lower-case paths, relative to the Target's Data, of
@@ -77,7 +80,7 @@ func Deploy(gamePath, profileDir string, mods []string, t Target) (State, error)
 	// Merged files of a session before, the game's put back since.
 	os.RemoveAll(filepath.Join(profileDir, MergedDir))
 
-	s := State{ProfileDir: profileDir}
+	s := State{ProfileDir: profileDir, Root: gamePath}
 	if s.Existing, err = snapshot(dataDir); err != nil {
 		return State{}, err
 	}

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Dialogs } from "@wailsio/runtime";
 import { Engine, errorMessage, Game, LaunchService, Library, Runtime } from "../api";
 import EditableName from "./EditableName";
 import { useLaunchInfo } from "./launch";
@@ -126,6 +127,9 @@ export default function GameSettings({ game, onRemove, onRenamed, align = "right
               </span>
             </label>
           )}
+          {game.engine === Engine.EngineSims4 && (
+            <WinePrefix game={game} onChanged={onRenamed} onError={setError} />
+          )}
           <ErrorText>{error}</ErrorText>
           <div className={`flex flex-col gap-1.5 ${pickExecutable ? "border-t border-zinc-800 pt-3" : ""}`}>
             <Button
@@ -162,5 +166,53 @@ function GearIcon() {
       <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
       <circle cx="12" cy="12" r="3" />
     </svg>
+  );
+}
+
+// WinePrefix is the Wine prefix The Sims 4 runs in, whose Mods folder its
+// mods go into: Steam's own for the game when Steam runs it, chosen here
+// when the game is run some other way.
+function WinePrefix({ game, onChanged, onError }: { game: Game; onChanged?: (game: Game) => void; onError: (e: string) => void }) {
+  const choose = async () => {
+    onError("");
+    try {
+      const dir = await Dialogs.OpenFile({
+        Title: "Choose the Wine prefix the game runs in",
+        CanChooseDirectories: true,
+        CanChooseFiles: false,
+      });
+      if (!dir) return;
+      const changed = await Library.SetPrefix(game.id, dir);
+      onChanged?.(changed);
+    } catch (err) {
+      onError(errorMessage(err));
+    }
+  };
+  const forget = async () => {
+    try {
+      onChanged?.(await Library.SetPrefix(game.id, ""));
+    } catch (err) {
+      onError(errorMessage(err));
+    }
+  };
+  return (
+    <div className="flex flex-col gap-1.5 text-sm">
+      <span className="text-zinc-400">Wine prefix</span>
+      <span className="truncate text-xs text-zinc-300 select-text" title={game.prefix}>
+        {game.prefix || (game.steamAppId ? "Steam's prefix for the game" : "Not chosen")}
+      </span>
+      <div className="flex gap-2">
+        <Button onClick={choose}>Choose…</Button>
+        {game.prefix && (
+          <Button variant="ghost" onClick={forget}>
+            Forget
+          </Button>
+        )}
+      </div>
+      <span className="text-xs text-zinc-500">
+        The game&apos;s mods go into Documents/Electronic Arts/The Sims 4/Mods inside it, for as long as the game runs
+        through Hermit.
+      </span>
+    </div>
   );
 }

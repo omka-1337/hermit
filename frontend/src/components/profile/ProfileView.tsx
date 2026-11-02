@@ -44,7 +44,7 @@ export function profileTabs(game: Game, profile: Profile | null, desktop = false
         ...(desktop
           ? [
               { id: "browse" as const, label: "Browse" },
-              { id: "data" as const, label: game.engine === Engine.EngineCreation ? "Data" : "Game folder" },
+              { id: "data" as const, label: game.engine === Engine.EngineCreation ? "Data" : game.engine === Engine.EngineSims4 ? "Mods folder" : "Game folder" },
               { id: "tools" as const, label: "Tools" },
             ]
           : []),

@@ -23,7 +23,7 @@ installed.
 - Config editor for the mods' settings
 - Profile export and import compatible with r2modman (`.r2z` files and profile codes)
 
-**Skyrim, Fallout 4, Starfield, Cyberpunk 2077, Batman: Arkham Knight**
+**Skyrim, Fallout 4, Starfield, Cyberpunk 2077, Batman: Arkham Knight, The Sims 4**
 
 - A load order of mods, as in Mod Organizer 2: drag mods into place, group them under separators, and see at a click
   which mods a mod overwrites and which overwrite it
@@ -117,6 +117,7 @@ launch wrapper runs the game through the shell.
 | Creation Engine | Skyrim (SE, VR, Legendary), Fallout 4 (and VR), Starfield | Nexus Mods, archives, MO2 | Used on Skyrim SE; the others share its code |
 | REDengine 4 | Cyberpunk 2077 | Nexus Mods, archives | New, not yet tried with real mods |
 | Unreal Engine 3 | Batman: Arkham Knight | Nexus Mods, archives | New, not yet tried with real mods |
+| The Sims 4 | The Sims 4, from Steam or elsewhere | Nexus Mods, archives, `.package` and `.ts4script` files | New, not yet tried with real mods |
 
 For Unity games Hermit works wherever BepInEx works, and BepInEx keeps its own
 [platform compatibility chart](https://github.com/BepInEx/BepInEx#platform-compatibility-chart).

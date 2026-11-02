@@ -63,7 +63,9 @@ export type { AppInfo, BepInExBuild, LoaderStatus, SteamSetup, Update } from "..
 // linked into it for each session: their profiles are an ordered list of
 // mods, as in Mod Organizer 2, rather than BepInEx plugins.
 export function deployed(engine: Engine): boolean {
-  return engine === Engine.EngineCreation || engine === Engine.EngineRED || engine === Engine.EngineUnreal;
+  return (
+    engine === Engine.EngineCreation || engine === Engine.EngineRED || engine === Engine.EngineUnreal || engine === Engine.EngineSims4
+  );
 }
 
 export function isCancelled(err: unknown): boolean {

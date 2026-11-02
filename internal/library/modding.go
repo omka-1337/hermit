@@ -6,6 +6,7 @@ import (
 	"hermit/internal/creation"
 	"hermit/internal/deploy"
 	"hermit/internal/redengine"
+	"hermit/internal/sims4"
 	"hermit/internal/unreal"
 )
 
@@ -15,7 +16,7 @@ import (
 // mods, each in a folder of its own.
 func (e Engine) Deployed() bool {
 	switch e {
-	case EngineCreation, EngineRED, EngineUnreal:
+	case EngineCreation, EngineRED, EngineUnreal, EngineSims4:
 		return true
 	}
 	return false
@@ -47,6 +48,8 @@ func (g Game) Modding() (m Modding, ok bool) {
 			shape.Game = g.Path
 			return Modding{Target: redengine.Target, Layout: shape.Layout, Nexus: rg.Nexus, Launchers: rg.Launchers}, true
 		}
+	case EngineSims4:
+		return Modding{Target: sims4.Target, Layout: sims4.Shape.Layout, Nexus: sims4.Nexus}, true
 	case EngineUnreal:
 		if ug, ok := unreal.Find(g.Executable); ok {
 			shape := ug.Shape
@@ -75,5 +78,25 @@ func NexusGame(domain string) (string, bool) {
 			return g.Name, true
 		}
 	}
+	if strings.EqualFold(sims4.Nexus, domain) {
+		return "The Sims 4", true
+	}
 	return "", false
+}
+
+// ModsRoot is the folder the game's mods are deployed into: the game's own
+// folder, but for The Sims 4 its Mods folder in the Wine prefix it runs in,
+// prefix when one is given, as the environment of a session says, or the
+// one chosen for the game, or Steam's.
+func (g Game) ModsRoot(prefix string) (string, error) {
+	if g.Engine != EngineSims4 {
+		return g.Path, nil
+	}
+	if prefix == "" {
+		prefix = g.Prefix
+	}
+	if prefix == "" {
+		prefix = creation.SteamCompatData(g.Path, g.SteamAppID)
+	}
+	return sims4.ModsDir(prefix)
 }

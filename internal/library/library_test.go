@@ -228,6 +228,10 @@ func TestDetectGame(t *testing.T) {
 			Detection{Engine: EngineRED, EngineVersion: "4", Runtime: RuntimeProton, Backend: BackendUnknown, Executable: "bin/x64/Cyberpunk2077.exe"},
 		},
 		{
+			[]string{"Game/", "Game/Bin/", "Game/Bin/TS4_x64.exe", "Data/"},
+			Detection{Engine: EngineSims4, Runtime: RuntimeProton, Backend: BackendUnknown, Executable: "Game/Bin/TS4_x64.exe"},
+		},
+		{
 			// In whatever letter case.
 			[]string{"binaries/", "binaries/WIN64/", "binaries/WIN64/batmanak.exe", "BmGame/"},
 			Detection{Engine: EngineUnreal, EngineVersion: "3", Runtime: RuntimeProton, Backend: BackendUnknown, Executable: "Binaries/Win64/BatmanAK.exe"},

@@ -77,7 +77,7 @@ export default function AddGameForm({ onAdded, extraActions }: Props) {
             <p className="text-sm text-amber-400">
               No game Hermit can mod was found in this folder: it mods Unity games through BepInEx, Creation
               Engine games such as Skyrim, Cyberpunk 2077 on REDengine and Batman: Arkham Knight on Unreal
-              Engine 3. Make sure you picked the folder containing the game executable.
+              Engine 3 and The Sims 4. Make sure you picked the folder containing the game executable.
             </p>
           )}
           {candidate.alreadyAdded && <p className="text-sm text-amber-400">This game is already added.</p>}

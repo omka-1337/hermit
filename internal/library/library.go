@@ -27,6 +27,7 @@ import (
 	"syscall"
 
 	"hermit/internal/deploy"
+	"hermit/internal/sims4"
 	"hermit/internal/steam"
 )
 
@@ -269,6 +270,23 @@ func (l *Library) RenameGame(id, name string) (Game, error) {
 		return Game{}, err
 	}
 	g.Name = name
+	return g, l.saveGame(g)
+}
+
+// SetPrefix chooses the Wine prefix a game Steam does not run runs in, for
+// the mods that go into it; "" forgets it.
+func (l *Library) SetPrefix(id, prefix string) (Game, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	g, err := l.loadGame(id)
+	if err != nil {
+		return Game{}, err
+	}
+	if prefix != "" && !sims4.IsPrefix(prefix) {
+		return Game{}, fmt.Errorf("%s is not a Wine prefix: it has no drive_c", prefix)
+	}
+	g.Prefix = prefix
 	return g, l.saveGame(g)
 }
 

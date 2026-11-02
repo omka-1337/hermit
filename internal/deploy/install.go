@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -52,7 +53,15 @@ func Stage(file, stagingParent string, layout Layout, progress func(done, total 
 	id := make([]byte, 6)
 	rand.Read(id)
 	dir := filepath.Join(stagingParent, hex.EncodeToString(id))
-	if err := archive.Extract(file, dir, progress); err != nil {
+	// A file that is no archive is a mod of one file, as The Sims 4's
+	// custom content comes, put as it is in the folder unpacked.
+	var err error
+	if archive.Supported(file) {
+		err = archive.Extract(file, dir, progress)
+	} else if err = os.MkdirAll(dir, 0o755); err == nil {
+		err = copyFile(file, filepath.Join(dir, filepath.Base(file)))
+	}
+	if err != nil {
 		os.RemoveAll(dir)
 		return nil, err
 	}
@@ -74,7 +83,6 @@ func Stage(file, stagingParent string, layout Layout, progress func(done, total 
 		s.Author = cfg.Info.Author
 		return s, nil
 	}
-	var err error
 	if s.Parts, s.Unsure, err = layout(dir, s.Name); err != nil {
 		os.RemoveAll(dir)
 		return nil, err
@@ -464,4 +472,21 @@ func firstNonEmpty(values ...string) string {
 		}
 	}
 	return ""
+}
+
+func copyFile(from, to string) error {
+	in, err := os.Open(from)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+	out, err := os.Create(to)
+	if err != nil {
+		return err
+	}
+	if _, err := io.Copy(out, in); err != nil {
+		out.Close()
+		return err
+	}
+	return out.Close()
 }

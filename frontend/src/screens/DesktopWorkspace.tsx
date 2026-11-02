@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Dialogs, Events } from "@wailsio/runtime";
-import { confirmDanger, deployed, Download, DownloadService, errorMessage, Game, Library, Profile } from "../api";
+import { confirmDanger, deployed, Download, DownloadService, Engine, errorMessage, Game, Library, Profile } from "../api";
 import { stageColors, useDownloads, useNexusSetup } from "../downloads";
 import { useLoading } from "../loading";
 import LoadingBar from "../components/LoadingBar";
@@ -114,7 +114,10 @@ export default function DesktopWorkspace({ games, selectedId, onSelect, onGamesC
         Title: "Choose mod archives",
         CanChooseFiles: true,
         AllowsMultipleSelection: true,
-        Filters: [{ DisplayName: "Mod archives (zip, 7z, rar)", Pattern: "*.zip;*.7z;*.rar" }],
+        Filters:
+          game.engine === Engine.EngineSims4
+            ? [{ DisplayName: "Mods (package, ts4script, zip, 7z, rar)", Pattern: "*.package;*.ts4script;*.zip;*.7z;*.rar" }]
+            : [{ DisplayName: "Mod archives (zip, 7z, rar)", Pattern: "*.zip;*.7z;*.rar" }],
       });
       if (!files?.length) return;
       setError("");

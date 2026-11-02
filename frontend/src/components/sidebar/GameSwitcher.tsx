@@ -85,6 +85,8 @@ function engineName(game: Game): string {
       return game.engineVersion ? `REDengine ${game.engineVersion}` : "REDengine";
     case Engine.EngineUnreal:
       return game.engineVersion ? `Unreal Engine ${game.engineVersion}` : "Unreal Engine";
+    case Engine.EngineSims4:
+      return "Custom content and scripts";
   }
   return "";
 }

@@ -68,6 +68,8 @@ function engineLabel(engine: Engine, version: string): string | null {
       return version ? `REDengine ${version}` : "REDengine";
     case Engine.EngineUnreal:
       return version ? `Unreal Engine ${version}` : "Unreal Engine";
+    case Engine.EngineSims4:
+      return "The Sims 4";
   }
   return null;
 }

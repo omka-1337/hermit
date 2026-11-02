@@ -29,5 +29,6 @@ export function useNexusSetup() {
 }
 
 // stageColors tell the stages of the work apart wherever it is shown:
-// downloading in blue, unpacking and installing in amber.
-export const stageColors = { download: "bg-sky-500", unpack: "bg-amber-500" } as const;
+// downloading in blue, unpacking and installing in amber, and Hermit loading
+// its own things, from disk or into memory, in its accent.
+export const stageColors = { download: "bg-sky-500", unpack: "bg-amber-500", load: "bg-accent-500" } as const;

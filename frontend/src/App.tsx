@@ -5,6 +5,7 @@ import SteamSetupWindow from "./screens/SteamSetupWindow";
 import FomodWindow from "./screens/FomodWindow";
 import { UIModeProvider } from "./uimode";
 import WindowFrame from "./components/WindowFrame";
+import LoadingBar from "./components/LoadingBar";
 import Main from "./screens/Main";
 import Setup from "./screens/Setup";
 
@@ -74,7 +75,15 @@ function App() {
     }
   };
 
-  let screen: React.ReactNode = null;
+  // While Hermit starts, its status bar is there already, loading.
+  let screen: React.ReactNode = (
+    <div className="flex h-full flex-col">
+      <div className="flex-1" />
+      <footer className="relative flex h-7 shrink-0 items-center border-t border-zinc-800 bg-zinc-900">
+        <LoadingBar />
+      </footer>
+    </div>
+  );
   switch (state.status) {
     case "error":
       screen = <div className="p-8 text-red-400">Failed to load: {state.message}</div>;

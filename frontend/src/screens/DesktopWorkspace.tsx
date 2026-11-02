@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Dialogs, Events } from "@wailsio/runtime";
 import { confirmDanger, deployed, Download, DownloadService, errorMessage, Game, Library, Profile } from "../api";
 import { stageColors, useDownloads, useNexusSetup } from "../downloads";
+import { useLoading } from "../loading";
+import LoadingBar from "../components/LoadingBar";
 import { QueueStatus, useInstallQueue } from "../installQueue";
 import { installFromFileEvent } from "../components/TitleMenus";
 import GamePicker from "../components/GamePicker";
@@ -430,7 +432,9 @@ export default function DesktopWorkspace({ games, selectedId, onSelect, onGamesC
 // StatusBar runs along the bottom of the window: how many mods the profile
 // has and, in its middle, the work under way: how many downloads and
 // archives are left in the queue, a bar in the colour of what is being done,
-// downloading or unpacking, and how far it is.
+// downloading or unpacking, and how far it is. With none of that, the bar
+// runs in the accent colour while Hermit loads something, from disk or into
+// memory, for as long as that takes, which is not known beforehand.
 function StatusBar({ profile, queue, downloads }: { profile: Profile | null; queue: QueueStatus | null; downloads: Download[] }) {
   const mods = profile?.mods?.filter((m) => !m.separator) ?? [];
   const on = mods.filter((m) => m.enabled).length;
@@ -451,6 +455,7 @@ function StatusBar({ profile, queue, downloads }: { profile: Profile | null; que
   }
   const count = (running ? 1 : 0) + waiting + archives;
   const percent = Math.round(share * 100);
+  const loading = useLoading();
 
   return (
     <footer className="relative flex h-7 shrink-0 items-center gap-4 border-t border-zinc-800 bg-zinc-900 px-3 text-xs text-zinc-500">
@@ -459,6 +464,7 @@ function StatusBar({ profile, queue, downloads }: { profile: Profile | null; que
           {mods.length} {mods.length === 1 ? "mod" : "mods"}, {on} on
         </span>
       )}
+      {!stage && loading && <LoadingBar />}
       {stage && (
         <div
           className="absolute left-1/2 flex -translate-x-1/2 items-center gap-2"

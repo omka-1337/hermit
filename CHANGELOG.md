@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- The status bar shows when Hermit is loading something, from disk or into memory — as it starts, on F5, opening a
+  page — with a bar running in its accent colour, where downloads show theirs.
+
 ## 0.4.0 — 2026-11-01
 
 Mods from Nexus Mods are found, downloaded and installed without leaving Hermit, and a Creation Engine profile's

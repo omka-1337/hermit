@@ -101,3 +101,18 @@ select option {
 .markdown th,
 .markdown td { @apply border border-zinc-700 px-2 py-1; }
 .markdown hr { @apply my-4 border-zinc-800; }
+
+/* The bar of the status bar while Hermit loads something for as long as it
+   takes: a stretch of it runs from end to end. */
+@keyframes loading-bar {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(250%);
+  }
+}
+
+.loading-bar {
+  animation: loading-bar 1.1s ease-in-out infinite;
+}

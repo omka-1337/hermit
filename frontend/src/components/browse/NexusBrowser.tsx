@@ -18,6 +18,7 @@ import { useUIMode } from "../../uimode";
 import BBCode from "../BBCode";
 import { Button, ErrorText, inputClass, NsfwBadge } from "../ui";
 import { CardsIcon, ListIcon, ViewButton } from "./PackageBrowser";
+import RemoteImage from "./RemoteImage";
 
 const sorts: { value: string; label: string }[] = [
   { value: "endorsements", label: "Most endorsed" },
@@ -152,9 +153,7 @@ export default function NexusBrowser({ game, installed }: Props) {
                       selected === m.modId ? "border-accent-500 bg-zinc-800" : "border-zinc-800 bg-zinc-900/60 hover:border-zinc-700"
                     }`}
                   >
-                    <div className="aspect-video w-full bg-zinc-800">
-                      {m.thumbnailUrl && <img src={m.thumbnailUrl} alt="" loading="lazy" className="h-full w-full object-cover" />}
-                    </div>
+                    <RemoteImage key={m.thumbnailUrl} src={m.thumbnailUrl} className="aspect-video w-full" />
                     <div className="flex min-w-0 flex-1 flex-col gap-0.5 p-2.5">
                       <span className="truncate text-sm font-medium">{m.name}</span>
                       <span className="truncate text-xs text-zinc-500">by {m.author}</span>
@@ -230,11 +229,7 @@ export default function NexusBrowser({ game, installed }: Props) {
 // Thumbnail is a mod's picture in a row of the list, wider than tall as
 // Nexus Mods' pictures are.
 function Thumbnail({ url }: { url: string }) {
-  return (
-    <div className="h-12 w-20 shrink-0 overflow-hidden rounded-md bg-zinc-800">
-      {url && <img src={url} alt="" loading="lazy" className="h-full w-full object-cover" />}
-    </div>
-  );
+  return <RemoteImage key={url} src={url} className="h-12 w-20 shrink-0 rounded-md" />;
 }
 
 const categoryLabels: Record<string, string> = {
@@ -292,7 +287,7 @@ function NexusDetails({ game, modId, onClose }: { game: Game; modId: number; onC
         {!page && !error && <p className="text-sm text-zinc-500">Loading…</p>}
         {page && (
           <div className="flex flex-col gap-5">
-            {page.pictureUrl && <img src={page.pictureUrl} alt="" className="w-full rounded-lg bg-zinc-800" />}
+            {page.pictureUrl && <RemoteImage key={page.pictureUrl} src={page.pictureUrl} className="aspect-video w-full rounded-lg" />}
             <div className="flex flex-col gap-1">
               <div className="flex items-center gap-2">
                 <h2 className="text-xl font-semibold">{page.name}</h2>

@@ -6,6 +6,12 @@
 
 - The status bar shows when Hermit is loading something, from disk or into memory — as it starts, on F5, opening a
   page — with a bar running in its accent colour, where downloads show theirs.
+- The pictures of mods on Nexus Mods shimmer while they load, fade in once they are there, and show a broken picture
+  if they do not come.
+
+### Fixed
+
+- The pictures of mods on Nexus Mods load after switching to another game.
 
 ## 0.4.0 — 2026-11-01
 

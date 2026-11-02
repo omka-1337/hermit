@@ -13,5 +13,6 @@ export default function NexusBrowseTab() {
     const id = m.source?.type === "nexus" && nexusMod.exec(m.source.url ?? "")?.[1];
     if (id) installed.add(Number(id));
   }
-  return <NexusBrowser game={game} installed={installed} />;
+  // Another game is a browser of its own, its search and pictures anew.
+  return <NexusBrowser key={game.id} game={game} installed={installed} />;
 }

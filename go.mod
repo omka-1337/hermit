@@ -1,16 +1,16 @@
 module hermit
 
-go 1.25.0
+go 1.26.0
 
 require (
 	github.com/adrg/xdg v0.5.3
 	github.com/bodgit/sevenzip v1.6.5
-	github.com/klauspost/compress v1.19.0
+	github.com/klauspost/compress v1.20.3
 	github.com/nwaples/rardecode/v2 v2.4.5
-	github.com/ulikunitz/xz v0.5.15
+	github.com/ulikunitz/xz v0.5.17
 	github.com/wailsapp/wails/v3 v3.0.0-beta.23
-	go.yaml.in/yaml/v3 v3.0.5
-	golang.org/x/text v0.40.0
+	go.yaml.in/yaml/v3 v3.0.6
+	golang.org/x/text v0.43.0
 )
 
 require (

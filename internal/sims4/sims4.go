@@ -20,23 +20,37 @@ const Exe = "Game/Bin/TS4_x64.exe"
 // Nexus is the game's part of nexusmods.com.
 const Nexus = "thesims4"
 
-// Target is where the mods go: into the Mods folder, laid out as they are.
-// The player's own files there stay.
-var Target = deploy.Target{}
+// Target is where the mods go: deployed into the game's folder of Documents,
+// custom content and scripts into its Mods folder, laid out as they are, and
+// what a mod's Root folder holds into the folder of Documents itself, as
+// Sims made ready to place, which go into Tray. The player's own files stay.
+var Target = deploy.Target{Data: "Mods"}
+
+// trayFiles are the extensions of what goes into Tray: households, lots and
+// rooms saved in the gallery's format.
+var trayFiles = []string{".trayitem", ".householdbinary", ".hhi", ".sgi", ".blueprint", ".bpi", ".room", ".rmi"}
 
 // Shape is how mod archives are laid out: custom content and scripts, maybe
-// in a folder of their own or in a Mods folder.
-var Shape = deploy.Shape{
-	Loose:  map[string]string{".package": "", ".ts4script": ""},
-	Within: map[string]string{"Mods": ""},
-}
+// in a folder of their own or in a Mods folder, and Sims for Tray beside
+// them.
+var Shape = func() deploy.Shape {
+	loose := map[string]string{".package": "", ".ts4script": ""}
+	for _, ext := range trayFiles {
+		loose[ext] = "Root/Tray"
+	}
+	return deploy.Shape{
+		Loose:  loose,
+		Within: map[string]string{"Mods": "", "Tray": "Root/Tray"},
+	}
+}()
 
 // documents is the game's folder in Documents.
 var documents = []string{"Electronic Arts", "The Sims 4"}
 
-// ModsDir is the Mods folder of the game in a Wine prefix: a folder with
-// drive_c in it, or Proton's compatibility data folder with its pfx.
-func ModsDir(prefix string) (string, error) {
+// DocumentsDir is the game's folder of Documents in a Wine prefix, with Mods
+// and Tray in it: a folder with drive_c in it, or Proton's compatibility
+// data folder with its pfx.
+func DocumentsDir(prefix string) (string, error) {
 	if prefix == "" {
 		return "", errors.New("Hermit does not know the Wine prefix The Sims 4 runs in; choose it in the game's settings")
 	}
@@ -68,7 +82,7 @@ func ModsDir(prefix string) (string, error) {
 		docs = "Documents"
 	}
 	dir = filepath.Join(dir, docs)
-	for _, part := range append(documents, "Mods") {
+	for _, part := range documents {
 		if name, _ := deploy.FindFold(dir, part); name != "" {
 			part = name
 		}
@@ -77,7 +91,7 @@ func ModsDir(prefix string) (string, error) {
 	return dir, nil
 }
 
-// IsPrefix reports whether dir is a Wine prefix ModsDir can use.
+// IsPrefix reports whether dir is a Wine prefix DocumentsDir can use.
 func IsPrefix(dir string) bool {
 	for _, d := range []string{filepath.Join(dir, "drive_c"), filepath.Join(dir, "pfx", "drive_c")} {
 		if fi, err := os.Stat(d); err == nil && fi.IsDir() {

@@ -52,8 +52,8 @@ installers) or from Nexus Mods: browsed in Hermit and downloaded through a brows
   as they are.
 
 - The Sims 4. Its mods go not into the game folder but into `Documents/Electronic Arts/The Sims 4/Mods` in the
-  Wine prefix the game runs in: Steam's for the game, or one chosen in the game's settings when it is run some other
-  way. They are linked in for the session, next to what the player keeps there, and taken out after it. Custom
+  Wine prefix the game runs in: Steam's for the game, PortProton's for it, or one chosen in the game's settings. Sims
+  made ready to place (`.trayitem` and the files beside it) go into `Tray` there. They are linked in for the session, next to what the player keeps there, and taken out after it. Custom
   content (`.package`) and scripts (`.ts4script`) install on their own or from archives. Not tried with real mods
   yet.
 

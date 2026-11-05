@@ -14,6 +14,10 @@
 
 ### Fixed
 
+- What macOS puts into archives made on a Mac — `__MACOSX` folders with a `._` file for each file, `.DS_Store` — and
+  Windows's `Thumbs.db` are left out when a mod is installed: The Sims 4 took the `._` files for broken custom content
+  and would not start.
+- Sims made ready to place, which come with custom content, go into The Sims 4's Tray rather than its Mods.
 - A game outside Steam that Hermit starts itself, through PortProton, has no section about launch options on its
   page any more.
 - The pictures of mods on Nexus Mods load after switching to another game.

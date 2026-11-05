@@ -65,6 +65,7 @@ func Stage(file, stagingParent string, layout Layout, progress func(done, total 
 		os.RemoveAll(dir)
 		return nil, err
 	}
+	removeJunk(dir)
 	s := &Staged{Dir: dir, File: filepath.Base(file)}
 	s.Name = NameFromFile(s.File)
 	s.NexusID, s.Version, _ = ParseNexusFile(s.File)
@@ -489,4 +490,25 @@ func copyFile(from, to string) error {
 		return err
 	}
 	return out.Close()
+}
+
+// removeJunk takes out of an unpacked archive what the system it was made on
+// put there and no game reads: macOS's __MACOSX folders, with a "._" file of
+// each file's resource fork, which a game that loads every file of a kind
+// takes for a broken mod, its .DS_Store and Windows's Thumbs.db.
+func removeJunk(dir string) {
+	filepath.WalkDir(dir, func(p string, d fs.DirEntry, err error) error {
+		if err != nil || p == dir {
+			return nil
+		}
+		name := d.Name()
+		switch {
+		case d.IsDir() && name == "__MACOSX":
+			os.RemoveAll(p)
+			return filepath.SkipDir
+		case !d.IsDir() && (name == ".DS_Store" || strings.EqualFold(name, "Thumbs.db") || strings.HasPrefix(name, "._")):
+			os.Remove(p)
+		}
+		return nil
+	})
 }

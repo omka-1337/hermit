@@ -87,7 +87,8 @@ func NexusGame(domain string) (string, bool) {
 }
 
 // ModsRoot is the folder the game's mods are deployed into: the game's own
-// folder, but for The Sims 4 its Mods folder in the Wine prefix it runs in,
+// folder, but for The Sims 4 its folder of Documents, with Mods and Tray in
+// it, in the Wine prefix it runs in,
 // prefix when one is given, as the environment of a session says, or the
 // one chosen for the game, or Steam's, or the one PortProton runs it in.
 func (g Game) ModsRoot(prefix string) (string, error) {
@@ -107,5 +108,5 @@ func (g Game) ModsRoot(prefix string) (string, error) {
 		}
 		prefix = platform.PortProtonPrefix(filepath.Join(g.Path, filepath.FromSlash(exe)))
 	}
-	return sims4.ModsDir(prefix)
+	return sims4.DocumentsDir(prefix)
 }

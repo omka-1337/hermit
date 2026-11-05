@@ -149,7 +149,8 @@ func modsRoot(game library.Game, env []string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return root, os.MkdirAll(root, 0o755)
+	modding, _ := game.Modding()
+	return root, os.MkdirAll(filepath.Join(root, modding.Target.Data), 0o755)
 }
 
 func writeDeployState(dataDir string, s creation.State) error {
